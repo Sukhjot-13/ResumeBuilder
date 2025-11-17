@@ -1,0 +1,169 @@
+{
+  "profile": {
+    "full_name": "SUKHJOT SINGH",
+    "email": "sukhjotsingh441@gmail.com",
+    "phone": "+1(647)-530-8909",
+    "location": null,
+    "website": "https://portfolio-self-five-25.vercel.app",
+    "headline": "Versatile and dependable professional with experience in customer service, team leadership, mobile app development, and security.",
+    "generic_summary": "Proven ability to lead teams and ensure smooth operations as a Shift Supervisor at Burger King. Gained hands-on technical experience developing and deploying mobile applications during an internship at IHP. Skilled in maintaining safety and handling emergencies through roles as a Mobile/Security Guard. Strong communicator, quick problem-solver, and team player."
+  },
+  "work_experience": [
+    {
+      "job_title": "Shift Supervisor",
+      "company": "Burger King",
+      "start_date": "2023-05-01",
+      "end_date": "Present",
+      "is_current": true,
+      "responsibilities": [
+        "Developed strong customer service skills through direct interactions with customers, ensuring a positive dining experience and handling transactions efficiently.",
+        "Over see crew members during shifts, ensuring tasks are completed efficiently and following Burger King standards.",
+        "Ensure excellent customer service is provided, handle customer complaints, and resolve issues promptly and professionally.",
+        "Oversee cash registers, balance cash drawers and make sure all transactions are accurately recorded and reported.",
+        "Foster a positive work environment, encourage team work and provide feedback and recognition to staff."
+      ]
+    },
+    {
+      "job_title": "Mobile Application Developer (Intern)",
+      "company": "IHP (Interact Health Pro)",
+      "start_date": "2024-04-01",
+      "end_date": "2024-12-01",
+      "is_current": false,
+      "responsibilities": [
+        "Designed, developed, implemented and tested IT applications, both as a solo developer and in collaboration with a team.",
+        "Collaborated closely with the design team to translate UI/UX designs into functional mobile applications. Developed both front-end and back-end components, developed API’s, ensuring seamless integration and optimal performance.",
+        "Demonstrated strong project management skills.",
+        "Oversaw the entire mobile development lifecycle, from conceptualization to deployment.",
+        "Expertise in problem-solving, optimizing and debugging complex code as well as writing technical documentation.",
+        "Defined team goals, objectives and priorities. Assigned tasks and monitored progress to ensure project deadlines were met.",
+        "Troubleshooted and resolved programmatic issues and documented solutions."
+      ]
+    },
+    {
+      "job_title": "Mobile/Security Guard",
+      "company": "G Force Security, iGuard360 and Jayo security",
+      "start_date": null,
+      "end_date": null,
+      "is_current": false,
+      "responsibilities": [
+        "Monitored and maintained a secure environment outside banking or clubs premises, conducting regular patrols and ensuring the safety of both customers and staff.",
+        "Conducted vehicle patrols using personal and company cars to maintain safety across designated areas.",
+        "Managed emergency security calls for commercial establishments, banks and schools during both day and night shifts, ensuring prompt and effective actions."
+      ]
+    },
+    {
+      "job_title": "Patient Transfer Attendant",
+      "company": "Encore",
+      "start_date": "2024-01-01",
+      "end_date": "2024-05-01",
+      "is_current": false,
+      "responsibilities": [
+        "Communicated effectively with health care providers patients and families to facilitate smooth transfers.",
+        "Coordinated patient transfers between facilities ensuring timely and safe transportation.",
+        "Adhered to strict patient confidentiality guidelines."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "Georgian College",
+      "degree": "Diploma Computer Programming Candidate (Expected Graduation 2025)",
+      "field_of_study": "Computer Programming",
+      "start_date": "2023-05-01",
+      "end_date": "2024-12-01",
+      "relevant_coursework": null
+    }
+  ],
+  "skills": [
+    {
+      "skill_name": "Leadership and training",
+      "category": "Professional"
+    },
+    {
+      "skill_name": "Creativity",
+      "category": "Professional"
+    },
+    {
+      "skill_name": "Management",
+      "category": "Professional"
+    },
+    {
+      "skill_name": "Problem-Solving",
+      "category": "Professional"
+    },
+    {
+      "skill_name": "Attention to Detail",
+      "category": "Professional"
+    },
+    {
+      "skill_name": "Responsiveness",
+      "category": "Professional"
+    },
+    {
+      "skill_name": "Next.Js",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "React",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "NodeJS",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "MongoDB",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "MySQL",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "Web Applications",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "HTML",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "CSS",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "JavaScript",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "GitHub",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "Object-Oriented Design",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "Typescript",
+      "category": "Technical"
+    },
+    {
+      "skill_name": "Python",
+      "category": "Technical"
+    }
+  ],
+  "additional_info": {
+    "languages": ["English", "Hindi", "Punjabi"],
+    "certifications": [
+      "Security Guard License",
+      "First Aid Certification",
+      "ServSafe Certificate",
+      "First Responder (Red Cross)"
+    ],
+    "awards_activities": [
+      "URL Shortener (Project)",
+      "E-Commerce Website and Mobile App (Project)",
+      "Retro Website (Project)"
+    ]
+  }
+}
