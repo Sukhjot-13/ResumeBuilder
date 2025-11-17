@@ -6,6 +6,7 @@ import { useApiClient } from "@/hooks/useApiClient";
 import JobDescriptionInput from "@/components/home/JobDescriptionInput";
 import SpecialInstructionsInput from "@/components/home/SpecialInstructionsInput";
 import TemplateViewer from "@/components/preview/TemplateViewer";
+import ResumeList from "@/components/ResumeList";
 
 export default function DashboardPage() {
   const [jobDescription, setJobDescription] = useState("");
@@ -15,6 +16,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState(null);
   const [resumes, setResumes] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const router = useRouter();
   const apiClient = useApiClient();
@@ -43,6 +45,8 @@ export default function DashboardPage() {
         }
       } catch (err) {
         console.error("An unexpected error occurred while fetching data.");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -164,51 +168,13 @@ export default function DashboardPage() {
           {tailoredResume && <TemplateViewer resume={tailoredResume} />}
         </div>
       </div>
-
-      <div className="mt-8">
-        <h2 className="text-2xl font-semibold mb-4">Your Saved Resumes</h2>
-        {resumes.length === 0 ? (
-          <p>No resumes found.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {resumes
-              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-              .map((resume) => (
-                <div
-                  key={resume._id}
-                  className="bg-gray-800 p-6 rounded-lg shadow-lg"
-                >
-                  <h3 className="text-xl font-semibold mb-2">
-                    {resume.metadata?.jobTitle || "Resume"}
-                  </h3>
-                  {resume.metadata?.companyName && (
-                    <p className="text-gray-400">
-                      Company: {resume.metadata.companyName}
-                    </p>
-                  )}
-                  <p className="text-gray-400">
-                    Created At: {new Date(resume.createdAt).toLocaleString()}
-                  </p>
-                  <div className="flex gap-4 mt-4">
-                    <button
-                      onClick={() => setTailoredResume(resume.content)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => handleDeleteResume(resume._id)}
-                      disabled={deletingId === resume._id}
-                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded w-full disabled:bg-gray-500"
-                    >
-                      {deletingId === resume._id ? "Deleting..." : "Delete"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-          </div>
-        )}
-      </div>
+      <ResumeList
+        resumes={resumes}
+        deletingId={deletingId}
+        onDeleteResume={handleDeleteResume}
+        onViewResume={setTailoredResume}
+        loading={loading}
+      />
     </div>
   );
 }
