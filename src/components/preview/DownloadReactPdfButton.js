@@ -1,18 +1,20 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
-export default function DownloadReactPdfButton({ resumeData, selectedTemplate }) {
+export default function DownloadReactPdfButton({
+  resumeData,
+  selectedTemplate,
+}) {
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const response = await fetch('/api/render-pdf-react', {
-        method: 'POST',
+      const response = await fetch("/api/render-pdf-react", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           resumeData,
@@ -47,7 +49,7 @@ export default function DownloadReactPdfButton({ resumeData, selectedTemplate })
       className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-500 transition-colors disabled:bg-gray-500"
       disabled={downloading}
     >
-      {downloading ? "Downloading..." : "Download React PDF"}
+      {downloading ? "Downloading..." : "Download PDF"}
     </button>
   );
 }
