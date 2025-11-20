@@ -85,50 +85,74 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Login</h1>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-900 to-slate-900 -z-10" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl -z-10 animate-pulse-glow" />
+      
+      <div className="glass-card p-10 rounded-2xl shadow-2xl w-full max-w-md relative z-10 border border-white/10">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent mb-2">Welcome Back</h1>
+          <p className="text-slate-400 text-sm">Sign in to continue building your resume</p>
+        </div>
+        
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg mb-6 text-sm text-center">
+            {error}
+          </div>
+        )}
+        
         {!otpSent ? (
-          <form onSubmit={handleSendOtp}>
-            <div className="mb-4">
-              <label htmlFor="email" className="block mb-2">Email</label>
+          <form onSubmit={handleSendOtp} className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
               <input
                 type="email"
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
+                className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-white placeholder-slate-500"
+                placeholder="you@example.com"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Sending...' : 'Send OTP'}
+              {loading ? 'Sending Code...' : 'Send Login Code'}
             </button>
           </form>
         ) : (
-          <form onSubmit={handleVerifyOtp}>
-            <div className="mb-4">
-              <label htmlFor="otp" className="block mb-2">OTP</label>
+          <form onSubmit={handleVerifyOtp} className="space-y-6">
+            <div>
+              <label htmlFor="otp" className="block text-sm font-medium text-slate-300 mb-2">Enter OTP Code</label>
               <input
                 type="text"
                 id="otp"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 required
-                className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
+                className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-white placeholder-slate-500 text-center tracking-widest text-lg"
+                placeholder="123456"
               />
+              <p className="text-xs text-slate-500 mt-2 text-center">
+                We sent a code to <span className="text-slate-300">{email}</span>
+              </p>
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Verifying...' : 'Verify OTP'}
+              {loading ? 'Verifying...' : 'Verify & Login'}
+            </button>
+            <button 
+              type="button"
+              onClick={() => setOtpSent(false)}
+              className="w-full text-sm text-slate-400 hover:text-white transition-colors"
+            >
+              Use a different email
             </button>
           </form>
         )}

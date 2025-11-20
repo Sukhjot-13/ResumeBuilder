@@ -164,7 +164,7 @@ The following are recommended next steps to further harden the application's sec
 
 - **Stricter Input Validation**: Implement robust validation for `email` and `otp` inputs to ensure they are in the correct format.
 - **Rate Limiting**: Introduce rate limiting on the OTP verification endpoint to prevent brute-force attacks.
-- **More Secure OTP Generation**: Use a cryptographically secure random number generator (e.g., `crypto.randomInt`) for generating OTPs to enhance security.
+- **More Secure OTP Generation**: <span style="color:green">**RESOLVED**</span> Now using `crypto.randomInt` for cryptographically secure OTP generation.
 - **Enhanced Token Security**: Consider implementing token blacklisting for immediate session revocation and refresh token replay detection to further secure the token-based authentication.
 - **Granular Roles and Permissions**: Expand the simple role system into a more granular Role-Based Access Control (RBAC) system to manage user permissions more effectively.
 - **CSRF Protection**: Implement a robust CSRF protection mechanism, such as the double-submit cookie pattern, to protect against Cross-Site Request Forgery attacks.

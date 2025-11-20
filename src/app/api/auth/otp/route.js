@@ -1,4 +1,4 @@
-
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import * as Brevo from '@getbrevo/brevo';
 import dbConnect from '@/lib/mongodb';
@@ -11,7 +11,7 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Email is required' }, { status: 400 });
   }
 
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 999999).toString();
   const otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
 
   await dbConnect();
