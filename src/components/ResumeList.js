@@ -9,6 +9,7 @@ export default function ResumeList({
   onDeleteResume,
   onViewResume,
   loading,
+  masterResume,
 }) {
   return (
     <div className="mt-8">
@@ -25,12 +26,48 @@ export default function ResumeList({
         <div className="flex justify-center py-12">
           <LoadingSpinner />
         </div>
-      ) : resumes.length === 0 ? (
+      ) : resumes.length === 0 && !masterResume ? (
         <div className="glass-card p-8 rounded-xl text-center border border-white/5">
           <p className="text-slate-400">No resumes found. Create your first one above!</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Master Resume Card */}
+          {masterResume && (
+            <div
+              className="glass-card p-6 rounded-xl border border-yellow-500/30 hover:border-yellow-500/50 transition-all hover:-translate-y-1 group"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div className="w-10 h-10 rounded-lg bg-yellow-600/20 flex items-center justify-center text-yellow-400 group-hover:bg-yellow-600 group-hover:text-white transition-colors">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                </div>
+                <span className="text-xs text-yellow-400 bg-yellow-500/20 px-2 py-1 rounded-md font-semibold">
+                  Master Resume
+                </span>
+              </div>
+              
+              <h3 className="text-lg font-semibold mb-1 text-white">
+                {masterResume.profile?.full_name || "Master Resume"}
+              </h3>
+              
+              <p className="text-sm text-slate-400 mb-4">
+                Your primary resume template
+              </p>
+              
+              <div className="flex gap-3 mt-4 pt-4 border-t border-yellow-500/20">
+                <button
+                  onClick={() => onViewResume(masterResume)}
+                  className="flex-1 bg-yellow-600/10 hover:bg-yellow-600 text-yellow-400 hover:text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+                >
+                  View
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Generated Resumes */}
           {resumes
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .map((resume) => (

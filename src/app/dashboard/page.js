@@ -187,6 +187,7 @@ export default function DashboardPage() {
             onDeleteResume={handleDeleteResume}
             onViewResume={setTailoredResume}
             loading={loading}
+            masterResume={profile?.mainResume}
           />
         </div>
       </div>
