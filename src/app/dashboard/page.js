@@ -53,25 +53,6 @@ export default function DashboardPage() {
     fetchData();
   }, [apiClient]);
 
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
-      // Force redirect even if API fails
-      router.push("/login");
-    }
-  };
-
-  const goToProfile = () => {
-    router.push("/profile");
-  };
-
-  const goToResumeHistory = () => {
-    router.push("/resume-history");
-  };
-
   const handleGenerateResume = async () => {
     setGenerating(true);
     try {
@@ -142,26 +123,6 @@ export default function DashboardPage() {
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">Dashboard</h1>
             <p className="text-slate-400 text-sm mt-1">Manage your resumes and create new ones</p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={goToProfile}
-              className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white glass rounded-lg transition-colors hover:bg-white/5 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Profile
-            </button>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-red-400 hover:text-red-300 glass rounded-lg transition-colors hover:bg-red-500/10 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Logout
-            </button>
           </div>
         </div>
 
