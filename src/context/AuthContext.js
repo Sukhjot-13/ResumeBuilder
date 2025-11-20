@@ -10,12 +10,18 @@ export const AuthProvider = ({ children }) => {
   const fetchProfile = async () => {
     try {
       const res = await fetch('/api/user/profile');
-      const data = await res.json();
-      setState({
-        loading: false,
-        isAuthenticated: data.ok,
-        user: data.ok ? data.user : null,
-      });
+      if (res.ok) {
+        const data = await res.json();
+        // Check if we got user data (email is always present for authenticated users)
+        const isAuthenticated = !!data.email;
+        setState({
+          loading: false,
+          isAuthenticated,
+          user: isAuthenticated ? data : null,
+        });
+      } else {
+        setState({ loading: false, isAuthenticated: false, user: null });
+      }
     } catch (e) {
       setState({ loading: false, isAuthenticated: false, user: null });
     }
