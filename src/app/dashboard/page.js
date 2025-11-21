@@ -21,6 +21,20 @@ export default function DashboardPage() {
   const router = useRouter();
   const apiClient = useApiClient();
 
+  const fetchResumes = async () => {
+    try {
+      const resumesResponse = await apiClient("/api/resumes");
+      if (resumesResponse.ok) {
+        const data = await resumesResponse.json();
+        setResumes(data);
+      } else {
+        console.error("Failed to fetch resumes");
+      }
+    } catch (err) {
+      console.error("Error fetching resumes:", err);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -35,14 +49,7 @@ export default function DashboardPage() {
         }
 
         // Fetch resumes
-        const resumesResponse = await apiClient("/api/resumes");
-
-        if (resumesResponse.ok) {
-          const data = await resumesResponse.json();
-          setResumes(data);
-        } else {
-          console.error("Failed to fetch resumes");
-        }
+        await fetchResumes();
       } catch (err) {
         console.error("An unexpected error occurred while fetching data.");
       } finally {
@@ -188,6 +195,7 @@ export default function DashboardPage() {
             onViewResume={setTailoredResume}
             loading={loading}
             masterResume={profile?.mainResume}
+            onUpdateResume={fetchResumes}
           />
         </div>
       </div>

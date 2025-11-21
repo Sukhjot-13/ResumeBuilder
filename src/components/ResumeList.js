@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import LoadingSpinner from "./common/LoadingSpinner";
+import { useApiClient } from "@/hooks/useApiClient";
 
 export default function ResumeList({
   resumes,
@@ -10,7 +11,54 @@ export default function ResumeList({
   onViewResume,
   loading,
   masterResume,
+  onUpdateResume,
 }) {
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ jobTitle: "", companyName: "" });
+  const [savingId, setSavingId] = useState(null);
+  const apiClient = useApiClient();
+
+  const startEditing = (resume) => {
+    setEditingId(resume._id);
+    setEditForm({
+      jobTitle: resume.metadata?.jobTitle || "",
+      companyName: resume.metadata?.companyName || "",
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditForm({ jobTitle: "", companyName: "" });
+  };
+
+  const saveEditing = async (resumeId) => {
+    setSavingId(resumeId);
+    try {
+      const response = await apiClient(`/api/resumes/${resumeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+
+      if (response.ok) {
+        // Ideally, we should update the local state here or trigger a refetch
+        // For simplicity, let's just reload the page or assume the parent component handles data refresh
+        // Update local state or trigger refresh
+        // Ideally, we should call a callback to refresh the list
+        if (onUpdateResume) {
+          onUpdateResume();
+        }
+        cancelEditing();
+      } else {
+        console.error("Failed to update resume");
+      }
+    } catch (error) {
+      console.error("Error updating resume:", error);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <div className="mt-8">
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
@@ -81,19 +129,69 @@ export default function ResumeList({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
-                  <span className="text-xs text-slate-500 bg-slate-800/50 px-2 py-1 rounded-md">
-                    {new Date(resume.createdAt).toLocaleDateString()}
-                  </span>
+                  <div className="flex gap-2">
+                    <span className="text-xs text-slate-500 bg-slate-800/50 px-2 py-1 rounded-md">
+                      {new Date(resume.createdAt).toLocaleDateString()}
+                    </span>
+                    {editingId !== resume._id && (
+                      <button
+                        onClick={() => startEditing(resume)}
+                        className="text-slate-400 hover:text-blue-400 transition-colors"
+                        title="Edit Details"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
-                <h3 className="text-lg font-semibold mb-1 text-white truncate">
-                  {resume.metadata?.jobTitle || "Untitled Resume"}
-                </h3>
-                
-                {resume.metadata?.companyName && (
-                  <p className="text-sm text-slate-400 mb-4 truncate">
-                    Target: {resume.metadata.companyName}
-                  </p>
+                {editingId === resume._id ? (
+                  <div className="mb-4 space-y-2">
+                    <input
+                      type="text"
+                      value={editForm.jobTitle}
+                      onChange={(e) => setEditForm({ ...editForm, jobTitle: e.target.value })}
+                      className="w-full bg-slate-800/50 border border-white/10 rounded px-2 py-1 text-sm text-white focus:border-blue-500 outline-none"
+                      placeholder="Job Title"
+                    />
+                    <input
+                      type="text"
+                      value={editForm.companyName}
+                      onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
+                      className="w-full bg-slate-800/50 border border-slate-700 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
+                      placeholder="Company Name"
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => saveEditing(resume._id)}
+                        disabled={savingId === resume._id}
+                        className="flex-1 bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white text-xs py-1 rounded transition-colors"
+                      >
+                        {savingId === resume._id ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        onClick={cancelEditing}
+                        disabled={savingId === resume._id}
+                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs py-1 rounded transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold mb-1 text-white truncate">
+                      {resume.metadata?.jobTitle || "Untitled Resume"}
+                    </h3>
+                    
+                    {resume.metadata?.companyName && (
+                      <p className="text-sm text-slate-400 mb-4 truncate">
+                        Target: {resume.metadata.companyName}
+                      </p>
+                    )}
+                  </>
                 )}
                 
                 <div className="flex gap-3 mt-4 pt-4 border-t border-white/5">

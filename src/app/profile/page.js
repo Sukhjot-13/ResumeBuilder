@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useApiClient } from "@/hooks/useApiClient";
 import ResumeUpload from "@/components/profile/ResumeUpload";
 import TemplateViewer from "@/components/preview/TemplateViewer";
+import { FeatureAccessService } from "@/services/featureAccessService";
 
 export default function ProfilePage() {
   const [name, setName] = useState("");
@@ -18,6 +19,12 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const apiClient = useApiClient();
 
+  const [createNewResume, setCreateNewResume] = useState(false);
+  const [userRole, setUserRole] = useState(100); // Default to USER role
+  
+  const hasAiEditAccess = FeatureAccessService.hasAccess('EDIT_RESUME_WITH_AI', userRole);
+  const hasCreateNewResumeAccess = FeatureAccessService.hasAccess('CREATE_NEW_RESUME_ON_EDIT', userRole);
+
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
@@ -27,6 +34,7 @@ export default function ProfilePage() {
         if (response.ok) {
           const data = await response.json();
           setName(data.name || "");
+          setUserRole(data.role || 100);
           if (data.dateOfBirth) {
             setDateOfBirth(
               new Date(data.dateOfBirth).toISOString().split("T")[0]
@@ -131,7 +139,7 @@ export default function ProfilePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ resume: masterResume, query: aiEditQuery }),
+        body: JSON.stringify({ resume: masterResume, query: aiEditQuery, createNewResume }),
       });
 
       if (response.ok) {
@@ -140,6 +148,7 @@ export default function ProfilePage() {
         setSuccess("Resume updated successfully with AI!");
         setShowAiEditor(false);
         setAiEditQuery("");
+        setCreateNewResume(false);
       } else {
         const data = await response.json();
         setError(data.error || "Failed to edit resume with AI.");
@@ -197,12 +206,19 @@ export default function ProfilePage() {
                 {loading ? "Saving..." : "Save Changes"}
               </button>
             </form>
-            <button
-              onClick={() => setShowAiEditor(!showAiEditor)}
-              className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
-            >
-              {showAiEditor ? "Cancel AI Edit" : "Edit with AI"}
-            </button>
+            {hasAiEditAccess && (
+              <button
+                onClick={() => setShowAiEditor(!showAiEditor)}
+                className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+              >
+                {showAiEditor ? "Cancel AI Edit" : "Edit with AI"}
+              </button>
+            )}
+            {!hasAiEditAccess && (
+              <div className="w-full mt-4 bg-gray-700 text-gray-400 font-bold py-2 px-4 rounded text-center">
+                Edit with AI (Pro Feature)
+              </div>
+            )}
             {showAiEditor && (
               <div className="mt-4">
                 <textarea
@@ -211,10 +227,25 @@ export default function ProfilePage() {
                   value={aiEditQuery}
                   onChange={(e) => setAiEditQuery(e.target.value)}
                 ></textarea>
+                
+                <div className="mt-4 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="createNewResume"
+                    checked={createNewResume}
+                    onChange={(e) => setCreateNewResume(e.target.checked)}
+                    disabled={!hasCreateNewResumeAccess}
+                    className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <label htmlFor="createNewResume" className="ml-2 text-sm font-medium text-gray-300">
+                    Create new resume version {!hasCreateNewResumeAccess && <span className="text-yellow-500 text-xs ml-1">(Pro Feature)</span>}
+                  </label>
+                </div>
+
                 <button
                   onClick={handleAiEdit}
                   disabled={editing}
-                  className="w-full mt-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500"
+                  className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500"
                 >
                   {editing ? "Editing..." : "Submit AI Edit"}
                 </button>

@@ -56,3 +56,12 @@ export const PLANS = {
     currency: 'usd',
   },
 };
+
+export const FEATURE_ACCESS_LEVELS = {
+  CREATE_NEW_RESUME_ON_EDIT: 99, // Subscriber level
+  EDIT_RESUME_WITH_AI: 99, // Subscriber level
+};
+
+export const FEATURES = {
+  SAVE_AS_NEW_VERSION: 'save_as_new_version',
+};

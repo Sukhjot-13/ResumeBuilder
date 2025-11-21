@@ -61,3 +61,51 @@ export async function DELETE(req, context) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function PATCH(req, context) {
+  const userId = req.headers.get('x-user-id');
+  const { id } = await context.params;
+  const { jobTitle, companyName } = await req.json();
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  await dbConnect();
+
+  try {
+    // Verify the resume belongs to the user
+    const resume = await Resume.findOne({ _id: id, userId });
+    if (!resume) {
+      return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
+    }
+
+    // Update or create metadata
+    // Note: Sometimes metadata might not exist if it's an old resume, so upsert might be useful,
+    // but usually we expect it to exist. We'll use findOneAndUpdate with upsert: true just in case,
+    // but we need to be careful about the resumeId.
+    
+    const updatedMetadata = await ResumeMetadata.findOneAndUpdate(
+      { resumeId: id },
+      { 
+        $set: { 
+          jobTitle, 
+          companyName,
+          userId // Ensure userId is set if creating new
+        } 
+      },
+      { new: true, upsert: true }
+    );
+
+    // Ensure the resume points to this metadata (if it was just created)
+    if (!resume.metadata) {
+      resume.metadata = updatedMetadata._id;
+      await resume.save();
+    }
+
+    return NextResponse.json(updatedMetadata);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

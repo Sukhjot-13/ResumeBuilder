@@ -9,32 +9,45 @@ import ResumeList from '@/components/ResumeList';
 export default function ResumeHistoryPage() {
   const [resumes, setResumes] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [masterResume, setMasterResume] = useState(null); // Changed from profile to masterResume
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
   const [tailoredResume, setTailoredResume] = useState(null);
   const router = useRouter();
   const apiClient = useApiClient();
 
+  const fetchResumes = async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient('/api/resumes');
+      if (response.ok) {
+        const data = await response.json();
+        setResumes(data);
+      } else {
+        console.error('Failed to fetch resumes');
+      }
+    } catch (error) {
+      console.error('Error fetching resumes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         // Fetch profile (includes master resume)
         const profileResponse = await apiClient('/api/user/profile');
         if (profileResponse.ok) {
-          const data = await profileResponse.json();
-          setProfile(data);
+          const profileData = await profileResponse.json();
+          setMasterResume(profileData.mainResume); // Set masterResume directly
         } else {
           console.error('Failed to fetch profile');
         }
 
         // Fetch generated resumes
-        const resumesResponse = await apiClient('/api/resumes');
-        if (resumesResponse.ok) {
-          const data = await resumesResponse.json();
-          setResumes(data);
-        } else {
-          console.error('Failed to fetch resumes');
-        }
+        await fetchResumes(); // Call the extracted function
       } catch (err) {
         console.error('An unexpected error occurred while fetching data.');
       } finally {
@@ -81,7 +94,8 @@ export default function ResumeHistoryPage() {
           onDeleteResume={handleDeleteResume}
           onViewResume={setTailoredResume}
           loading={loading}
-          masterResume={profile?.mainResume}
+          masterResume={masterResume}
+          onUpdateResume={fetchResumes}
         />
 
         {tailoredResume && (
