@@ -49,7 +49,7 @@ export default function ResumeList({
               </div>
               
               <h3 className="text-lg font-semibold mb-1 text-white">
-                {masterResume.profile?.full_name || "Master Resume"}
+                {masterResume.content?.profile?.full_name || "Master Resume"}
               </h3>
               
               <p className="text-sm text-slate-400 mb-4">
@@ -58,7 +58,7 @@ export default function ResumeList({
               
               <div className="flex gap-3 mt-4 pt-4 border-t border-yellow-500/20">
                 <button
-                  onClick={() => onViewResume(masterResume)}
+                  onClick={() => onViewResume(masterResume.content)}
                   className="flex-1 bg-yellow-600/10 hover:bg-yellow-600 text-yellow-400 hover:text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
                 >
                   View
