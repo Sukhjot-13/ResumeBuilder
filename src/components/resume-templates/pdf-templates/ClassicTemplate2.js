@@ -181,7 +181,7 @@ function joinDateRange(start, end, isCurrent) {
   return "";
 }
 
-export default function ClassicTemplate({ resumeData = {} }) {
+export default function ClassicTemplate2({ resumeData = {} }) {
   const profile = resumeData.profile || {};
   const work = Array.isArray(resumeData.work_experience)
     ? resumeData.work_experience
@@ -313,6 +313,18 @@ export default function ClassicTemplate({ resumeData = {} }) {
           })}
         </View>
 
+        {/* Skills */}
+        <View style={styles.section}>
+          <Text style={styles.h2}>SKILLS</Text>
+          <View style={styles.skillsContainer}>
+            {normalizedSkills.map((skill, index) => (
+              <View key={index} style={styles.skillItem}>
+                <Text style={styles.skillBullet}>{"\u2022"}</Text>
+                <Text style={styles.skillText}>{skill}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
         {/* Certifications */}
         {certifications.length > 0 && (
           <View style={styles.section}>
@@ -329,19 +341,6 @@ export default function ClassicTemplate({ resumeData = {} }) {
             </View>
           </View>
         )}
-
-        {/* Skills */}
-        <View style={styles.section}>
-          <Text style={styles.h2}>SKILLS</Text>
-          <View style={styles.skillsContainer}>
-            {normalizedSkills.map((skill, index) => (
-              <View key={index} style={styles.skillItem}>
-                <Text style={styles.skillBullet}>{"\u2022"}</Text>
-                <Text style={styles.skillText}>{skill}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
 
         {/* Additional Info */}
         {(languages.length > 0 || awards.length > 0) && (
