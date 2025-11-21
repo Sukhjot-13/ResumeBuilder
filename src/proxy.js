@@ -7,13 +7,16 @@ export async function proxy(req) {
   const { pathname } = req.nextUrl;
 
   // Define routes that need authentication
-  const isApiRoute = pathname.startsWith('/api/user') || pathname.startsWith('/api/resumes') || pathname.startsWith('/api/edit-resume-with-ai') || pathname.startsWith('/api/admin');
-  const isProtectedRoute = ['/dashboard', '/profile', '/onboarding'].some(p => pathname.startsWith(p));
+  const isApiRoute = pathname.startsWith('/api/');
+  const isPublicApiRoute = pathname.startsWith('/api/auth') || pathname.startsWith('/api/webhooks');
+  const isProtectedApiRoute = isApiRoute && !isPublicApiRoute;
+
+  const isProtectedRoute = ['/dashboard', '/profile', '/onboarding', '/resume-history', '/checkout'].some(p => pathname.startsWith(p));
   const isAdminRoute = pathname.startsWith('/admin');
   const isLoginPage = pathname === '/login';
 
   // If the route doesn't require auth, just continue
-  if (!isApiRoute && !isProtectedRoute && !isAdminRoute && !isLoginPage) {
+  if (!isProtectedApiRoute && !isProtectedRoute && !isAdminRoute && !isLoginPage) {
     return NextResponse.next();
   }
 
@@ -96,5 +99,5 @@ export async function proxy(req) {
 }
 
 export const config = {
-  matcher: ['/api/user/:path*', '/api/resumes/:path*', '/api/edit-resume-with-ai/:path*', '/api/admin/:path*', '/dashboard/:path*', '/profile/:path*', '/onboarding/:path*', '/admin/:path*', '/login'],
+  matcher: ['/api/:path*', '/dashboard/:path*', '/profile/:path*', '/onboarding/:path*', '/admin/:path*', '/login', '/resume-history/:path*', '/checkout/:path*'],
 };

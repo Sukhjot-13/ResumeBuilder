@@ -3,7 +3,10 @@ import User from '@/models/User';
 import { verifyAuthEdge } from '@/lib/auth-edge';
 import { ROLES } from '@/lib/constants';
 
+import dbConnect from '@/lib/mongodb';
+
 export async function PATCH(req, { params }) {
+  await dbConnect();
   try {
     // 1. Verify Admin Access
     const accessToken = req.cookies.get('accessToken')?.value;
@@ -13,7 +16,7 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const { role } = await req.json();
 
     if (typeof role !== 'number') {

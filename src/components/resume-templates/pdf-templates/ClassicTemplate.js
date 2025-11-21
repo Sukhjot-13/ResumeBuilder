@@ -297,40 +297,7 @@ export default function ClassicTemplate({ resumeData = {} }) {
           <Text style={styles.h2}>SKILLS</Text>
           <Text style={styles.skillsText}>{skillsText}</Text>
         </View>
-
-        {/* Education */}
-        <View style={styles.section}>
-          <Text style={styles.h2}>EDUCATION</Text>
-
-          {education.map((edu, i) => {
-            const degree = edu.degree || edu.qualification || "";
-            const field = edu.field_of_study ? ` in ${edu.field_of_study}` : "";
-            const start = edu.start_date || edu.start || edu.from;
-            const end = edu.end_date || edu.end || edu.to;
-            const duration =
-              joinDateRange(start, end, edu.is_current) || edu.duration || "";
-            const institution = edu.institution || edu.school || "";
-            const loc = edu.location ? `, ${edu.location}` : "";
-
-            return (
-              <View key={i} style={styles.smallGap}>
-                <View style={styles.companyDate}>
-                  <Text style={styles.position}>
-                    {degree}
-                    {field}
-                  </Text>
-                  <Text style={styles.date}>{duration}</Text>
-                </View>
-                <Text style={styles.institution}>
-                  {institution}
-                  {loc}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Additional Info */}
+{/* Additional Info */}
         {(languages.length > 0 ||
           certifications.length > 0 ||
           awards.length > 0) && (
@@ -365,6 +332,39 @@ export default function ClassicTemplate({ resumeData = {} }) {
             )}
           </View>
         )}
+        {/* Education */}
+        <View style={styles.section}>
+          <Text style={styles.h2}>EDUCATION</Text>
+
+          {education.map((edu, i) => {
+            const degree = edu.degree || edu.qualification || "";
+            const field = edu.field_of_study ? ` in ${edu.field_of_study}` : "";
+            const start = edu.start_date || edu.start || edu.from;
+            const end = edu.end_date || edu.end || edu.to;
+            const duration =
+              joinDateRange(start, end, edu.is_current) || edu.duration || "";
+            const institution = edu.institution || edu.school || "";
+            const loc = edu.location ? `, ${edu.location}` : "";
+
+            return (
+              <View key={i} style={styles.smallGap}>
+                <View style={styles.companyDate}>
+                  <Text style={styles.position}>
+                    {degree}
+                    {field}
+                  </Text>
+                  <Text style={styles.date}>{duration}</Text>
+                </View>
+                <Text style={styles.institution}>
+                  {institution}
+                  {loc}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+        
+
       </Page>
     </Document>
   );

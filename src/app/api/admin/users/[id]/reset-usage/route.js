@@ -13,7 +13,7 @@ export async function POST(req, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // 2. Reset User Usage
     const user = await User.findById(id);

@@ -13,7 +13,7 @@ export async function POST(req, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const { amount } = await req.json();
 
     if (typeof amount !== 'number') {

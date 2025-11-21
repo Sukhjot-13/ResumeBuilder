@@ -1,12 +1,21 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { PLANS } from '@/lib/constants';
+import { useAuth } from '@/context/AuthContext';
 
 export default function PricingPage() {
   const [loading, setLoading] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
 
   const handleUpgrade = async (planName) => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/checkout', {

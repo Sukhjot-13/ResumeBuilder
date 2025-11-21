@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   console.log('LoginPage component rendered');
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { refetch } = useAuth();
 
   useEffect(() => {
     // This effect will run on mount and redirect if the middleware logic
@@ -64,6 +66,9 @@ export default function LoginPage() {
         const { newUser } = await response.json();
         console.log('OTP verified successfully');
         
+        // Update auth state immediately
+        await refetch();
+
         if (newUser) {
           console.log('New user, redirecting to onboarding...');
           router.push('/onboarding');
