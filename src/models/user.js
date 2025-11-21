@@ -1,5 +1,5 @@
-
 import mongoose from 'mongoose';
+import { ROLES } from '@/lib/constants';
 
 const UserSchema = new mongoose.Schema({
   email: {
@@ -15,7 +15,17 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: Number,
-    default: 100, // 0: owner, 100: user
+    default: ROLES.USER, // 0: admin, 70: developer, 99: subscriber, 100: user
+  },
+  creditsUsed: {
+    type: Number,
+    default: 0, // Track usage instead of balance
+  },
+  subscriptionId: {
+    type: String,
+  },
+  customerId: {
+    type: String,
   },
   plan: {
     type: mongoose.Schema.Types.ObjectId,
@@ -42,4 +52,3 @@ const UserSchema = new mongoose.Schema({
 });
 
 export default (mongoose.models && mongoose.models.User) || mongoose.model('User', UserSchema);
-

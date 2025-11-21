@@ -1,9 +1,10 @@
 
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import User from '@/models/user';
+import User from '@/models/User';
 import Resume from '@/models/resume';
 import { editResumeWithAI } from '@/services/aiResumeEditorService';
+import { SubscriptionService } from '@/services/subscriptionService';
 
 export async function POST(req) {
   const userId = req.headers.get('x-user-id');
@@ -20,6 +21,15 @@ export async function POST(req) {
   await dbConnect();
 
   try {
+    // Check and track usage
+    const hasCredits = await SubscriptionService.trackUsage(userId, 1);
+    
+    if (!hasCredits) {
+      return NextResponse.json(
+        { error: 'Insufficient credits. Please upgrade your plan.' },
+        { status: 403 }
+      );
+    }
     const editedResumeContent = await editResumeWithAI(resume, query);
 
     const user = await User.findById(userId);

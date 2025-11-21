@@ -9,10 +9,26 @@ This project is a web-based, AI-powered resume builder designed to help users cr
 - **Passwordless Authentication**: Secure OTP-based login system using email.
 - **Resume Parsing**: Automatically parse `.pdf` and `.docx` resumes to populate the user's profile.
 - **AI-Powered Content Generation**: Generate resume content tailored to a specific job description.
-- **AI-Powered Resume Editing**: Edit the resume using natural language queries.
+- **AI-Powered Resume Editing**: Edit your resume using natural language queries.
 - **Multiple Resume Templates**: Choose from several HTML-based templates to generate a PDF resume.
 - **Resume Management**: Save and manage multiple resume versions.
-- **PDF Generation**: Render resumes as PDF files for downloading.
+- **Role-Based Access Control (RBAC)**:
+  - **Admin**: Full access to user management and system stats.
+  - **Subscriber**: Enhanced limits and premium features.
+  - **User**: Basic free tier with daily limits.
+- **Subscription System**:
+  - Integrated with Stripe for secure payments.
+  - Credit-based usage system (Daily limits for Free, Monthly for Pro).
+- **Admin Dashboard**: View and manage users.
+- **PDF Generation**: High-quality PDF export.
+
+## Tech Stack
+
+- **Framework**: Next.js 16
+- **Database**: MongoDB (Mongoose)
+- **Authentication**: Custom JWT Auth with Refresh Tokens
+- **Payments**: Stripe
+- **Styling**: Tailwind CSS
 
 ## Technologies Used
 

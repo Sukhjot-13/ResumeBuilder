@@ -1,6 +1,6 @@
 import { verifyAuth } from '@/lib/auth';
 import dbConnect from '@/lib/mongodb';
-import User from '@/models/user';
+import User from '@/models/User';
 import Resume from '@/models/resume';
 
 export async function GET(req) {
@@ -35,6 +35,8 @@ export async function GET(req) {
       name: user.name,
       dateOfBirth: user.dateOfBirth,
       mainResume: user.mainResume,
+      creditsUsed: user.creditsUsed || 0,
+      role: user.role,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

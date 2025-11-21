@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Resume from '@/models/resume';
-import User from '@/models/user';
+import User from '@/models/User';
 import ResumeMetadata from '@/models/resumeMetadata';
 
 export async function GET(req, context) {

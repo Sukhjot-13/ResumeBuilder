@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
+import { ROLE_PERMISSIONS } from "@/lib/constants";
 
 export function sha256(string) {
   return crypto.createHash('sha256').update(string).digest('hex');
@@ -7,9 +8,14 @@ export function sha256(string) {
 
 export const hashToken = sha256;
 
-export async function generateAccessToken(userId) {
+export function hasPermission(role, permission) {
+  const permissions = ROLE_PERMISSIONS[role] || [];
+  return permissions.includes(permission);
+}
+
+export async function generateAccessToken(userId, role) {
   const secret = new TextEncoder().encode(process.env.ACCESS_TOKEN_SECRET);
-  return await new SignJWT({ userId: userId.toString() })
+  return await new SignJWT({ userId: userId.toString(), role })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('5m')
     .sign(secret);

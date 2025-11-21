@@ -50,8 +50,13 @@ export async function rotateRefreshToken(refreshToken, reqInfo) {
   // Delete the used token
   await RefreshToken.findByIdAndDelete(tokenDoc._id);
 
+  // Fetch user to get current role
+  const User = (await import('@/models/User')).default;
+  const user = await User.findById(userId);
+  if (!user) throw new Error('User not found');
+
   // Generate new tokens
-  const newAccessToken = await generateAccessToken(userId);
+  const newAccessToken = await generateAccessToken(userId, user.role);
   const newRefreshToken = await generateRefreshToken(userId);
 
   // Store the new refresh token
@@ -80,9 +85,9 @@ export async function verifyAuth(tokens, reqInfo) {
   // 1. Check for valid access token
   if (accessToken) {
     try {
-      const { userId } = await verifyAccessToken(accessToken);
+      const payload = await verifyAccessToken(accessToken);
       console.log("Access token is valid");
-      return { ok: true, userId };
+      return { ok: true, userId: payload.userId, role: payload.role };
     } catch (error) {
       console.log(
         "Access token is invalid or expired, falling back to refresh token"
@@ -100,8 +105,18 @@ export async function verifyAuth(tokens, reqInfo) {
     console.log("Attempting to rotate refresh token");
     const { newAccessToken, newRefreshToken, userId } =
       await rotateRefreshToken(refreshToken, reqInfo);
+    
+    // We need the role here. rotateRefreshToken returns userId.
+    // We can fetch user or decode the new access token.
+    // Since rotateRefreshToken generates a new access token with role, let's decode it or fetch user.
+    // Actually rotateRefreshToken in step 79 fetches user. 
+    // But it only returns { newAccessToken, newRefreshToken, userId }.
+    // Let's decode the newAccessToken to get the role.
+    const { verifyToken } = await import('@/lib/utils');
+    const payload = await verifyToken(newAccessToken, 'access');
+    
     console.log("Successfully rotated tokens");
-    return { ok: true, userId, newAccessToken, newRefreshToken };
+    return { ok: true, userId, role: payload.role, newAccessToken, newRefreshToken };
   } catch (error) {
     console.error("Failed to rotate refresh token:", error.message);
     // If refresh fails, we should clear the cookies

@@ -2,8 +2,9 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Resume from '@/models/resume';
-import User from '@/models/user';
+import User from '@/models/User';
 import ResumeMetadata from '@/models/resumeMetadata';
+import { SubscriptionService } from '@/services/subscriptionService';
 
 export async function GET(req) {
   const userId = req.headers.get('x-user-id');
@@ -48,6 +49,16 @@ export async function POST(req) {
   await dbConnect();
 
   try {
+    // Check and track usage
+    const hasCredits = await SubscriptionService.trackUsage(userId, 1);
+    
+    if (!hasCredits) {
+      return NextResponse.json(
+        { error: 'Insufficient credits. Please upgrade your plan.' },
+        { status: 403 }
+      );
+    }
+
     // Create the new resume
     const newResume = new Resume({
       userId,

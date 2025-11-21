@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import User from '@/models/user';
+import User from '@/models/User';
 import RefreshToken from '@/models/refreshToken';
 import {
   hashToken,
@@ -28,7 +28,7 @@ export async function POST(req) {
     let newUser = !user.name;
     const refreshTokenExpirationSeconds = 15 * 24 * 60 * 60; // 15 days in seconds
 
-    const accessToken = await generateAccessToken(user._id);
+    const accessToken = await generateAccessToken(user._id, user.role);
     const refreshToken = await generateRefreshToken(user._id);
 
     // Hash the refresh token

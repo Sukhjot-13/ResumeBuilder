@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import * as Brevo from '@getbrevo/brevo';
 import dbConnect from '@/lib/mongodb';
-import User from '@/models/user';
+import User from '@/models/User';
 
 export async function POST(req) {
   const { email } = await req.json();

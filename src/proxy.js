@@ -1,32 +1,50 @@
 
 import { NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth';
+import { verifyAuthEdge } from '@/lib/auth-edge';
+import { ROLES } from '@/lib/constants';
 
 export async function proxy(req) {
   const { pathname } = req.nextUrl;
 
   // Define routes that need authentication
-  const isApiRoute = pathname.startsWith('/api/user') || pathname.startsWith('/api/resumes') || pathname.startsWith('/api/edit-resume-with-ai');
+  const isApiRoute = pathname.startsWith('/api/user') || pathname.startsWith('/api/resumes') || pathname.startsWith('/api/edit-resume-with-ai') || pathname.startsWith('/api/admin');
   const isProtectedRoute = ['/dashboard', '/profile', '/onboarding'].some(p => pathname.startsWith(p));
+  const isAdminRoute = pathname.startsWith('/admin');
   const isLoginPage = pathname === '/login';
 
   // If the route doesn't require auth, just continue
-  if (!isApiRoute && !isProtectedRoute && !isLoginPage) {
+  if (!isApiRoute && !isProtectedRoute && !isAdminRoute && !isLoginPage) {
     return NextResponse.next();
   }
 
   // Extract tokens from cookies
   const accessToken = req.cookies.get('accessToken')?.value;
   const refreshToken = req.cookies.get('refreshToken')?.value;
-  
-  // Get request info for logging
-  const reqInfo = {
-    ip: req.headers.get('x-forwarded-for') || req.ip,
-    userAgent: req.headers.get('user-agent'),
-  };
 
-  // Verify authentication
-  const authResult = await verifyAuth({ accessToken, refreshToken }, reqInfo);
+  // Verify authentication (Edge safe)
+  let authResult = await verifyAuthEdge({ accessToken });
+
+  // If access token failed but we have a refresh token, try to rotate via API
+  if (!authResult.ok && refreshToken) {
+    try {
+      // Call the verify-token API route to rotate tokens
+      // We must use an absolute URL
+      const protocol = req.headers.get('x-forwarded-proto') || 'http';
+      const host = req.headers.get('host');
+      const res = await fetch(`${protocol}://${host}/api/auth/verify-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        authResult = { ok: true, userId: data.userId, role: data.role, newAccessToken: data.newAccessToken, newRefreshToken: data.newRefreshToken };
+      }
+    } catch (error) {
+      console.error('Token rotation failed in proxy:', error);
+    }
+  }
 
   let response;
 
@@ -35,6 +53,9 @@ export async function proxy(req) {
     if (isLoginPage) {
       // Redirect authenticated users from login page to dashboard
       response = NextResponse.redirect(new URL('/dashboard', req.url));
+    } else if (isAdminRoute && authResult.role !== ROLES.ADMIN) {
+       // Protect admin routes
+       response = NextResponse.redirect(new URL('/dashboard', req.url));
     } else if (isApiRoute) {
       // Add user ID to API request headers and continue
       const requestHeaders = new Headers(req.headers);
@@ -44,38 +65,36 @@ export async function proxy(req) {
       // For protected routes, just continue
       response = NextResponse.next();
     }
+
+    // Set new cookies if rotation happened
+    if (authResult.newAccessToken && authResult.newRefreshToken) {
+      const secure = process.env.NODE_ENV === 'production';
+      response.cookies.set('accessToken', authResult.newAccessToken, { path: '/', maxAge: 5 * 60, httpOnly: true, secure, sameSite: 'lax' });
+      response.cookies.set('refreshToken', authResult.newRefreshToken, { path: '/', maxAge: 15 * 24 * 60 * 60, httpOnly: true, secure, sameSite: 'lax' });
+    }
   } else {
     // User is not authenticated
     if (isApiRoute) {
       // For API routes, return 401 Unauthorized
       response = new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-    } else if (isProtectedRoute) {
+    } else if (isProtectedRoute || isAdminRoute) {
       // For protected pages, redirect to login
       response = NextResponse.redirect(new URL('/login', req.url));
     } else {
       // For all other cases (e.g., login page), continue
       response = NextResponse.next();
     }
-  }
-
-  // --- Cookie Management ---
-
-  // If token rotation happened, set new cookies
-  if (authResult.newAccessToken && authResult.newRefreshToken) {
-    const secure = process.env.NODE_ENV === 'production';
-    response.cookies.set('accessToken', authResult.newAccessToken, { path: '/', maxAge: 5 * 60, httpOnly: true, secure, sameSite: 'lax' });
-    response.cookies.set('refreshToken', authResult.newRefreshToken, { path: '/', maxAge: 15 * 24 * 60 * 60, httpOnly: true, secure, sameSite: 'lax' });
-  }
-
-  // If refresh token failed, clear cookies
-  if (authResult.clearCookies) {
-    response.cookies.delete('accessToken');
-    response.cookies.delete('refreshToken');
+    
+    // Clear cookies if they exist but failed
+    if (accessToken || refreshToken) {
+        response.cookies.delete('accessToken');
+        response.cookies.delete('refreshToken');
+    }
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ['/api/user/:path*', '/api/resumes/:path*', '/api/edit-resume-with-ai/:path*', '/dashboard/:path*', '/profile/:path*', '/onboarding/:path*', '/login'],
+  matcher: ['/api/user/:path*', '/api/resumes/:path*', '/api/edit-resume-with-ai/:path*', '/api/admin/:path*', '/dashboard/:path*', '/profile/:path*', '/onboarding/:path*', '/admin/:path*', '/login'],
 };
