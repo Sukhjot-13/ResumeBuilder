@@ -14,5 +14,5 @@ export function checkFeatureAccess(featureName, userRole) {
     return false; // Default to deny if not defined
   }
 
-  return userRole >= requiredLevel;
+  return userRole <= requiredLevel;
 }

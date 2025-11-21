@@ -7,6 +7,8 @@ import JobDescriptionInput from "@/components/home/JobDescriptionInput";
 import SpecialInstructionsInput from "@/components/home/SpecialInstructionsInput";
 import TemplateViewer from "@/components/preview/TemplateViewer";
 import ResumeList from "@/components/ResumeList";
+import { checkFeatureAccess } from "@/lib/accessControl";
+import { FEATURE_ACCESS_LEVELS } from "@/lib/constants";
 
 export default function DashboardPage() {
   const [jobDescription, setJobDescription] = useState("");
@@ -150,13 +152,15 @@ export default function DashboardPage() {
                   jobDescription={jobDescription}
                   setJobDescription={setJobDescription}
                 />
-                <SpecialInstructionsInput
-                  specialInstructions={specialInstructions}
-                  setSpecialInstructions={setSpecialInstructions}
-                  handleGenerateResume={handleGenerateResume}
-                  generating={generating}
-                  profile={profile}
-                />
+                {profile && checkFeatureAccess('SPECIAL_INSTRUCTIONS', profile.role) && (
+                  <SpecialInstructionsInput
+                    specialInstructions={specialInstructions}
+                    setSpecialInstructions={setSpecialInstructions}
+                    handleGenerateResume={handleGenerateResume}
+                    generating={generating}
+                    profile={profile}
+                  />
+                )}
               </div>
             </div>
           </div>

@@ -60,6 +60,7 @@ export const PLANS = {
 export const FEATURE_ACCESS_LEVELS = {
   CREATE_NEW_RESUME_ON_EDIT: 99, // Subscriber level
   EDIT_RESUME_WITH_AI: 99, // Subscriber level
+  SPECIAL_INSTRUCTIONS: 99, // Subscriber level
 };
 
 export const FEATURES = {
