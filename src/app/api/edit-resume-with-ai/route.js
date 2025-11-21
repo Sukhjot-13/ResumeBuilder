@@ -32,13 +32,32 @@ export async function POST(req) {
     }
     const editedResumeContent = await editResumeWithAI(resume, query);
 
+    // Helper function to recursively remove _id fields
+    const removeIds = (obj) => {
+      if (Array.isArray(obj)) {
+        return obj.map(removeIds);
+      } else if (typeof obj === 'object' && obj !== null) {
+        const newObj = {};
+        for (const key in obj) {
+          if (key !== '_id') {
+            newObj[key] = removeIds(obj[key]);
+          }
+        }
+        return newObj;
+      }
+      return obj;
+    };
+
+    // Sanitize the content to remove any AI-generated _id fields
+    const sanitizedContent = removeIds(editedResumeContent);
+
     const user = await User.findById(userId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     await Resume.findByIdAndUpdate(user.mainResume, {
-      $set: { content: editedResumeContent },
+      $set: { content: sanitizedContent },
     });
 
     const updatedResume = await Resume.findById(user.mainResume);

@@ -394,6 +394,21 @@ export default function ClassicTemplate({ resumeData = {} }) {
                   {institution}
                   {loc}
                 </Text>
+                {edu.bullets && edu.bullets.length > 0 && (
+                  <View style={styles.ul}>
+                    {edu.bullets.map((bullet, idx) => (
+                      <View
+                        key={idx}
+                        style={{ flexDirection: "row", marginBottom: 3 }}
+                      >
+                        <View style={styles.bulletColumn}>
+                          <Text style={styles.bulletText}>{"\u2022"}</Text>
+                        </View>
+                        <Text style={styles.bulletContent}>{bullet}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             );
           })}

@@ -79,7 +79,8 @@ export async function parseResume(file) {
           "field_of_study": "...",
           "start_date": "YYYY-MM-DD",
           "end_date": "YYYY-MM-DD",
-          "relevant_coursework": "..."
+          "relevant_coursework": "...",
+          "bullets": ["...", "..."]
         }
       ],
       "skills": [

@@ -27,6 +27,7 @@ const EducationSchema = new mongoose.Schema({
   start_date: String,
   end_date: String,
   relevant_coursework: String,
+  bullets: [String],
 });
 
 const SkillSchema = new mongoose.Schema({

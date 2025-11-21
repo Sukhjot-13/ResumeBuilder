@@ -56,7 +56,8 @@ export async function editResumeWithAI(resume, query) {
           "field_of_study": "...",
           "start_date": "YYYY-MM-DD",
           "end_date": "YYYY-MM-DD",
-          "relevant_coursework": "..."
+          "relevant_coursework": "...",
+          "bullets": ["...", "..."]
         }
       ],
       "skills": [
