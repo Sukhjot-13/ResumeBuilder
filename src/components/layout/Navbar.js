@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { PLANS } from "@/lib/constants";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -59,7 +60,7 @@ const handleLogout = async () => {
                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                    </svg>
-                   {user.role === 0 ? 'Unlimited' : `${Math.max(0, (user.role === 99 ? 50 : 2) - (user.creditsUsed || 0))} Left`}
+                   {user.role === 0 ? 'Unlimited' : `${Math.max(0, (user.role === 99 ? PLANS.PRO.credits : PLANS.FREE.credits) - (user.creditsUsed || 0))} Left`}
                  </div>
               )}
               

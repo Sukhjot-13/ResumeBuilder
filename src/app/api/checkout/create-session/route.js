@@ -56,12 +56,18 @@ export async function POST(req) {
         },
       ],
       mode: 'subscription',
-      success_url: `${appUrl}/dashboard?success=true`,
+      success_url: `${appUrl}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/pricing?canceled=true`,
       customer_email: user.email,
       metadata: {
         userId: userId.toString(),
         planName: planName,
+      },
+      subscription_data: {
+        metadata: {
+          userId: userId.toString(),
+          planName: planName,
+        },
       },
     });
 

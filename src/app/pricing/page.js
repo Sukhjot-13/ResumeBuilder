@@ -18,7 +18,7 @@ export default function PricingPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/checkout', {
+      const res = await fetch('/api/checkout/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

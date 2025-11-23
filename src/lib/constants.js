@@ -50,7 +50,7 @@ export const PLANS = {
   },
   PRO: {
     name: 'Pro',
-    credits: 150,
+    credits: 200,
     interval: 'month',
     price: 13.99, // in cents
     currency: 'usd',

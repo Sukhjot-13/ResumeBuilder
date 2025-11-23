@@ -49,6 +49,31 @@ export async function proxy(req) {
     }
   }
 
+  // Check for expired subscriptions (only for authenticated users)
+  if (authResult.ok) {
+    try {
+      const protocol = req.headers.get('x-forwarded-proto') || 'http';
+      const host = req.headers.get('host');
+      const checkRes = await fetch(`${protocol}://${host}/api/auth/check-subscription`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': authResult.userId,
+        },
+      });
+      
+      if (checkRes.ok) {
+        const data = await checkRes.json();
+        // Update role if subscription was downgraded
+        if (data.role !== undefined) {
+          authResult.role = data.role;
+        }
+      }
+    } catch (error) {
+      console.error('Subscription check failed in proxy:', error);
+    }
+  }
+
   let response;
 
   if (authResult.ok) {

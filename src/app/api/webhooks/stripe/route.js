@@ -3,8 +3,9 @@ import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe';
 import User from '@/models/User';
 import Plan from '@/models/plan';
+import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongodb';
-import { PLANS } from '@/lib/constants';
+import { PLANS, ROLES } from '@/lib/constants';
 
 export async function POST(req) {
   const body = await req.text();
@@ -18,7 +19,9 @@ export async function POST(req) {
       signature,
       process.env.STRIPE_WEBHOOK_SECRET
     );
+    console.log('🔔 Webhook received:', event.type);
   } catch (err) {
+    console.error('❌ Webhook signature verification failed:', err.message);
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
 
@@ -27,24 +30,70 @@ export async function POST(req) {
   const session = event.data.object;
 
   if (event.type === 'checkout.session.completed') {
+    console.log('💳 Processing checkout.session.completed');
     const subscriptionId = session.subscription;
     const customerId = session.customer;
-    const userId = session.metadata.userId;
-    const planName = session.metadata.planName; // e.g., 'PRO'
+    const userId = session.metadata?.userId;
+    const planName = session.metadata?.planName; // e.g., 'PRO'
+
+    console.log('📋 Checkout metadata:', { userId, planName, subscriptionId, customerId });
 
     if (userId && planName) {
       const planDetails = PLANS[planName];
       
-      // Find or create Plan document if needed, or just use constants logic
-      // For now, we update User directly
+      // Calculate subscription expiry (1 month from now)
+      const expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
       
-      await User.findByIdAndUpdate(userId, {
-        subscriptionId,
-        customerId,
-        role: 99, // SUBSCRIBER
-        credits: planDetails.credits,
-        // You might want to store the Plan ObjectId if you use the Plan model strictly
+      console.log('💾 Updating user:', userId, 'to SUBSCRIBER role with expiry:', expiryDate.toISOString());
+      
+      try {
+        // Update user with subscription details and set role to SUBSCRIBER
+        const updatedUser = await User.findByIdAndUpdate(userId, {
+          subscriptionId,
+          customerId,
+          role: ROLES.SUBSCRIBER, // Set to 99
+          subscriptionExpiresAt: expiryDate,
+          subscriptionStatus: 'active',
+          creditsUsed: 0, // Reset credits on upgrade
+          lastCreditResetDate: new Date(),
+        }, { new: true });
+
+        if (updatedUser) {
+          console.log('✅ User updated successfully:', {
+            id: updatedUser._id,
+            role: updatedUser.role,
+            status: updatedUser.subscriptionStatus,
+            credits: updatedUser.creditsUsed
+          });
+        } else {
+          console.error('❌ FAILED to update user: User not found with ID', userId);
+        }
+      } catch (dbError) {
+        console.error('❌ Database error updating user:', dbError);
+      }
+
+      // Save transaction record
+      const transaction = await Transaction.create({
+        user: userId,
+        stripePaymentId: session.payment_intent || session.id,
+        stripeSubscriptionId: subscriptionId,
+        stripeCustomerId: customerId,
+        amount: session.amount_total, // Amount in cents
+        currency: session.currency,
+        status: 'completed',
+        planName: planName,
+        type: 'subscription',
+        metadata: {
+          sessionId: session.id,
+          planDetails: planDetails,
+        },
       });
+
+      console.log('💰 Transaction saved:', transaction._id);
+      console.log(`✅ User ${userId} upgraded to SUBSCRIBER (role 99) until ${expiryDate.toISOString()}`);
+    } else {
+      console.warn('⚠️ Missing userId or planName in metadata:', { userId, planName });
     }
   }
 
@@ -52,15 +101,51 @@ export async function POST(req) {
     const subscriptionId = session.subscription;
     const customerId = session.customer;
     
-    // Retrieve subscription to get plan details if needed
-    // For recurring payments, reset credits
-    
+    // For recurring payments, reset subscription expiry and ensure role is SUBSCRIBER
     const user = await User.findOne({ subscriptionId });
     if (user) {
-       // Reset credits based on their plan
-       // Assuming PRO plan for now if they have a subscription
-       user.credits = PLANS.PRO.credits;
-       await user.save();
+      const expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+      user.subscriptionExpiresAt = expiryDate;
+      user.subscriptionStatus = 'active';
+      user.role = ROLES.SUBSCRIBER; // Ensure role is 99
+      user.creditsUsed = 0; // Reset credits on renewal
+      user.lastCreditResetDate = new Date();
+      await user.save();
+
+      // Log the renewal transaction
+      await Transaction.create({
+        user: user._id,
+        stripePaymentId: session.payment_intent || session.id,
+        stripeSubscriptionId: subscriptionId,
+        stripeCustomerId: customerId,
+        amount: session.amount_paid,
+        currency: session.currency,
+        status: 'completed',
+        planName: 'PRO',
+        type: 'subscription',
+        metadata: {
+          renewalDate: new Date(),
+        },
+      });
+
+      console.log(`✅ User ${user._id} subscription renewed until ${expiryDate.toISOString()}`);
+    }
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    const subscriptionId = session.id;
+    
+    // Mark subscription as canceled
+    const user = await User.findOne({ subscriptionId });
+    if (user) {
+      user.subscriptionStatus = 'canceled';
+      // Immediately downgrade to regular user
+      user.role = ROLES.USER; // Set to 100
+      await user.save();
+
+      console.log(`❌ User ${user._id} subscription canceled, downgraded to USER (role 100)`);
     }
   }
 

@@ -1,6 +1,6 @@
 import User from '@/models/User';
 import Plan from '@/models/plan';
-import { PLANS, PERMISSIONS } from '@/lib/constants';
+import { PLANS, PERMISSIONS, ROLES } from '@/lib/constants';
 import { hasPermission } from '@/lib/utils';
 
 export const SubscriptionService = {
@@ -36,6 +36,9 @@ export const SubscriptionService = {
     const user = await User.findById(userId);
     if (!user) throw new Error('User not found');
 
+    // Check and reset limits if needed
+    await this.checkAndResetDailyLimits(user);
+
     const limit = this.getLimit(user);
 
     if (limit === Infinity) {
@@ -61,6 +64,9 @@ export const SubscriptionService = {
     const user = await User.findById(userId);
     if (!user) throw new Error('User not found');
 
+    // Check and reset limits if needed
+    await this.checkAndResetDailyLimits(user);
+
     const limit = this.getLimit(user);
 
     if (limit === Infinity) {
@@ -71,20 +77,38 @@ export const SubscriptionService = {
   },
 
   // Reset usage (daily/monthly)
-  async checkAndResetDailyLimits(userId) {
-    const user = await User.findById(userId);
+  async checkAndResetDailyLimits(user) {
     if (!user) return;
 
-    // Logic to check if reset is needed (e.g., new day for Free, new month for Pro)
-    // For now, we'll just have a method to reset manually or via cron
-    // user.creditsUsed = 0;
-    // await user.save();
+    // If user is PRO (subscriber), we don't reset daily.
+    // Their reset happens on monthly renewal via webhook.
+    if (user.role === ROLES.SUBSCRIBER) {
+      return;
+    }
+
+    // For FREE users, check if we need to reset
+    const now = new Date();
+    const lastReset = user.lastCreditResetDate ? new Date(user.lastCreditResetDate) : new Date(0);
+    
+    // Check if it's a different day
+    const isDifferentDay = 
+      now.getDate() !== lastReset.getDate() ||
+      now.getMonth() !== lastReset.getMonth() ||
+      now.getFullYear() !== lastReset.getFullYear();
+
+    if (isDifferentDay) {
+      console.log(`🔄 Resetting daily credits for user ${user._id}`);
+      user.creditsUsed = 0;
+      user.lastCreditResetDate = now;
+      await user.save();
+    }
   },
   
   async resetUsage(userId) {
       const user = await User.findById(userId);
       if (!user) throw new Error('User not found');
       user.creditsUsed = 0;
+      user.lastCreditResetDate = new Date();
       await user.save();
       return true;
   }

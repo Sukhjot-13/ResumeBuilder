@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApiClient } from "@/hooks/useApiClient";
 import JobDescriptionInput from "@/components/home/JobDescriptionInput";
 import SpecialInstructionsInput from "@/components/home/SpecialInstructionsInput";
@@ -37,9 +37,34 @@ export default function DashboardPage() {
     }
   };
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Check for session_id to verify subscription
+        const sessionId = searchParams.get('session_id');
+        const success = searchParams.get('success');
+
+        if (success && sessionId) {
+            try {
+                const verifyResponse = await apiClient('/api/checkout/verify-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId }),
+                });
+                
+                if (verifyResponse.ok) {
+                    // Clear URL params to prevent re-verification
+                    router.replace('/dashboard');
+                    // Show success message (could use a toast here)
+                    alert('Subscription activated successfully!');
+                }
+            } catch (err) {
+                console.error('Verification failed', err);
+            }
+        }
+
         // Fetch profile
         const profileResponse = await apiClient("/api/user/profile");
 
@@ -60,7 +85,7 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, [apiClient]);
+  }, [apiClient, searchParams, router]);
 
   const handleGenerateResume = async () => {
     setGenerating(true);
