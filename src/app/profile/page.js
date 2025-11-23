@@ -5,6 +5,7 @@ import { useApiClient } from "@/hooks/useApiClient";
 import ResumeUpload from "@/components/profile/ResumeUpload";
 import TemplateViewer from "@/components/preview/TemplateViewer";
 import { FeatureAccessService } from "@/services/featureAccessService";
+import { ROLES, PLANS } from "@/lib/constants";
 
 export default function ProfilePage() {
   const [name, setName] = useState("");
@@ -34,7 +35,7 @@ export default function ProfilePage() {
         if (response.ok) {
           const data = await response.json();
           setName(data.name || "");
-          setUserRole(data.role || 100);
+          setUserRole(data.role !== undefined ? data.role : 100);
           if (data.dateOfBirth) {
             setDateOfBirth(
               new Date(data.dateOfBirth).toISOString().split("T")[0]
@@ -339,16 +340,16 @@ export default function ProfilePage() {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="text-xl font-bold text-white">
-                        {userRole === 99 ? 'Pro Plan' : 'Free Plan'}
+                        {userRole === ROLES.ADMIN ? 'Admin Plan' : (userRole === ROLES.SUBSCRIBER ? 'Pro Plan' : 'Free Plan')}
                       </h3>
                       <p className="text-gray-400 text-sm mt-1">
-                        {userRole === 99 ? 'Unlimited access to all features' : 'Basic access with daily limits'}
+                        {userRole === ROLES.ADMIN ? 'Full system access with unlimited credits' : (userRole === ROLES.SUBSCRIBER ? 'Unlimited access to all features' : 'Basic access with daily limits')}
                       </p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      userRole === 99 ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+                      userRole === ROLES.ADMIN ? 'bg-purple-500/20 text-purple-400' : (userRole === ROLES.SUBSCRIBER ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400')
                     }`}>
-                      {userRole === 99 ? 'ACTIVE' : 'CURRENT'}
+                      {userRole === ROLES.ADMIN ? 'ADMIN' : (userRole === ROLES.SUBSCRIBER ? 'ACTIVE' : 'CURRENT')}
                     </span>
                   </div>
 
@@ -356,18 +357,18 @@ export default function ProfilePage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Credits</span>
                       <span className="font-medium text-white">
-                        {userRole === 99 ? '150 / month' : '2 / day'}
+                        {userRole === ROLES.ADMIN ? 'Unlimited' : (userRole === ROLES.SUBSCRIBER ? `${PLANS.PRO.credits} / month` : `${PLANS.FREE.credits} / day`)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Reset Period</span>
                       <span className="font-medium text-white">
-                        {userRole === 99 ? 'Monthly' : 'Daily'}
+                        {userRole === ROLES.ADMIN ? 'N/A' : (userRole === ROLES.SUBSCRIBER ? 'Monthly' : 'Daily')}
                       </span>
                     </div>
                   </div>
 
-                  {userRole !== 99 && (
+                  {userRole !== ROLES.SUBSCRIBER && userRole !== ROLES.ADMIN && (
                     <button
                       onClick={handleUpgrade}
                       className="w-full mt-6 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] shadow-lg"
@@ -376,7 +377,7 @@ export default function ProfilePage() {
                     </button>
                   )}
                   
-                  {userRole === 99 && (
+                  {userRole === ROLES.SUBSCRIBER && (
                     <button
                       onClick={handleManageSubscription}
                       className="w-full mt-6 bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition-colors"
@@ -402,10 +403,10 @@ export default function ProfilePage() {
                       Create New Versions
                     </li>
                     <li className="flex items-center gap-2">
-                      <svg className={`w-4 h-4 ${userRole === 99 ? 'text-green-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className={`w-4 h-4 ${userRole === ROLES.SUBSCRIBER || userRole === ROLES.ADMIN ? 'text-green-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      <span className={userRole !== 99 ? 'text-gray-500' : ''}>Priority Support (Pro)</span>
+                      <span className={userRole !== ROLES.SUBSCRIBER && userRole !== ROLES.ADMIN ? 'text-gray-500' : ''}>Priority Support (Pro)</span>
                     </li>
                   </ul>
                 </div>

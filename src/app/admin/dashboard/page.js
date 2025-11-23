@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ROLES, PERMISSIONS } from '@/lib/constants';
+import { ROLES, PERMISSIONS, PLANS } from '@/lib/constants';
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
@@ -123,8 +123,8 @@ export default function AdminDashboard() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
-                        <span className={`font-mono ${user.creditsUsed >= (user.role === 99 ? 50 : 2) ? 'text-red-400' : 'text-green-400'}`}>
-                          {user.creditsUsed || 0} / {user.role === 0 ? '∞' : (user.role === 99 ? 50 : 2)}
+                        <span className={`font-mono ${user.creditsUsed >= (user.role === ROLES.SUBSCRIBER ? PLANS.PRO.credits : PLANS.FREE.credits) ? 'text-red-400' : 'text-green-400'}`}>
+                          {user.creditsUsed || 0} / {user.role === ROLES.ADMIN ? '∞' : (user.role === ROLES.SUBSCRIBER ? PLANS.PRO.credits : PLANS.FREE.credits)}
                         </span>
                       </div>
                     </td>
