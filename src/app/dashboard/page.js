@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApiClient } from "@/hooks/useApiClient";
 import JobDescriptionInput from "@/components/home/JobDescriptionInput";
 import SpecialInstructionsInput from "@/components/home/SpecialInstructionsInput";
 import TemplateViewer from "@/components/preview/TemplateViewer";
 import ResumeList from "@/components/ResumeList";
-import { checkFeatureAccess } from "@/lib/accessControl";
-import { FEATURE_ACCESS_LEVELS } from "@/lib/constants";
+import { hasPermission } from "@/lib/accessControl";
+import { PERMISSIONS } from "@/lib/constants";
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [jobDescription, setJobDescription] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -177,7 +177,7 @@ export default function DashboardPage() {
                   jobDescription={jobDescription}
                   setJobDescription={setJobDescription}
                 />
-                {profile && checkFeatureAccess('SPECIAL_INSTRUCTIONS', profile.role) && (
+                {profile && hasPermission(profile.role, PERMISSIONS.USE_SPECIAL_INSTRUCTIONS) && (
                   <SpecialInstructionsInput
                     specialInstructions={specialInstructions}
                     setSpecialInstructions={setSpecialInstructions}
@@ -229,5 +229,13 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-white">Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }

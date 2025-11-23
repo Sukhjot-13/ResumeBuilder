@@ -1,15 +1,16 @@
-
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import Resume from '@/models/resume';
 import User from '@/models/User';
 import ResumeMetadata from '@/models/resumeMetadata';
 import { SubscriptionService } from '@/services/subscriptionService';
+import { logger } from '@/lib/logger';
 
 export async function GET(req) {
   const userId = req.headers.get('x-user-id');
 
   if (!userId) {
+    logger.warn("Unauthorized access attempt to GET /api/resumes");
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -25,22 +26,33 @@ export async function GET(req) {
     }).select('generatedResumes');
     
     if (!user) {
+      logger.warn("User not found in GET /api/resumes", { userId });
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     return NextResponse.json(user.generatedResumes);
   } catch (error) {
-    console.error(error);
+    logger.error("Error in GET /api/resumes", error, { userId });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(req) {
   const userId = req.headers.get('x-user-id');
-  const { content, metadata } = await req.json();
-
+  
   if (!userId) {
+    logger.warn("Unauthorized access attempt to POST /api/resumes");
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch (e) {
+    logger.warn("Invalid JSON in POST /api/resumes", { userId });
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const { content, metadata } = body;
 
   if (!content) {
     return NextResponse.json({ error: 'Resume content is required' }, { status: 400 });
@@ -53,6 +65,7 @@ export async function POST(req) {
     const hasCredits = await SubscriptionService.trackUsage(userId, 1);
     
     if (!hasCredits) {
+      logger.info("User attempted to create resume without credits", { userId });
       return NextResponse.json(
         { error: 'Insufficient credits. Please upgrade your plan.' },
         { status: 403 }
@@ -85,10 +98,11 @@ export async function POST(req) {
     }
 
     const populatedResume = await Resume.findById(newResume._id).populate('metadata');
-
+    
+    logger.info("Resume created successfully", { userId, resumeId: newResume._id });
     return NextResponse.json(populatedResume, { status: 201 });
   } catch (error) {
-    console.error(error);
+    logger.error("Error in POST /api/resumes", error, { userId });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
@@ -6,15 +5,27 @@ import Resume from '@/models/resume';
 import ResumeMetadata from '@/models/resumeMetadata';
 import { editResumeWithAI } from '@/services/aiResumeEditorService';
 import { SubscriptionService } from '@/services/subscriptionService';
-import { FeatureAccessService } from '@/services/featureAccessService';
+import { hasPermission } from '@/lib/accessControl';
+import { PERMISSIONS } from '@/lib/constants';
+import { logger } from '@/lib/logger';
 
 export async function POST(req) {
   const userId = req.headers.get('x-user-id');
-  const { resume, query, createNewResume } = await req.json();
-
+  
   if (!userId) {
+    logger.warn("Unauthorized access attempt to POST /api/edit-resume-with-ai");
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch (e) {
+    logger.warn("Invalid JSON in POST /api/edit-resume-with-ai", { userId });
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const { resume, query, createNewResume } = body;
 
   if (!resume || !query) {
     return NextResponse.json({ error: 'Resume and query are required' }, { status: 400 });
@@ -25,12 +36,13 @@ export async function POST(req) {
   try {
     const user = await User.findById(userId);
     if (!user) {
+      logger.warn("User not found in POST /api/edit-resume-with-ai", { userId });
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check access for "Edit with AI" feature
-    const hasAccess = FeatureAccessService.hasAccess('EDIT_RESUME_WITH_AI', user.role);
-    if (!hasAccess) {
+    // Check permission for "Edit with AI" feature
+    if (!hasPermission(user.role, PERMISSIONS.EDIT_RESUME_WITH_AI)) {
+      logger.info("Permission denied: EDIT_RESUME_WITH_AI", { userId, role: user.role });
       return NextResponse.json(
         { error: 'This feature requires a Pro subscription.' },
         { status: 403 }
@@ -41,16 +53,17 @@ export async function POST(req) {
     const hasCredits = await SubscriptionService.trackUsage(userId, 1);
     
     if (!hasCredits) {
+      logger.info("User attempted to edit resume without credits", { userId });
       return NextResponse.json(
         { error: 'Insufficient credits. Please upgrade your plan.' },
         { status: 403 }
       );
     }
 
-    // Check access for "Create New Resume" feature if requested
+    // Check permission for "Create New Resume" feature if requested
     if (createNewResume) {
-      const hasAccess = FeatureAccessService.hasAccess('CREATE_NEW_RESUME_ON_EDIT', user.role);
-      if (!hasAccess) {
+      if (!hasPermission(user.role, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT)) {
+        logger.info("Permission denied: CREATE_NEW_RESUME_ON_EDIT", { userId, role: user.role });
         return NextResponse.json(
           { error: 'This feature requires a higher plan.' },
           { status: 403 }
@@ -102,16 +115,12 @@ export async function POST(req) {
       newResume.metadata = newMetadata._id;
       await newResume.save();
 
-      // 4. Update user: add new resume to generated list and set as main
-      // Note: We push the NEW resume to generatedResumes as well, so it appears in the history list if we switch away from it later?
-      // Actually, usually mainResume is NOT in generatedResumes list in some implementations, or it IS.
-      // The previous code `user.generatedResumes.push(user.mainResume)` implies the OLD main goes to history.
-      // The new main is set as `mainResume`.
-      // Let's follow that pattern.
-      
+      // 4. Update user: set new resume as main
       user.mainResume = newResume._id;
       await user.save();
 
+      logger.info("New resume created via AI edit", { userId, resumeId: newResume._id });
+      
       const populatedResume = await Resume.findById(newResume._id).populate('metadata');
       return NextResponse.json(populatedResume.content);
 
@@ -121,12 +130,14 @@ export async function POST(req) {
         $set: { content: sanitizedContent },
       });
 
+      logger.info("Resume updated via AI edit", { userId, resumeId: user.mainResume });
+      
       const updatedResume = await Resume.findById(user.mainResume);
       return NextResponse.json(updatedResume.content);
     }
 
   } catch (error) {
-    console.error(error);
+    logger.error("Error in POST /api/edit-resume-with-ai", error, { userId });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
