@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import User from '@/models/User';
-import Resume from '@/models/resume';
-import ResumeMetadata from '@/models/resumeMetadata';
 import { editResumeWithAI } from '@/services/aiResumeEditorService';
 import { SubscriptionService } from '@/services/subscriptionService';
+import { UserService } from '@/services/userService';
+import { ResumeService } from '@/services/resumeService';
 import { hasPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
@@ -34,11 +33,8 @@ export async function POST(req) {
   await dbConnect();
 
   try {
-    const user = await User.findById(userId);
-    if (!user) {
-      logger.warn("User not found in POST /api/edit-resume-with-ai", { userId });
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
+    // Use UserService instead of direct User.findById
+    const user = await UserService.getUserById(userId);
 
     // Check permission for "Edit with AI" feature
     if (!hasPermission(user.role, PERMISSIONS.EDIT_RESUME_WITH_AI)) {
@@ -93,46 +89,39 @@ export async function POST(req) {
     const sanitizedContent = removeIds(editedResumeContent);
 
     if (createNewResume) {
-      // 1. Archive the current main resume (add to generatedResumes if not already there)
+      // Archive the current main resume if it's not already in generatedResumes
       if (user.mainResume && !user.generatedResumes.includes(user.mainResume)) {
-        user.generatedResumes.push(user.mainResume);
+        await UserService.addGeneratedResume(userId, user.mainResume);
       }
 
-      // 2. Create a new Resume document
-      const newResume = await Resume.create({
-        userId: user._id,
-        content: sanitizedContent,
-      });
-
-      // 3. Create metadata for the new resume
-      const newMetadata = await ResumeMetadata.create({
-        userId: user._id,
-        resumeId: newResume._id,
+      // Create new resume with metadata using ResumeService
+      const metadata = {
         jobTitle: sanitizedContent.profile?.headline || 'AI Edited Resume',
         companyName: 'AI Generated',
-      });
+      };
+      
+      const newResume = await ResumeService.createResume(
+        userId,
+        sanitizedContent,
+        metadata,
+        { returnPopulated: true }
+      );
 
-      newResume.metadata = newMetadata._id;
-      await newResume.save();
-
-      // 4. Update user: set new resume as main
-      user.mainResume = newResume._id;
-      await user.save();
+      // Set as main resume using UserService
+      await UserService.setMainResume(userId, newResume._id);
 
       logger.info("New resume created via AI edit", { userId, resumeId: newResume._id });
       
-      const populatedResume = await Resume.findById(newResume._id).populate('metadata');
-      return NextResponse.json(populatedResume.content);
-
+      return NextResponse.json(newResume.content);
     } else {
-      // Default behavior: Overwrite existing main resume
-      await Resume.findByIdAndUpdate(user.mainResume, {
-        $set: { content: sanitizedContent },
-      });
+      // Default behavior: Overwrite existing main resume using ResumeService
+      const updatedResume = await ResumeService.updateResumeContent(
+        user.mainResume,
+        sanitizedContent
+      );
 
       logger.info("Resume updated via AI edit", { userId, resumeId: user.mainResume });
       
-      const updatedResume = await Resume.findById(user.mainResume);
       return NextResponse.json(updatedResume.content);
     }
 

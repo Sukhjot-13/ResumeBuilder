@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { parseResume } from '../../../services/resumeParsingService';
+import { UserService } from '@/services/userService';
 import { hasPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
-import User from '@/models/User';
 
 // Disable Next.js body parser for this route
 export const bodyParser = false;
@@ -19,12 +19,9 @@ export async function POST(request) {
 
   try {
     await dbConnect();
-    const user = await User.findById(userId);
     
-    if (!user) {
-      logger.warn("User not found in POST /api/parse-resume", { userId });
-      return new Response("User not found", { status: 404 });
-    }
+    // Use UserService to get user
+    const user = await UserService.getUserById(userId);
 
     // Check permission for "Parse Resume" feature
     if (!hasPermission(user.role, PERMISSIONS.PARSE_RESUME)) {

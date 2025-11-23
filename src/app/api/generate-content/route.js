@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { generateTailoredContent } from '../../../services/contentGenerationService';
+import { UserService } from '@/services/userService';
 import { hasPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
-import User from '@/models/User';
 
 export async function POST(request) {
   const userId = request.headers.get('x-user-id');
@@ -16,12 +16,9 @@ export async function POST(request) {
 
   try {
     await dbConnect();
-    const user = await User.findById(userId);
     
-    if (!user) {
-      logger.warn("User not found in POST /api/generate-content", { userId });
-      return NextResponse.json({ message: 'User not found' }, { status: 404 });
-    }
+    // Use UserService to get user
+    const user = await UserService.getUserById(userId);
 
     // Check permission for "Generate Resume" feature
     if (!hasPermission(user.role, PERMISSIONS.GENERATE_RESUME)) {
