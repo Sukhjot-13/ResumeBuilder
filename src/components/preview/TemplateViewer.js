@@ -4,7 +4,7 @@ import { useState } from "react";
 import ResumePreview from "@/components/preview/ResumePreview";
 import TemplateSelector from "@/components/home/TemplateSelector";
 
-export default function TemplateViewer({ resume }) {
+export default function TemplateViewer({ resume, user }) {
   const [selectedTemplate, setSelectedTemplate] =
     useState("ClassicTemplate.js");
 
@@ -19,6 +19,7 @@ export default function TemplateViewer({ resume }) {
           <ResumePreview
             tailoredResume={resume}
             selectedTemplate={selectedTemplate}
+            user={user}
           />
         )}
       </div>

@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { verifyAuth } from '@/lib/auth';
 import { UserService } from '@/services/userService';
 import { SubscriptionService } from '@/services/subscriptionService';
-import { hasPermission } from '@/lib/accessControl';
+import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import User from '@/models/User';
@@ -51,7 +51,7 @@ export async function getAllUsers(options = {}) {
     }
 
     // Check admin permission
-    if (!hasPermission(role, PERMISSIONS.VIEW_USERS)) {
+    if (!checkPermission({ role }, PERMISSIONS.VIEW_USERS)) {
       logger.info('Permission denied: VIEW_USERS', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -116,7 +116,7 @@ export async function getUserDetails(targetUserId) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!hasPermission(role, PERMISSIONS.VIEW_USERS)) {
+    if (!checkPermission({ role }, PERMISSIONS.VIEW_USERS)) {
       logger.info('Permission denied: VIEW_USERS', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -147,7 +147,7 @@ export async function updateUserCredits(targetUserId, credits) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!hasPermission(role, PERMISSIONS.MANAGE_CREDITS)) {
+    if (!checkPermission({ role }, PERMISSIONS.MANAGE_CREDITS)) {
       logger.info('Permission denied: MANAGE_CREDITS', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -180,7 +180,7 @@ export async function resetUserUsage(targetUserId) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!hasPermission(role, PERMISSIONS.MANAGE_CREDITS)) {
+    if (!checkPermission({ role }, PERMISSIONS.MANAGE_CREDITS)) {
       logger.info('Permission denied: MANAGE_CREDITS', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -213,7 +213,7 @@ export async function changeUserRole(targetUserId, newRole) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!hasPermission(role, PERMISSIONS.CHANGE_USER_ROLE)) {
+    if (!checkPermission({ role }, PERMISSIONS.CHANGE_USER_ROLE)) {
       logger.info('Permission denied: CHANGE_USER_ROLE', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -246,7 +246,7 @@ export async function toggleUserBan(targetUserId, isBanned) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!hasPermission(role, PERMISSIONS.MANAGE_USERS)) {
+    if (!checkPermission({ role }, PERMISSIONS.MANAGE_USERS)) {
       logger.info('Permission denied: MANAGE_USERS', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -278,7 +278,7 @@ export async function deleteUser(targetUserId) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!hasPermission(role, PERMISSIONS.MANAGE_USERS)) {
+    if (!checkPermission({ role }, PERMISSIONS.MANAGE_USERS)) {
       logger.info('Permission denied: MANAGE_USERS', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -315,7 +315,7 @@ export async function getAdminAnalytics() {
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!hasPermission(role, PERMISSIONS.VIEW_ANALYTICS)) {
+    if (!checkPermission({ role }, PERMISSIONS.VIEW_ANALYTICS)) {
       logger.info('Permission denied: VIEW_ANALYTICS', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -366,7 +366,7 @@ export async function getTransactions(options = {}) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!hasPermission(role, PERMISSIONS.VIEW_ALL_SUBSCRIPTIONS)) {
+    if (!checkPermission({ role }, PERMISSIONS.VIEW_ALL_SUBSCRIPTIONS)) {
       logger.info('Permission denied: VIEW_ALL_SUBSCRIPTIONS', { userId, role });
       return { success: false, error: 'Permission denied' };
     }

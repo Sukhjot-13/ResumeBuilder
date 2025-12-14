@@ -5,16 +5,19 @@ import User from '@/models/User';
 import ResumeMetadata from '@/models/resumeMetadata';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { logger } from '@/lib/logger';
+import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { PERMISSIONS } from '@/lib/constants';
 
 export async function GET(req) {
   const userId = req.headers.get('x-user-id');
 
-  if (!userId) {
-    logger.warn("Unauthorized access attempt to GET /api/resumes");
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   await dbConnect();
+
+  // Check permission
+  const permResult = await requirePermission(userId, PERMISSIONS.VIEW_OWN_RESUMES);
+  if (isPermissionError(permResult)) {
+    return permResult.error;
+  }
 
   try {
     const user = await User.findById(userId).populate({
@@ -38,11 +41,6 @@ export async function GET(req) {
 
 export async function POST(req) {
   const userId = req.headers.get('x-user-id');
-  
-  if (!userId) {
-    logger.warn("Unauthorized access attempt to POST /api/resumes");
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
 
   let body;
   try {
@@ -59,6 +57,12 @@ export async function POST(req) {
   }
 
   await dbConnect();
+
+  // Check permission
+  const permResult = await requirePermission(userId, PERMISSIONS.CREATE_RESUME);
+  if (isPermissionError(permResult)) {
+    return permResult.error;
+  }
 
   try {
     // Check and track usage

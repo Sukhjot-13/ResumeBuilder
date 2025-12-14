@@ -8,10 +8,7 @@ export function sha256(string) {
 
 export const hashToken = sha256;
 
-export function hasPermission(role, permission) {
-  const permissions = ROLE_PERMISSIONS[role] || [];
-  return permissions.includes(permission);
-}
+
 
 export async function generateAccessToken(userId, role) {
   const secret = new TextEncoder().encode(process.env.ACCESS_TOKEN_SECRET);

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { parseResume } from '../../../services/resumeParsingService';
 import { UserService } from '@/services/userService';
-import { hasPermission } from '@/lib/accessControl';
+import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
@@ -24,7 +24,7 @@ export async function POST(request) {
     const user = await UserService.getUserById(userId);
 
     // Check permission for "Parse Resume" feature
-    if (!hasPermission(user.role, PERMISSIONS.PARSE_RESUME)) {
+    if (!checkPermission(user, PERMISSIONS.PARSE_RESUME)) {
       logger.info("Permission denied: PARSE_RESUME", { userId, role: user.role });
       return new Response("This feature requires appropriate permissions", { status: 403 });
     }

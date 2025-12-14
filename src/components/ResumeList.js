@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import LoadingSpinner from "./common/LoadingSpinner";
 import { useApiClient } from "@/hooks/useApiClient";
+import PermissionGate from "./common/PermissionGate";
+import { PERMISSIONS } from "@/lib/constants";
 
 export default function ResumeList({
   resumes,
@@ -12,6 +14,7 @@ export default function ResumeList({
   loading,
   masterResume,
   onUpdateResume,
+  user,
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ jobTitle: "", companyName: "" });
@@ -134,15 +137,17 @@ export default function ResumeList({
                       {new Date(resume.createdAt).toLocaleDateString()}
                     </span>
                     {editingId !== resume._id && (
-                      <button
-                        onClick={() => startEditing(resume)}
-                        className="text-slate-400 hover:text-blue-400 transition-colors"
-                        title="Edit Details"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                      </button>
+                      <PermissionGate user={user} permission={PERMISSIONS.EDIT_RESUME_METADATA} fallback="hidden">
+                        <button
+                          onClick={() => startEditing(resume)}
+                          className="text-slate-400 hover:text-blue-400 transition-colors"
+                          title="Edit Details"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                      </PermissionGate>
                     )}
                   </div>
                 </div>
@@ -201,13 +206,15 @@ export default function ResumeList({
                   >
                     View
                   </button>
-                  <button
-                    onClick={() => onDeleteResume(resume._id)}
-                    disabled={deletingId === resume._id}
-                    className="flex-1 bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm disabled:opacity-50"
-                  >
-                    {deletingId === resume._id ? "Deleting..." : "Delete"}
-                  </button>
+                  <PermissionGate user={user} permission={PERMISSIONS.DELETE_OWN_RESUME} fallback="hidden">
+                    <button
+                      onClick={() => onDeleteResume(resume._id)}
+                      disabled={deletingId === resume._id}
+                      className="flex-1 bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm disabled:opacity-50"
+                    >
+                      {deletingId === resume._id ? "Deleting..." : "Delete"}
+                    </button>
+                  </PermissionGate>
                 </div>
               </div>
             ))}

@@ -4,7 +4,7 @@ import { editResumeWithAI } from '@/services/aiResumeEditorService';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { UserService } from '@/services/userService';
 import { ResumeService } from '@/services/resumeService';
-import { hasPermission } from '@/lib/accessControl';
+import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 
@@ -37,7 +37,7 @@ export async function POST(req) {
     const user = await UserService.getUserById(userId);
 
     // Check permission for "Edit with AI" feature
-    if (!hasPermission(user.role, PERMISSIONS.EDIT_RESUME_WITH_AI)) {
+    if (!checkPermission(user, PERMISSIONS.EDIT_RESUME_WITH_AI)) {
       logger.info("Permission denied: EDIT_RESUME_WITH_AI", { userId, role: user.role });
       return NextResponse.json(
         { error: 'This feature requires a Pro subscription.' },
@@ -58,7 +58,7 @@ export async function POST(req) {
 
     // Check permission for "Create New Resume" feature if requested
     if (createNewResume) {
-      if (!hasPermission(user.role, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT)) {
+      if (!checkPermission(user, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT)) {
         logger.info("Permission denied: CREATE_NEW_RESUME_ON_EDIT", { userId, role: user.role });
         return NextResponse.json(
           { error: 'This feature requires a higher plan.' },

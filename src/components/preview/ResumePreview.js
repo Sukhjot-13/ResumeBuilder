@@ -10,7 +10,7 @@ const ReactPdfView = dynamic(() => import("./ReactPdfView"), {
   loading: () => <p>Loading PDF viewer...</p>,
 });
 
-export default function ResumePreview({ tailoredResume, selectedTemplate }) {
+export default function ResumePreview({ tailoredResume, selectedTemplate, user }) {
   const [view, setView] = useState("display"); // 'display' or 'react-pdf'
   const [downloading, setDownloading] = useState(false);
 
@@ -26,6 +26,7 @@ export default function ResumePreview({ tailoredResume, selectedTemplate }) {
           <DownloadReactPdfButton
             resumeData={tailoredResume}
             selectedTemplate={selectedTemplate}
+            user={user}
           />
         </div>
       </div>

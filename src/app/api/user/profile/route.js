@@ -2,6 +2,8 @@ import { verifyAuth } from '@/lib/auth';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import Resume from '@/models/resume';
+import { checkPermission } from '@/lib/accessControl';
+import { PERMISSIONS } from '@/lib/constants';
 
 export async function GET(req) {
   // Extract cookies (HttpOnly) from the request
@@ -25,6 +27,14 @@ export async function GET(req) {
     if (!user) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
         status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check permission
+    if (!checkPermission(user, PERMISSIONS.VIEW_OWN_PROFILE)) {
+      return new Response(JSON.stringify({ error: 'Permission denied' }), {
+        status: 403,
         headers: { 'Content-Type': 'application/json' },
       });
     }
@@ -80,6 +90,14 @@ export async function PUT(req) {
     if (!user) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
         status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Check permission
+    if (!checkPermission(user, PERMISSIONS.EDIT_OWN_PROFILE)) {
+      return new Response(JSON.stringify({ error: 'Permission denied' }), {
+        status: 403,
         headers: { 'Content-Type': 'application/json' },
       });
     }

@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { useApiClient } from "@/hooks/useApiClient";
 import ResumeUpload from "@/components/profile/ResumeUpload";
+import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
+import PermissionGate from "@/components/common/PermissionGate";
 import TemplateViewer from "@/components/preview/TemplateViewer";
-import { FeatureAccessService } from "@/services/featureAccessService";
-import { ROLES, PLANS } from "@/lib/constants";
+import { ROLES, PLANS, PERMISSIONS } from "@/lib/constants";
+import { checkPermission, getPermissionMetadata } from "@/lib/accessControl";
 
 export default function ProfilePage() {
   const [name, setName] = useState("");
@@ -23,8 +25,10 @@ export default function ProfilePage() {
   const [createNewResume, setCreateNewResume] = useState(false);
   const [userRole, setUserRole] = useState(100); // Default to USER role
   
-  const hasAiEditAccess = FeatureAccessService.hasAccess('EDIT_RESUME_WITH_AI', userRole);
-  const hasCreateNewResumeAccess = FeatureAccessService.hasAccess('CREATE_NEW_RESUME_ON_EDIT', userRole);
+  const hasAiEditAccess = checkPermission({ role: userRole }, PERMISSIONS.EDIT_RESUME_WITH_AI);
+  const hasCreateNewResumeAccess = checkPermission({ role: userRole }, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT);
+  const canParseResume = checkPermission({ role: userRole }, PERMISSIONS.PARSE_RESUME);
+  const canEditProfile = checkPermission({ role: userRole }, PERMISSIONS.EDIT_OWN_PROFILE);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -246,41 +250,50 @@ export default function ProfilePage() {
               </h2>
               {error && <p className="text-red-500 mb-4">{error}</p>}
               {success && <p className="text-green-500 mb-4">{success}</p>}
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label htmlFor="name" className="block mb-2">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label htmlFor="dateOfBirth" className="block mb-2">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    id="dateOfBirth"
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    required
-                    className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500"
-                >
-                  {loading ? "Saving..." : "Save Changes"}
-                </button>
-              </form>
+              {canEditProfile ? (
+                <form onSubmit={handleSubmit}>
+                  <div className="mb-4">
+                    <label htmlFor="name" className="block mb-2">
+                      Name
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="dateOfBirth" className="block mb-2">
+                      Date of Birth
+                    </label>
+                    <input
+                      type="date"
+                      id="dateOfBirth"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      required
+                      className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500"
+                  >
+                    {loading ? "Saving..." : "Save Changes"}
+                  </button>
+                </form>
+              ) : (
+                <PremiumFeatureLock
+                  featureName={getPermissionMetadata(PERMISSIONS.EDIT_OWN_PROFILE)?.name || "Edit Profile"}
+                  description={getPermissionMetadata(PERMISSIONS.EDIT_OWN_PROFILE)?.description}
+                  planName={getPermissionMetadata(PERMISSIONS.EDIT_OWN_PROFILE)?.requiredPlan}
+                  variant="compact"
+                />
+              )}
               {hasAiEditAccess && (
                 <button
                   onClick={() => setShowAiEditor(!showAiEditor)}
@@ -290,9 +303,11 @@ export default function ProfilePage() {
                 </button>
               )}
               {!hasAiEditAccess && (
-                <div className="w-full mt-4 bg-gray-700 text-gray-400 font-bold py-2 px-4 rounded text-center">
-                  Edit with AI (Pro Feature)
-                </div>
+                <PremiumFeatureLock
+                  featureName={getPermissionMetadata(PERMISSIONS.EDIT_RESUME_WITH_AI)?.name || "AI Resume Editor"}
+                  planName={getPermissionMetadata(PERMISSIONS.EDIT_RESUME_WITH_AI)?.requiredPlan}
+                  variant="compact"
+                />
               )}
               {showAiEditor && (
                 <div className="mt-4">
@@ -414,9 +429,19 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <ResumeUpload parsing={parsing} handleFileUpload={handleFileUpload} />
+          {activeTab === "details" && (
+            canParseResume ? (
+              <ResumeUpload parsing={parsing} handleFileUpload={handleFileUpload} />
+            ) : (
+              <PremiumFeatureLock 
+                featureName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.name || "Feature Locked"}
+                description={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.description}
+                planName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.requiredPlan}
+              />
+            )
+          )}
         </div>
-        <div>{masterResume && <TemplateViewer resume={masterResume} />}</div>
+        <div>{masterResume && <TemplateViewer resume={masterResume} user={{ role: userRole }} />}</div>
       </div>
     </div>
   );

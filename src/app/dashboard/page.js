@@ -7,8 +7,10 @@ import JobDescriptionInput from "@/components/home/JobDescriptionInput";
 import SpecialInstructionsInput from "@/components/home/SpecialInstructionsInput";
 import TemplateViewer from "@/components/preview/TemplateViewer";
 import ResumeList from "@/components/ResumeList";
-import { hasPermission } from "@/lib/accessControl";
+import { checkPermission, getPermissionMetadata } from "@/lib/accessControl";
 import { PERMISSIONS } from "@/lib/constants";
+import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
+import PermissionGate from "@/components/common/PermissionGate";
 
 function DashboardContent() {
   const [jobDescription, setJobDescription] = useState("");
@@ -23,7 +25,11 @@ function DashboardContent() {
   const router = useRouter();
   const apiClient = useApiClient();
 
-  const fetchResumes = async () => {
+  const fetchResumes = async (userProfile) => {
+    // Only fetch if user has permission
+    if (!userProfile || !checkPermission(userProfile, PERMISSIONS.VIEW_OWN_RESUMES)) {
+      return;
+    }
     try {
       const resumesResponse = await apiClient("/api/resumes");
       if (resumesResponse.ok) {
@@ -71,12 +77,12 @@ function DashboardContent() {
         if (profileResponse.ok) {
           const data = await profileResponse.json();
           setProfile(data);
+          
+          // Fetch resumes (only if user has permission)
+          await fetchResumes(data);
         } else {
           console.error("Failed to fetch profile");
         }
-
-        // Fetch resumes
-        await fetchResumes();
       } catch (err) {
         console.error("An unexpected error occurred while fetching data.");
       } finally {
@@ -177,7 +183,7 @@ function DashboardContent() {
                   jobDescription={jobDescription}
                   setJobDescription={setJobDescription}
                 />
-                {profile && hasPermission(profile.role, PERMISSIONS.USE_SPECIAL_INSTRUCTIONS) && (
+                {profile && checkPermission(profile, PERMISSIONS.USE_SPECIAL_INSTRUCTIONS) ? (
                   <SpecialInstructionsInput
                     specialInstructions={specialInstructions}
                     setSpecialInstructions={setSpecialInstructions}
@@ -185,7 +191,29 @@ function DashboardContent() {
                     generating={generating}
                     profile={profile}
                   />
-                )}
+                ) : profile && checkPermission(profile, PERMISSIONS.GENERATE_RESUME) ? (
+                  <div className="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4">
+                    <PremiumFeatureLock
+                      featureName={getPermissionMetadata(PERMISSIONS.USE_SPECIAL_INSTRUCTIONS)?.name || "Custom AI Instructions"}
+                      description={getPermissionMetadata(PERMISSIONS.USE_SPECIAL_INSTRUCTIONS)?.description}
+                      planName={getPermissionMetadata(PERMISSIONS.USE_SPECIAL_INSTRUCTIONS)?.requiredPlan}
+                      variant="compact"
+                    />
+                    <button
+                      onClick={handleGenerateResume}
+                      className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-colors disabled:bg-gray-500"
+                      disabled={generating || !profile}
+                    >
+                      {generating ? "Generating..." : "Generate Tailored Resume"}
+                    </button>
+                  </div>
+                ) : profile ? (
+                  <PremiumFeatureLock
+                    featureName={getPermissionMetadata(PERMISSIONS.GENERATE_RESUME)?.name || "AI Resume Generation"}
+                    description={getPermissionMetadata(PERMISSIONS.GENERATE_RESUME)?.description}
+                    planName={getPermissionMetadata(PERMISSIONS.GENERATE_RESUME)?.requiredPlan}
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -203,7 +231,7 @@ function DashboardContent() {
                 Live Preview
               </h2>
               {tailoredResume ? (
-                <TemplateViewer resume={tailoredResume} />
+                <TemplateViewer resume={tailoredResume} user={profile} />
               ) : (
                 <div className="flex flex-col items-center justify-center h-[400px] text-slate-500 border-2 border-dashed border-slate-700 rounded-xl">
                   <svg className="w-16 h-16 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -217,15 +245,18 @@ function DashboardContent() {
         </div>
 
         <div className="mt-12">
-          <ResumeList
-            resumes={resumes}
-            deletingId={deletingId}
-            onDeleteResume={handleDeleteResume}
-            onViewResume={setTailoredResume}
-            loading={loading}
-            masterResume={profile?.mainResume}
-            onUpdateResume={fetchResumes}
-          />
+          <PermissionGate user={profile} permission={PERMISSIONS.VIEW_OWN_RESUMES} fallback="default">
+            <ResumeList
+              resumes={resumes}
+              deletingId={deletingId}
+              onDeleteResume={handleDeleteResume}
+              onViewResume={setTailoredResume}
+              loading={loading}
+              masterResume={profile?.mainResume}
+              onUpdateResume={() => fetchResumes(profile)}
+              user={profile}
+            />
+          </PermissionGate>
         </div>
       </div>
     </div>

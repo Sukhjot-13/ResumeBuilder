@@ -4,16 +4,20 @@ import dbConnect from '@/lib/mongodb';
 import Resume from '@/models/resume';
 import User from '@/models/User';
 import ResumeMetadata from '@/models/resumeMetadata';
+import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { PERMISSIONS } from '@/lib/constants';
 
 export async function GET(req, context) {
   const userId = req.headers.get('x-user-id');
   const { id } = await context.params;
 
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   await dbConnect();
+
+  // Check permission
+  const permResult = await requirePermission(userId, PERMISSIONS.VIEW_OWN_RESUMES);
+  if (isPermissionError(permResult)) {
+    return permResult.error;
+  }
 
   try {
     const resume = await Resume.findOne({ _id: id, userId }).select('-__v');
@@ -33,11 +37,13 @@ export async function DELETE(req, context) {
   const userId = req.headers.get('x-user-id');
   const { id } = await context.params;
 
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   await dbConnect();
+
+  // Check permission
+  const permResult = await requirePermission(userId, PERMISSIONS.DELETE_OWN_RESUME);
+  if (isPermissionError(permResult)) {
+    return permResult.error;
+  }
 
   try {
     // Find and delete the resume, ensuring it belongs to the user
@@ -67,11 +73,13 @@ export async function PATCH(req, context) {
   const { id } = await context.params;
   const { jobTitle, companyName } = await req.json();
 
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   await dbConnect();
+
+  // Check permission
+  const permResult = await requirePermission(userId, PERMISSIONS.EDIT_RESUME_METADATA);
+  if (isPermissionError(permResult)) {
+    return permResult.error;
+  }
 
   try {
     // Verify the resume belongs to the user

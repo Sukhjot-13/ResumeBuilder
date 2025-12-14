@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateTailoredContent } from '../../../services/contentGenerationService';
 import { UserService } from '@/services/userService';
-import { hasPermission } from '@/lib/accessControl';
+import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
@@ -21,7 +21,7 @@ export async function POST(request) {
     const user = await UserService.getUserById(userId);
 
     // Check permission for "Generate Resume" feature
-    if (!hasPermission(user.role, PERMISSIONS.GENERATE_RESUME)) {
+    if (!checkPermission(user, PERMISSIONS.GENERATE_RESUME)) {
       logger.info("Permission denied: GENERATE_RESUME", { userId, role: user.role });
       return NextResponse.json(
         { message: 'This feature requires a Pro subscription.' },

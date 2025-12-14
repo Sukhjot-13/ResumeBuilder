@@ -1,8 +1,21 @@
 import { NextResponse } from "next/server";
 import { pdf } from "@react-pdf/renderer";
 import PdfResumeRenderer from "@/components/preview/PdfResumeRenderer";
+import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { PERMISSIONS } from '@/lib/constants';
+import dbConnect from '@/lib/mongodb';
 
 export async function POST(request) {
+  const userId = request.headers.get('x-user-id');
+
+  await dbConnect();
+
+  // Check permission
+  const permResult = await requirePermission(userId, PERMISSIONS.DOWNLOAD_PDF);
+  if (isPermissionError(permResult)) {
+    return permResult.error;
+  }
+
   try {
     const { resumeData, template } = await request.json();
 

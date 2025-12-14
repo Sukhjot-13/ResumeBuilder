@@ -124,15 +124,79 @@ export const ROLE_PERMISSIONS = {
   [ROLES.USER]: [
     // Free User: Basic features only, limited AI usage
     PERMISSIONS.PARSE_RESUME, // Can upload and parse resume
-    PERMISSIONS.VIEW_OWN_RESUMES,
+    // PERMISSIONS.VIEW_OWN_RESUMES,
     PERMISSIONS.VIEW_OWN_PROFILE,
     PERMISSIONS.EDIT_OWN_PROFILE,
     PERMISSIONS.UPLOAD_MAIN_RESUME,
     PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
+    PERMISSIONS.DELETE_OWN_RESUME,
     PERMISSIONS.MANAGE_OWN_SUBSCRIPTION, // Can upgrade
     PERMISSIONS.DOWNLOAD_PDF, // Can download their uploaded resume
     // Note: NO AI features, limited by credits even if they try
   ],
+};
+
+export const PERMISSION_METADATA = {
+  [PERMISSIONS.PARSE_RESUME]: {
+    name: "AI Resume Parsing",
+    description: "Upload your existing resume and let our AI extract your details instantly. Save time and get a head start.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.EDIT_RESUME_WITH_AI]: {
+    name: "AI Resume Editor",
+    description: "Unlock the full power of AI to edit and improve your resume instantly.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT]: {
+    name: "Version Control",
+    description: "Create unlimited versions of your resume tailored to specific job applications.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.USE_SPECIAL_INSTRUCTIONS]: {
+    name: "Custom AI Instructions",
+    description: "Provide specific instructions to the AI for more personalized resume generation.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.GENERATE_RESUME]: {
+    name: "AI Resume Generation",
+    description: "Generate tailored resumes from job descriptions using advanced AI.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.EDIT_OWN_PROFILE]: {
+    name: "Edit Profile",
+    description: "Update your personal details and information.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.VIEW_OWN_RESUMES]: {
+    name: "View Saved Resumes",
+    description: "Access your library of generated and saved resumes.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.DELETE_OWN_RESUME]: {
+    name: "Delete Resumes",
+    description: "Remove resumes from your library.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.DOWNLOAD_PDF]: {
+    name: "PDF Download",
+    description: "Download your resumes as professionally formatted PDF files.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.EDIT_RESUME_METADATA]: {
+    name: "Edit Resume Details",
+    description: "Update job title and company name for your saved resumes.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.VIEW_OWN_PROFILE]: {
+    name: "View Profile",
+    description: "Access your profile information.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.VIEW_OWN_SUBSCRIPTION]: {
+    name: "View Subscription",
+    description: "Check your subscription status and plan details.",
+    requiredPlan: "PRO"
+  }
 };
 
 export const PLANS = {

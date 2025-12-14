@@ -1,6 +1,6 @@
 import User from '@/models/User';
 import { PLANS, PERMISSIONS, ROLES } from '@/lib/constants';
-import { hasPermission } from '@/lib/utils';
+import { checkPermission } from '@/lib/accessControl';
 import { isSameDay, now } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 
@@ -12,7 +12,7 @@ export const SubscriptionService = {
    */
   getLimit(user) {
     // If admin or has unlimited permission
-    if (hasPermission(user.role, PERMISSIONS.UNLIMITED_CREDITS)) {
+    if (checkPermission(user, PERMISSIONS.UNLIMITED_CREDITS)) {
       return Infinity;
     }
     

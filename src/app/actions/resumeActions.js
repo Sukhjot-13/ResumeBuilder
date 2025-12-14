@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { verifyAuth } from '@/lib/auth';
 import { UserService } from '@/services/userService';
 import { ResumeService } from '@/services/resumeService';
-import { hasPermission } from '@/lib/accessControl';
+import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 
@@ -50,7 +50,7 @@ export async function updateResumeMetadata(metadataId, data) {
     }
 
     // Check permission
-    if (!hasPermission(role, PERMISSIONS.EDIT_RESUME_METADATA)) {
+    if (!checkPermission({ role }, PERMISSIONS.EDIT_RESUME_METADATA)) {
       logger.info('Permission denied: EDIT_RESUME_METADATA', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -84,7 +84,7 @@ export async function deleteResume(resumeId) {
     }
 
     // Check permission
-    if (!hasPermission(role, PERMISSIONS.DELETE_OWN_RESUME)) {
+    if (!checkPermission({ role }, PERMISSIONS.DELETE_OWN_RESUME)) {
       logger.info('Permission denied: DELETE_OWN_RESUME', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
@@ -121,7 +121,7 @@ export async function getUserResumes() {
     }
 
     // Check permission
-    if (!hasPermission(role, PERMISSIONS.VIEW_OWN_RESUMES)) {
+    if (!checkPermission({ role }, PERMISSIONS.VIEW_OWN_RESUMES)) {
       logger.info('Permission denied: VIEW_OWN_RESUMES', { userId, role });
       return { success: false, error: 'Permission denied' };
     }

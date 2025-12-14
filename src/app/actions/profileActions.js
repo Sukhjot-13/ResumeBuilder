@@ -6,12 +6,14 @@ import { verifyAuth } from '@/lib/auth';
 import { UserService } from '@/services/userService';
 import { ResumeService } from '@/services/resumeService';
 import { logger } from '@/lib/logger';
+import { checkPermission } from '@/lib/accessControl';
+import { PERMISSIONS } from '@/lib/constants';
 
 /**
  * Get the authenticated user ID from cookies.
  * @returns {Promise<string|null>} User ID or null if not authenticated
  */
-async function getAuthenticatedUserId() {
+async function getAuthenticatedUser() {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('accessToken')?.value;
   const refreshToken = cookieStore.get('refreshToken')?.value;
@@ -23,13 +25,13 @@ async function getAuthenticatedUserId() {
     );
 
     if (!authResult.ok) {
-      return null;
+      return { userId: null, role: null };
     }
 
-    return authResult.userId;
+    return { userId: authResult.userId, role: authResult.role };
   } catch (error) {
     logger.error('Authentication failed in server action', error);
-    return null;
+    return { userId: null, role: null };
   }
 }
 
@@ -40,10 +42,15 @@ async function getAuthenticatedUserId() {
  */
 export async function updateProfile(formData) {
   try {
-    const userId = await getAuthenticatedUserId();
+    const { userId, role } = await getAuthenticatedUser();
     
     if (!userId) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!checkPermission({ role }, PERMISSIONS.EDIT_OWN_PROFILE)) {
+      logger.info('Permission denied: EDIT_OWN_PROFILE', { userId, role });
+      return { success: false, error: 'Permission denied' };
     }
 
     const email = formData.get('email');
@@ -75,10 +82,15 @@ export async function updateProfile(formData) {
  */
 export async function uploadMainResume(resumeData) {
   try {
-    const userId = await getAuthenticatedUserId();
+    const { userId, role } = await getAuthenticatedUser();
     
     if (!userId) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!checkPermission({ role }, PERMISSIONS.UPLOAD_MAIN_RESUME)) {
+      logger.info('Permission denied: UPLOAD_MAIN_RESUME', { userId, role });
+      return { success: false, error: 'Permission denied' };
     }
 
     const user = await UserService.getUserById(userId);
@@ -118,10 +130,15 @@ export async function uploadMainResume(resumeData) {
  */
 export async function getProfile() {
   try {
-    const userId = await getAuthenticatedUserId();
+    const { userId, role } = await getAuthenticatedUser();
     
     if (!userId) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!checkPermission({ role }, PERMISSIONS.VIEW_OWN_PROFILE)) {
+      logger.info('Permission denied: VIEW_OWN_PROFILE', { userId, role });
+      return { success: false, error: 'Permission denied' };
     }
 
     const user = await UserService.getUserWithMainResume(userId);
@@ -139,10 +156,15 @@ export async function getProfile() {
  */
 export async function checkSubscriptionStatus() {
   try {
-    const userId = await getAuthenticatedUserId();
+    const { userId, role } = await getAuthenticatedUser();
     
     if (!userId) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!checkPermission({ role }, PERMISSIONS.VIEW_OWN_SUBSCRIPTION)) {
+      logger.info('Permission denied: VIEW_OWN_SUBSCRIPTION', { userId, role });
+      return { success: false, error: 'Permission denied' };
     }
 
     const user = await UserService.getUserById(userId, {
