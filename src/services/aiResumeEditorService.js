@@ -1,4 +1,5 @@
 import { getGeminiFlashModel } from './geminiService';
+import { RESUME_SCHEMA_FOR_PROMPT } from '@/lib/resumeSchema';
 
 /**
  * Edits a user's resume based on a natural language query.
@@ -29,46 +30,7 @@ export async function editResumeWithAI(resume, query) {
     3. Ensure the output is a valid JSON object with the same schema as the user's resume data.
     4. If the query is ambiguous or cannot be fulfilled within the given schema, it is acceptable to return the original resume data without modification.
     5. The output JSON schema should be as follows:
-    {
-      "profile": {
-        "full_name": "...",
-        "email": "...",
-        "phone": "...",
-        "location": "...",
-        "website": "...",
-        "headline": "...",
-        "generic_summary": "..."
-      },
-      "work_experience": [
-        {
-          "job_title": "...",
-          "company": "...",
-          "start_date": "YYYY-MM-DD",
-          "end_date": "YYYY-MM-DD",
-          "is_current": false,
-          "responsibilities": ["...", "..."]
-        }
-      ],
-      "education": [
-        {
-          "institution": "...",
-          "degree": "...",
-          "field_of_study": "...",
-          "start_date": "YYYY-MM-DD",
-          "end_date": "YYYY-MM-DD",
-          "relevant_coursework": "...",
-          "bullets": ["...", "..."]
-        }
-      ],
-      "skills": [
-        { "skill_name": "...", "category": "..." }
-      ],
-      "additional_info": {
-        "languages": [],
-        "certifications": [],
-        "awards_activities": []
-      }
-    }
+    ${RESUME_SCHEMA_FOR_PROMPT}
   `;
 
   // Call the Gemini API to generate the edited content

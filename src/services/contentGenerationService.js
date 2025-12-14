@@ -1,4 +1,5 @@
 import { getGeminiFlashModel } from './geminiService';
+import { RESUME_WITH_METADATA_SCHEMA_FOR_PROMPT } from '@/lib/resumeSchema';
 
 /**
  * Generates tailored resume content based on a user's resume, a job description, and special instructions.
@@ -34,52 +35,7 @@ export async function generateTailoredContent(resume, jobDescription, specialIns
     8. When making any changes, especially adding keywords to job descriptions, ensure they are extremely relevant to the job description. Do not add irrelevant keywords.
     9. Pay close attention to any [SPECIAL INSTRUCTIONS] provided by the user and follow them carefully.
     10. The output JSON schema should be as follows:
-    {
-      "resume": {
-        "profile": {
-          "full_name": "...",
-          "email": "...",
-          "phone": "...",
-          "location": "...",
-          "website": "...",
-          "headline": "...",
-          "generic_summary": "..."
-        },
-        "work_experience": [
-          {
-            "job_title": "...",
-            "company": "...",
-            "start_date": "YYYY-MM-DD",
-            "end_date": "YYYY-MM-DD",
-            "is_current": false,
-            "responsibilities": ["...", "..."]
-          }
-        ],
-        "education": [
-          {
-            "institution": "...",
-            "degree": "...",
-            "field_of_study": "...",
-            "start_date": "YYYY-MM-DD",
-            "end_date": "YYYY-MM-DD",
-            "relevant_coursework": "...",
-            "bullets": ["...", "..."]
-          }
-        ],
-        "skills": [
-          { "skill_name": "...", "category": "..." }
-        ],
-        "additional_info": {
-          "languages": [],
-          "certifications": [],
-          "awards_activities": []
-        }
-      },
-      "metadata": {
-        "jobTitle": "...",
-        "companyName": "..."
-      }
-    }
+    ${RESUME_WITH_METADATA_SCHEMA_FOR_PROMPT}
   `;
 
   // Add special instructions to the prompt if they exist

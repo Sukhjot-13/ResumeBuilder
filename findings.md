@@ -12,39 +12,6 @@ This document contains a comprehensive analysis of the codebase focused on:
 
 ## ⚠️ Critical Issues: "One Change → One Place" Violations
 
-### 3. Inline Resume Schema Duplication in AI Services
-
-**Location**:
-
-- [aiResumeEditorService.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/services/aiResumeEditorService.js#L31-L71) (lines 31-71)
-- [contentGenerationService.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/services/contentGenerationService.js#L36-L82) (lines 36-82)
-- [models/resume.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/models/resume.js) (Mongoose schema - source of truth)
-
-**Problem**: The resume JSON schema is hardcoded inline as a prompt string in **both** AI services, separately from the Mongoose model.
-
-**Impact**:
-
-- If the resume structure changes, you must update:
-  1. `models/resume.js`
-  2. The inline schema in `aiResumeEditorService.js`
-  3. The inline schema in `contentGenerationService.js`
-- Schema definitions can drift out of sync
-
-**Recommendation**:
-
-```javascript
-// Create: src/lib/schemas/resumeSchema.js
-export const RESUME_SCHEMA_FOR_PROMPT = `{
-  "profile": { ... },
-  "work_experience": [ ... ],
-  ...
-}`;
-```
-
-Then import and use this single schema definition in both AI services.
-
----
-
 ### 4. Duplicate JSON Parsing Logic in AI Services
 
 **Location**:
