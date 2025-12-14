@@ -45,8 +45,8 @@ export async function POST(req) {
       );
     }
 
-    // Check and track usage
-    const hasCredits = await SubscriptionService.trackUsage(userId, 1);
+    // Check if user has enough credits BEFORE generating
+    const hasCredits = await SubscriptionService.hasCredits(userId, 1);
     
     if (!hasCredits) {
       logger.info("User attempted to edit resume without credits", { userId });
@@ -87,6 +87,14 @@ export async function POST(req) {
 
     // Sanitize the content to remove any AI-generated _id fields
     const sanitizedContent = removeIds(editedResumeContent);
+
+    // DEDUCT CREDITS HERE - Only after successful generation and parsing
+    const tracked = await SubscriptionService.trackUsage(userId, 1);
+    if (!tracked) {
+        // This theoretically shouldn't happen due to the check above, but good for safety
+        logger.warn("Credit deduction failed after generation", { userId });
+        // We still proceed since the work is done, but log it.
+    }
 
     if (createNewResume) {
       // Archive the current main resume if it's not already in generatedResumes
