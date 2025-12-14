@@ -1,4 +1,4 @@
-import { getGeminiFlashModel } from './geminiService';
+import { getGeminiFlashModel, parseGeminiJsonResponse } from './geminiService';
 import { RESUME_WITH_METADATA_SCHEMA_FOR_PROMPT } from '@/lib/resumeSchema';
 
 /**
@@ -49,18 +49,7 @@ export async function generateTailoredContent(resume, jobDescription, specialIns
   // Call the Gemini API to generate the tailored content
   const model = getGeminiFlashModel();
   const result = await model.generateContent(prompt);
-  let text = result.response.text().replace(/```json/g, "").replace(/```/g, "");
-  const lastBraceIndex = text.lastIndexOf('}');
-  if (lastBraceIndex !== -1) {
-    text = text.substring(0, lastBraceIndex + 1);
-  }
-
-  // Parse the JSON response and return it
-  try {
-    const tailoredData = JSON.parse(text);
-    return tailoredData;
-  } catch (e) {
-    console.error('Error parsing JSON:', e);
-    throw new Error(`AI parsing error: ${text}`);
-  }
+  
+  // Parse and return the JSON response using shared helper
+  return parseGeminiJsonResponse(result.response.text());
 }

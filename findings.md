@@ -12,43 +12,6 @@ This document contains a comprehensive analysis of the codebase focused on:
 
 ## ⚠️ Critical Issues: "One Change → One Place" Violations
 
-### 4. Duplicate JSON Parsing Logic in AI Services
-
-**Location**:
-
-- [aiResumeEditorService.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/services/aiResumeEditorService.js#L77-L90) (lines 77-90)
-- [contentGenerationService.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/services/contentGenerationService.js#L96-L109) (lines 96-109)
-
-**Problem**: Both services contain identical JSON cleanup and parsing logic:
-
-````javascript
-let text = result.response
-  .text()
-  .replace(/```json/g, "")
-  .replace(/```/g, "");
-const lastBraceIndex = text.lastIndexOf("}");
-if (lastBraceIndex !== -1) {
-  text = text.substring(0, lastBraceIndex + 1);
-}
-// ... parse JSON
-````
-
-**Recommendation**:
-
-````javascript
-// Add to geminiService.js:
-export function parseGeminiJsonResponse(responseText) {
-  let text = responseText.replace(/```json/g, "").replace(/```/g, "");
-  const lastBraceIndex = text.lastIndexOf("}");
-  if (lastBraceIndex !== -1) {
-    text = text.substring(0, lastBraceIndex + 1);
-  }
-  return JSON.parse(text);
-}
-````
-
----
-
 ## ⚠️ Inconsistencies: Mixed Patterns
 
 ### 5. Inconsistent API Route Permission Checking
