@@ -14,27 +14,6 @@ This document contains a comprehensive analysis of the codebase focused on:
 
 ## ⚠️ Inconsistencies: Mixed Patterns
 
-### 6. `/api/resumes/route.js` Bypasses ResumeService
-
-**Location**: [/api/resumes/route.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/api/resumes/route.js)
-
-**Problem**: The `POST` handler manually creates Resume and ResumeMetadata documents instead of using `ResumeService.createResume()`:
-
-```javascript
-// Current (bad):
-const newResume = new Resume({ userId, content });
-await newResume.save();
-const newMetadata = new ResumeMetadata({ ... });
-// ...
-
-// Should be:
-await ResumeService.createResume(userId, content, metadata);
-```
-
-**Impact**: Resume creation logic is split between the service and the API route. Changes to resume creation must be made in multiple places.
-
----
-
 ## 🔍 Code Quality Issues
 
 ### 7. Unused Import in `utils.js`

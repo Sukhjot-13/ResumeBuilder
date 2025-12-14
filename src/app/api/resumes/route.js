@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import Resume from '@/models/resume';
 import User from '@/models/User';
-import ResumeMetadata from '@/models/resumeMetadata';
+import { ResumeService } from '@/services/resumeService';
+import { UserService } from '@/services/userService';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { logger } from '@/lib/logger';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
@@ -76,37 +76,22 @@ export async function POST(req) {
       );
     }
 
-    // Create the new resume
-    const newResume = new Resume({
+    // Create the resume using ResumeService
+    const newResume = await ResumeService.createResume(
       userId,
       content,
-    });
-    await newResume.save();
+      metadata,
+      { returnPopulated: true }
+    );
 
-    // Add the new resume's ID to the user's generatedResumes array
-    await User.findByIdAndUpdate(userId, {
-      $push: { generatedResumes: newResume._id },
-    });
+    // Add to user's generatedResumes array using UserService
+    await UserService.addGeneratedResume(userId, newResume._id);
 
-    if (metadata) {
-      const newMetadata = new ResumeMetadata({
-        userId,
-        resumeId: newResume._id,
-        jobTitle: metadata.jobTitle,
-        companyName: metadata.companyName,
-      });
-      await newMetadata.save();
-
-      newResume.metadata = newMetadata._id;
-      await newResume.save();
-    }
-
-    const populatedResume = await Resume.findById(newResume._id).populate('metadata');
-    
     logger.info("Resume created successfully", { userId, resumeId: newResume._id });
-    return NextResponse.json(populatedResume, { status: 201 });
+    return NextResponse.json(newResume, { status: 201 });
   } catch (error) {
     logger.error("Error in POST /api/resumes", error, { userId });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
