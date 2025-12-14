@@ -123,9 +123,10 @@ export const ROLE_PERMISSIONS = {
   ],
   [ROLES.USER]: [
     // Free User: Basic features only, limited AI usage
-    PERMISSIONS.PARSE_RESUME, // Can upload and parse resume
+    // PERMISSIONS.PARSE_RESUME, // Can upload and parse resume
     // PERMISSIONS.VIEW_OWN_RESUMES,
     PERMISSIONS.VIEW_OWN_PROFILE,
+    // PERMISSIONS.EDIT_RESUME_WITH_AI,
     PERMISSIONS.EDIT_OWN_PROFILE,
     PERMISSIONS.UPLOAD_MAIN_RESUME,
     PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
@@ -213,18 +214,6 @@ export const PLANS = {
     price: 13.99, // in dollars
     currency: 'usd',
   },
-};
-
-// Legacy - kept for backward compatibility during migration
-// TODO: Remove after all code migrated to PERMISSIONS
-export const FEATURE_ACCESS_LEVELS = {
-  CREATE_NEW_RESUME_ON_EDIT: 99, // Subscriber level
-  EDIT_RESUME_WITH_AI: 99, // Subscriber level
-  SPECIAL_INSTRUCTIONS: 99, // Subscriber level
-};
-
-export const FEATURES = {
-  SAVE_AS_NEW_VERSION: 'save_as_new_version',
 };
 
 export const TOKEN_CONFIG = {

@@ -12,61 +12,6 @@ This document contains a comprehensive analysis of the codebase focused on:
 
 ## ⚠️ Critical Issues: "One Change → One Place" Violations
 
-### 1. Duplicate `getAuthenticatedUser()` Function
-
-**Location**:
-
-- [resumeActions.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/actions/resumeActions.js#L16-L36)
-- [profileActions.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/actions/profileActions.js#L16-L36)
-- [adminActions.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/actions/adminActions.js#L18-L38)
-
-**Problem**: The `getAuthenticatedUser()` function is **identically duplicated** across all 3 server action files. Each copy does the same thing: reads cookies, calls `verifyAuth()`, and returns `{userId, role}`.
-
-**Impact**:
-
-- If authentication logic changes (e.g., adding a new cookie or changing the response structure), **3 files must be updated**.
-- High risk of inconsistency if one file is updated but others are forgotten.
-
-**Recommendation**:
-
-```javascript
-// Create: src/lib/serverAuth.js
-export async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("accessToken")?.value;
-  const refreshToken = cookieStore.get("refreshToken")?.value;
-  // ... rest of implementation
-}
-```
-
----
-
-### 2. Duplicate Permission Checking Systems
-
-**Location**:
-
-- [accessControl.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/lib/accessControl.js) (Primary - **USE THIS**)
-- [featureAccessService.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/services/featureAccessService.js) (Legacy duplicate)
-
-**Problem**: `featureAccessService.js` implements permission checking using `FEATURE_ACCESS_LEVELS` which is:
-
-1. Marked as legacy in `constants.js` (lines 218-224)
-2. Duplicates the functionality of `checkPermission()` in `accessControl.js`
-3. Uses a different mental model (role number comparisons vs explicit permission arrays)
-
-**Impact**:
-
-- Developers may accidentally use the wrong system
-- Two implementations to maintain for the same concept
-
-**Recommendation**:
-
-- Delete `featureAccessService.js` entirely
-- Remove `FEATURE_ACCESS_LEVELS` from `constants.js`
-- Ensure all code uses `hasPermission()` or `checkPermission()` from `accessControl.js`
-
----
-
 ### 3. Inline Resume Schema Duplication in AI Services
 
 **Location**:
@@ -189,23 +134,6 @@ import { ROLE_PERMISSIONS } from "@/lib/constants";
 ```
 
 **Recommendation**: Remove unused import.
-
----
-
-### 8. Legacy Code Still Present
-
-**Location**: [constants.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/lib/constants.js#L218-L228)
-
-**Problem**: `FEATURE_ACCESS_LEVELS` and `FEATURES` constants are marked as legacy but still exist:
-
-```javascript
-// Legacy - kept for backward compatibility during migration
-// TODO: Remove after all code migrated to PERMISSIONS
-export const FEATURE_ACCESS_LEVELS = { ... }
-export const FEATURES = { ... }
-```
-
-**Recommendation**: Complete the migration and remove these.
 
 ---
 

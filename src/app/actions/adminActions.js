@@ -1,8 +1,7 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { verifyAuth } from '@/lib/auth';
+import { getAuthenticatedUser } from '@/lib/serverAuth';
 import { UserService } from '@/services/userService';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { checkPermission } from '@/lib/accessControl';
@@ -10,32 +9,6 @@ import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
-
-/**
- * Get the authenticated user with role.
- * @returns {Promise<{userId: string|null, role: number|null}>}
- */
-async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get('accessToken')?.value;
-  const refreshToken = cookieStore.get('refreshToken')?.value;
-
-  try {
-    const authResult = await verifyAuth(
-      { accessToken, refreshToken },
-      { ip: 'server-action', userAgent: 'server-action' }
-    );
-
-    if (!authResult.ok) {
-      return { userId: null, role: null };
-    }
-
-    return { userId: authResult.userId, role: authResult.role };
-  } catch (error) {
-    logger.error('Authentication failed in admin action', error);
-    return { userId: null, role: null };
-  }
-}
 
 /**
  * Get all users with pagination and filters.

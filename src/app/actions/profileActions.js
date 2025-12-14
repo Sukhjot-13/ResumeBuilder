@@ -1,39 +1,12 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { verifyAuth } from '@/lib/auth';
+import { getAuthenticatedUser } from '@/lib/serverAuth';
 import { UserService } from '@/services/userService';
 import { ResumeService } from '@/services/resumeService';
 import { logger } from '@/lib/logger';
 import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
-
-/**
- * Get the authenticated user ID from cookies.
- * @returns {Promise<string|null>} User ID or null if not authenticated
- */
-async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get('accessToken')?.value;
-  const refreshToken = cookieStore.get('refreshToken')?.value;
-
-  try {
-    const authResult = await verifyAuth(
-      { accessToken, refreshToken },
-      { ip: 'server-action', userAgent: 'server-action' }
-    );
-
-    if (!authResult.ok) {
-      return { userId: null, role: null };
-    }
-
-    return { userId: authResult.userId, role: authResult.role };
-  } catch (error) {
-    logger.error('Authentication failed in server action', error);
-    return { userId: null, role: null };
-  }
-}
 
 /**
  * Update user profile data.
