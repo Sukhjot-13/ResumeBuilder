@@ -1,7 +1,5 @@
-import { NextResponse } from 'next/server';
 import { parseResume } from '../../../services/resumeParsingService';
-import { UserService } from '@/services/userService';
-import { checkPermission } from '@/lib/accessControl';
+import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
@@ -11,24 +9,16 @@ export const bodyParser = false;
 
 export async function POST(request) {
   const userId = request.headers.get('x-user-id');
-  
-  if (!userId) {
-    logger.warn("Unauthorized access attempt to POST /api/parse-resume");
-    return new Response("Unauthorized", { status: 401 });
+
+  await dbConnect();
+
+  // Check permission using standardized helper
+  const permResult = await requirePermission(userId, PERMISSIONS.PARSE_RESUME);
+  if (isPermissionError(permResult)) {
+    return permResult.error;
   }
 
   try {
-    await dbConnect();
-    
-    // Use UserService to get user
-    const user = await UserService.getUserById(userId);
-
-    // Check permission for "Parse Resume" feature
-    if (!checkPermission(user, PERMISSIONS.PARSE_RESUME)) {
-      logger.info("Permission denied: PARSE_RESUME", { userId, role: user.role });
-      return new Response("This feature requires appropriate permissions", { status: 403 });
-    }
-
     const formData = await request.formData();
     const file = formData.get('resumeFile');
 

@@ -14,22 +14,6 @@ This document contains a comprehensive analysis of the codebase focused on:
 
 ## ⚠️ Inconsistencies: Mixed Patterns
 
-### 5. Inconsistent API Route Permission Checking
-
-**Good Pattern** (uses centralized helper):
-
-- [/api/resumes/route.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/api/resumes/route.js) - Uses `requirePermission()` from `apiPermissionGuard.js`
-
-**Mixed Pattern** (inline permission check):
-
-- [/api/generate-content/route.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/api/generate-content/route.js) - Manually calls `UserService.getUserById()` then `checkPermission()`
-- [/api/edit-resume-with-ai/route.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/api/edit-resume-with-ai/route.js) - Manually calls `UserService.getUserById()` then `checkPermission()`
-- [/api/parse-resume/route.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/api/parse-resume/route.js) - Manually calls `UserService.getUserById()` then `checkPermission()`
-
-**Recommendation**: Standardize all API routes to use `requirePermission()` from `apiPermissionGuard.js`.
-
----
-
 ### 6. `/api/resumes/route.js` Bypasses ResumeService
 
 **Location**: [/api/resumes/route.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/api/resumes/route.js)

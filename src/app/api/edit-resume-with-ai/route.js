@@ -4,17 +4,13 @@ import { editResumeWithAI } from '@/services/aiResumeEditorService';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { UserService } from '@/services/userService';
 import { ResumeService } from '@/services/resumeService';
+import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 
 export async function POST(req) {
   const userId = req.headers.get('x-user-id');
-  
-  if (!userId) {
-    logger.warn("Unauthorized access attempt to POST /api/edit-resume-with-ai");
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
 
   let body;
   try {
@@ -32,18 +28,14 @@ export async function POST(req) {
 
   await dbConnect();
 
-  try {
-    // Use UserService instead of direct User.findById
-    const user = await UserService.getUserById(userId);
+  // Check initial permission using standardized helper
+  const permResult = await requirePermission(userId, PERMISSIONS.EDIT_RESUME_WITH_AI);
+  if (isPermissionError(permResult)) {
+    return permResult.error;
+  }
+  const { user } = permResult;
 
-    // Check permission for "Edit with AI" feature
-    if (!checkPermission(user, PERMISSIONS.EDIT_RESUME_WITH_AI)) {
-      logger.info("Permission denied: EDIT_RESUME_WITH_AI", { userId, role: user.role });
-      return NextResponse.json(
-        { error: 'This feature requires a Pro subscription.' },
-        { status: 403 }
-      );
-    }
+  try {
 
     // Check if user has enough credits BEFORE generating
     const hasCredits = await SubscriptionService.hasCredits(userId, 1);
