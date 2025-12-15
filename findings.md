@@ -14,30 +14,6 @@ This document contains a comprehensive analysis of the codebase focused on:
 
 ## ⚠️ Inconsistencies: Mixed Patterns
 
-## 🔍 Code Quality Issues
-
-### 7. Unused Import in `utils.js`
-
-**Location**: [utils.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/lib/utils.js#L3)
-
-**Problem**: Line 3 imports `ROLE_PERMISSIONS` but it's never used in the file.
-
-```javascript
-import { ROLE_PERMISSIONS } from "@/lib/constants";
-```
-
-**Recommendation**: Remove unused import.
-
----
-
-### 9. Deprecated Function Warning (Good Practice, But Consider Removing)
-
-**Location**: [accessControl.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/lib/accessControl.js#L50-L67)
-
-**Problem**: `checkFeatureAccess()` is marked deprecated. If it's not being used anywhere, it should be removed entirely.
-
-**Recommendation**: Search for usages; if none found, delete the function.
-
 ---
 
 ## 🧪 Missing: Automated Tests
@@ -85,48 +61,6 @@ import { ROLE_PERMISSIONS } from "@/lib/constants";
 | 🟢 Low    | Remove unused imports                      | Very Low | Low    |
 | 🟢 Low    | Remove legacy constants/functions          | Low      | Low    |
 | 🟢 Low    | Add automated tests                        | High     | High   |
-
----
-
-## 🔧 Broken/Potential Issues Found
-
-### 1. Potential Race Condition in Credit Tracking
-
-**Location**: [/api/edit-resume-with-ai/route.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/api/edit-resume-with-ai/route.js#L49-L57)
-
-**Issue**: Credits are checked with `hasCredits()` but deducted later with `trackUsage()`. In high-concurrency scenarios, a user could potentially make multiple requests that all pass the credit check before any are deducted.
-
-**Recommendation**: Consider atomic credit operations or optimistic locking.
-
----
-
-### 2. Missing Permission Check in `setAsMainResume`
-
-**Location**: [resumeActions.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/actions/resumeActions.js#L146-L181)
-
-**Issue**: The `setAsMainResume` function doesn't check any permission before allowing a user to set their main resume.
-
-**Recommendation**: Add permission check or document why it's intentionally unrestricted.
-
----
-
-### 3. Hard-coded Role Numbers
-
-**Location**: [profileActions.js](file:///Users/sukhjot/codes/untitled%20folder%202/ats-resume-builder-a1/src/app/actions/profileActions.js#L176-L180)
-
-**Issue**:
-
-```javascript
-isActive: user.role === 99, // SUBSCRIBER role
-isPro: user.role <= 99,
-```
-
-Should use `ROLES.SUBSCRIBER` constant for consistency:
-
-```javascript
-isActive: user.role === ROLES.SUBSCRIBER,
-isPro: user.role <= ROLES.SUBSCRIBER,
-```
 
 ---
 

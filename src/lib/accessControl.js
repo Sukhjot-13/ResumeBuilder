@@ -43,25 +43,3 @@ export function getPermissionMetadata(permission) {
   return PERMISSION_METADATA[permission] || null;
 }
 
-/**
- * Legacy function for backward compatibility
- * @deprecated Use hasPermission instead
- */
-export function checkFeatureAccess(featureName, userRole) {
-  logger.warn('checkFeatureAccess is deprecated, use hasPermission instead', { featureName, userRole });
-  
-  // Map legacy feature names to new permissions
-  const featureToPermissionMap = {
-    'SPECIAL_INSTRUCTIONS': 'use_special_instructions',
-    'EDIT_RESUME_WITH_AI': 'edit_resume_with_ai',
-    'CREATE_NEW_RESUME_ON_EDIT': 'create_new_resume_on_edit',
-  };
-  
-  const permission = featureToPermissionMap[featureName];
-  if (!permission) {
-    logger.error('Unknown feature name in checkFeatureAccess', null, { featureName });
-    return false;
-  }
-  
-  return hasPermission(userRole, permission);
-}

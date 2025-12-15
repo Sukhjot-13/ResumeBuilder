@@ -124,6 +124,12 @@ export async function setAsMainResume(resumeId) {
       return { success: false, error: 'Unauthorized' };
     }
 
+    // Check permission
+    if (!checkPermission({ role }, PERMISSIONS.UPLOAD_MAIN_RESUME)) {
+      logger.info('Permission denied: UPLOAD_MAIN_RESUME', { userId, role });
+      return { success: false, error: 'Permission denied' };
+    }
+
     const user = await UserService.getUserById(userId);
 
     // Archive current main resume if exists

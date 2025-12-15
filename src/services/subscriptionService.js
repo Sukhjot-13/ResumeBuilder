@@ -37,7 +37,7 @@ export const SubscriptionService = {
       throw new Error('User not found');
     }
 
-    // Check and reset limits if needed
+    // Check and reset limits if needed (handles daily reset logic)
     await this.checkAndResetDailyLimits(user);
 
     const limit = this.getLimit(user);
@@ -46,13 +46,23 @@ export const SubscriptionService = {
       return true;
     }
 
-    if ((user.creditsUsed || 0) + amount > limit) {
-      logger.info("User reached credit limit", { userId, creditsUsed: user.creditsUsed, limit });
+    // Atomic deduction: Only increment if condition matches
+    const result = await User.findOneAndUpdate(
+      { 
+        _id: userId,
+        creditsUsed: { $lte: limit - amount } // Ensure we don't exceed limit
+      },
+      { $inc: { creditsUsed: amount } },
+      { new: true }
+    );
+
+    if (!result) {
+      // If result is null, it means the condition failed (not enough credits)
+      // We don't need to log this as error, just info
+      logger.info("User reached credit limit (Atomic check)", { userId, limit, attempted: amount });
       return false;
     }
 
-    user.creditsUsed = (user.creditsUsed || 0) + amount;
-    await user.save();
     return true;
   },
 

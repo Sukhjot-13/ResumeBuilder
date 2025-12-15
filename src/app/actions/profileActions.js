@@ -6,7 +6,7 @@ import { UserService } from '@/services/userService';
 import { ResumeService } from '@/services/resumeService';
 import { logger } from '@/lib/logger';
 import { checkPermission } from '@/lib/accessControl';
-import { PERMISSIONS } from '@/lib/constants';
+import { PERMISSIONS, ROLES } from '@/lib/constants';
 
 /**
  * Update user profile data.
@@ -146,11 +146,11 @@ export async function checkSubscriptionStatus() {
     });
 
     const subscription = {
-      isActive: user.role === 99, // SUBSCRIBER role
+      isActive: user.role === ROLES.SUBSCRIBER, // SUBSCRIBER role
       subscriptionId: user.subscriptionId,
       status: user.subscriptionStatus,
       endDate: user.subscriptionEndDate,
-      isPro: user.role <= 99, // SUBSCRIBER or higher
+      isPro: user.role <= ROLES.SUBSCRIBER, // SUBSCRIBER or higher
     };
 
     logger.debug('Subscription status checked', { userId, isActive: subscription.isActive });

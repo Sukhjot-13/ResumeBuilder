@@ -94,9 +94,26 @@ export async function POST(req) {
         await UserService.addGeneratedResume(userId, user.mainResume);
       }
 
-      // Create new resume with metadata using ResumeService
+      // Fetch current resume to get metadata for clear naming
+      let originalJobTitle = 'AI Edited Resume';
+      
+      if (user.mainResume) {
+        const currentResume = await ResumeService.getResumeWithMetadata(user.mainResume, false);
+        
+        if (currentResume && currentResume.metadata) {
+          originalJobTitle = currentResume.metadata.jobTitle || originalJobTitle;
+          
+          // Rename the OLD resume (append " 1")
+          // This ensures the new resume (which takes the main slot) keeps the "current" name
+          await ResumeService.updateResumeMetadata(currentResume.metadata._id, {
+            jobTitle: `${originalJobTitle} 1`
+          });
+        }
+      }
+
+      // Create new resume with the ORIGINAL name
       const metadata = {
-        jobTitle: sanitizedContent.profile?.headline || 'AI Edited Resume',
+        jobTitle: originalJobTitle,
         companyName: 'AI Generated',
       };
       

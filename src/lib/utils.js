@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
-import { ROLE_PERMISSIONS } from "@/lib/constants";
 
 export function sha256(string) {
   return crypto.createHash('sha256').update(string).digest('hex');
