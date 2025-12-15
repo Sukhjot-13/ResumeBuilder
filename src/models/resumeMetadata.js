@@ -19,6 +19,10 @@ const ResumeMetadataSchema = new mongoose.Schema({
   companyName: {
     type: String,
   },
+  resumeName: {
+    type: String,
+    default: 'Resume',
+  },
   createdAt: {
     type: Date,
     default: Date.now,

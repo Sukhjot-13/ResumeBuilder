@@ -174,7 +174,7 @@ export default function AIEditPage() {
                     <option value="" className="bg-slate-900">Select a resume...</option>
                     {resumes.map((resume) => (
                       <option key={resume._id} value={resume._id} className="bg-slate-900">
-                        {resume.content?.profile?.headline || resume.jobTitle || 'Untitled Resume'} — {new Date(resume.updatedAt).toLocaleDateString()}
+                        {resume.metadata?.resumeName || resume.jobTitle || resume.content?.profile?.headline || 'Untitled Resume'} — {new Date(resume.updatedAt).toLocaleDateString()}
                       </option>
                     ))}
                   </select>

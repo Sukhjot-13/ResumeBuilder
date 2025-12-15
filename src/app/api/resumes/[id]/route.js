@@ -71,7 +71,7 @@ export async function DELETE(req, context) {
 export async function PATCH(req, context) {
   const userId = req.headers.get('x-user-id');
   const { id } = await context.params;
-  const { jobTitle, companyName } = await req.json();
+  const { jobTitle, companyName, resumeName } = await req.json();
 
   await dbConnect();
 
@@ -93,15 +93,15 @@ export async function PATCH(req, context) {
     // but usually we expect it to exist. We'll use findOneAndUpdate with upsert: true just in case,
     // but we need to be careful about the resumeId.
     
+    // Construct update object dynamically to avoid overwriting with undefined
+    const updateFields = { userId };
+    if (jobTitle !== undefined) updateFields.jobTitle = jobTitle;
+    if (companyName !== undefined) updateFields.companyName = companyName;
+    if (resumeName !== undefined) updateFields.resumeName = resumeName;
+
     const updatedMetadata = await ResumeMetadata.findOneAndUpdate(
       { resumeId: id },
-      { 
-        $set: { 
-          jobTitle, 
-          companyName,
-          userId // Ensure userId is set if creating new
-        } 
-      },
+      { $set: updateFields },
       { new: true, upsert: true }
     );
 

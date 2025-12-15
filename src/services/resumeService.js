@@ -161,6 +161,7 @@ export const ResumeService = {
           resumeId: resume._id,
           jobTitle: metadata.jobTitle || 'Untitled',
           companyName: metadata.companyName || '',
+          resumeName: metadata.resumeName,
         });
 
         resume.metadata = resumeMetadata._id;

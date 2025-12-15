@@ -2,6 +2,7 @@ import { verifyAuth } from '@/lib/auth';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import Resume from '@/models/resume';
+import ResumeMetadata from '@/models/resumeMetadata';
 import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 
@@ -21,8 +22,14 @@ export async function GET(req) {
   if (authResult.ok) {
     await dbConnect();
     
-    // Fetch user with populated mainResume
-    const user = await User.findById(authResult.userId).populate('mainResume');
+    // Fetch user with populated mainResume and its metadata
+    const user = await User.findById(authResult.userId).populate({
+      path: 'mainResume',
+      populate: {
+        path: 'metadata',
+        model: 'ResumeMetadata'
+      }
+    });
     
     if (!user) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
@@ -126,7 +133,13 @@ export async function PUT(req) {
     await user.save();
 
     // Fetch updated user with populated mainResume
-    const updatedUser = await User.findById(user._id).populate('mainResume');
+    const updatedUser = await User.findById(user._id).populate({
+      path: 'mainResume',
+      populate: {
+        path: 'metadata',
+        model: 'ResumeMetadata'
+      }
+    });
 
     return new Response(JSON.stringify({
       id: updatedUser._id,

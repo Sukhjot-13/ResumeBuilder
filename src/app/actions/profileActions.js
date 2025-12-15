@@ -82,7 +82,7 @@ export async function uploadMainResume(resumeData) {
       return { success: true, resume: updatedResume };
     } else {
       // Create new main resume
-      const newResume = await ResumeService.createResume(userId, resumeData);
+      const newResume = await ResumeService.createResume(userId, resumeData, { resumeName: 'Master Resume' });
       await UserService.setMainResume(userId, newResume._id);
       
       revalidatePath('/profile');

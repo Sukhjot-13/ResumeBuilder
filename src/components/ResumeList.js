@@ -17,13 +17,14 @@ export default function ResumeList({
   user,
 }) {
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ jobTitle: "", companyName: "" });
+  const [editForm, setEditForm] = useState({ resumeName: "", jobTitle: "", companyName: "" });
   const [savingId, setSavingId] = useState(null);
   const apiClient = useApiClient();
 
   const startEditing = (resume) => {
     setEditingId(resume._id);
     setEditForm({
+      resumeName: resume.metadata?.resumeName || "",
       jobTitle: resume.metadata?.jobTitle || "",
       companyName: resume.metadata?.companyName || "",
     });
@@ -31,7 +32,7 @@ export default function ResumeList({
 
   const cancelEditing = () => {
     setEditingId(null);
-    setEditForm({ jobTitle: "", companyName: "" });
+    setEditForm({ resumeName: "", jobTitle: "", companyName: "" });
   };
 
   const saveEditing = async (resumeId) => {
@@ -100,7 +101,7 @@ export default function ResumeList({
               </div>
               
               <h3 className="text-lg font-semibold mb-1 text-white">
-                {masterResume.content?.profile?.full_name || "Master Resume"}
+                {masterResume.metadata?.resumeName || masterResume.content?.profile?.full_name || "Master Resume"}
               </h3>
               
               <p className="text-sm text-slate-400 mb-4">
@@ -156,6 +157,13 @@ export default function ResumeList({
                   <div className="mb-4 space-y-2">
                     <input
                       type="text"
+                      value={editForm.resumeName}
+                      onChange={(e) => setEditForm({ ...editForm, resumeName: e.target.value })}
+                      className="w-full bg-slate-800/50 border border-white/10 rounded px-2 py-1 text-sm text-white focus:border-blue-500 outline-none mb-2"
+                      placeholder="Resume Name (e.g., Software Engineer V1)"
+                    />
+                    <input
+                      type="text"
                       value={editForm.jobTitle}
                       onChange={(e) => setEditForm({ ...editForm, jobTitle: e.target.value })}
                       className="w-full bg-slate-800/50 border border-white/10 rounded px-2 py-1 text-sm text-white focus:border-blue-500 outline-none"
@@ -188,12 +196,14 @@ export default function ResumeList({
                 ) : (
                   <>
                     <h3 className="text-lg font-semibold mb-1 text-white truncate">
-                      {resume.metadata?.jobTitle || "Untitled Resume"}
+                      {resume.metadata?.resumeName || resume.metadata?.jobTitle || "Untitled Resume"}
                     </h3>
                     
-                    {resume.metadata?.companyName && (
+                    {(resume.metadata?.jobTitle || resume.metadata?.companyName) && (
                       <p className="text-sm text-slate-400 mb-4 truncate">
-                        Target: {resume.metadata.companyName}
+                        {resume.metadata?.jobTitle && resume.metadata?.companyName 
+                          ? `${resume.metadata.jobTitle} at ${resume.metadata.companyName}`
+                          : resume.metadata?.jobTitle || resume.metadata?.companyName}
                       </p>
                     )}
                   </>
