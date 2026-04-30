@@ -1,5 +1,6 @@
 import User from '@/models/User';
 import { ROLES } from '@/lib/constants';
+import { logger } from '@/lib/logger';
 
 /**
  * Checks if a user's subscription has expired and downgrades them if necessary.
@@ -22,7 +23,7 @@ export async function checkAndDowngradeExpiredSubscription(user) {
     user.subscriptionStatus = 'expired';
     await user.save();
 
-    console.log(`⏰ User ${user._id} subscription expired, downgraded to USER (role 100)`);
+    logger.info('User subscription expired, downgraded to USER', { userId: user._id });
     return true;
   }
 

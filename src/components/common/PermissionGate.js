@@ -24,10 +24,10 @@ export default function PermissionGate({
   children, 
   fallback = 'default' 
 }) {
-  // If no user or no permission specified, render children (fail open for UX, API will block)
-  if (!user || !permission) {
-    return children;
-  }
+  // If no permission is specified, the gate is not configured — pass through.
+  // If no user is present, deny — never show gated content to unauthenticated users.
+  if (!permission) return children;
+  if (!user) return null;
 
   const hasAccess = checkPermission(user, permission);
 

@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { verifyAuthEdge } from '@/lib/auth-edge';
-import { ROLES } from '@/lib/constants';
+import { ROLES, TOKEN_CONFIG } from '@/lib/constants';
 
 export async function proxy(req) {
   const { pathname } = req.nextUrl;
@@ -97,8 +97,8 @@ export async function proxy(req) {
     // Set new cookies if rotation happened
     if (authResult.newAccessToken && authResult.newRefreshToken) {
       const secure = process.env.NODE_ENV === 'production';
-      response.cookies.set('accessToken', authResult.newAccessToken, { path: '/', maxAge: 5 * 60, httpOnly: true, secure, sameSite: 'lax' });
-      response.cookies.set('refreshToken', authResult.newRefreshToken, { path: '/', maxAge: 15 * 24 * 60 * 60, httpOnly: true, secure, sameSite: 'lax' });
+      response.cookies.set('accessToken', authResult.newAccessToken, { path: '/', maxAge: TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY_SECONDS, httpOnly: true, secure, sameSite: 'lax' });
+      response.cookies.set('refreshToken', authResult.newRefreshToken, { path: '/', maxAge: TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS / 1000, httpOnly: true, secure, sameSite: 'lax' });
     }
   } else {
     // User is not authenticated
@@ -124,5 +124,16 @@ export async function proxy(req) {
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/dashboard/:path*', '/profile/:path*', '/onboarding/:path*', '/admin/:path*', '/login', '/resume-history/:path*', '/checkout/:path*'],
+  // NOTE: /api/admin/:path* is covered by /api/:path* — the isAdminRoute check
+  // in the handler ensures role-based access is enforced at the proxy level too.
+  matcher: [
+    '/api/:path*',
+    '/dashboard/:path*',
+    '/profile/:path*',
+    '/onboarding/:path*',
+    '/admin/:path*',
+    '/login',
+    '/resume-history/:path*',
+    '/checkout/:path*',
+  ],
 };

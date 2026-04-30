@@ -1,5 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Single source of truth for model names — update here to change globally
+const GEMINI_MODELS = {
+  PRO: 'gemini-pro',
+  FLASH: 'gemini-flash-latest',
+};
+
 let geminiAI = null;
 
 export function getGeminiClient() {
@@ -14,11 +20,11 @@ export function getGeminiClient() {
 }
 
 export function getGeminiModel() {
-  return getGeminiClient().getGenerativeModel({ model: "gemini-pro" });
+  return getGeminiClient().getGenerativeModel({ model: GEMINI_MODELS.PRO });
 }
 
 export function getGeminiFlashModel() {
-  return getGeminiClient().getGenerativeModel({ model: "gemini-flash-latest" });
+  return getGeminiClient().getGenerativeModel({ model: GEMINI_MODELS.FLASH });
 }
 
 /**

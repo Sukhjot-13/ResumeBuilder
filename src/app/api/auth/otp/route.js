@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import * as Brevo from '@getbrevo/brevo';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
+import { sha256 } from '@/lib/utils';
+import { OTP_CONFIG } from '@/lib/constants';
 
 export async function POST(req) {
   const { email } = await req.json();
@@ -12,7 +14,7 @@ export async function POST(req) {
   }
 
   const otp = crypto.randomInt(100000, 999999).toString();
-  const otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
+  const otpExpires = Date.now() + OTP_CONFIG.EXPIRY_MS;
 
   await dbConnect();
 
@@ -20,11 +22,11 @@ export async function POST(req) {
     let user = await User.findOne({ email });
 
     if (user) {
-      user.otp = otp;
+      user.otp = sha256(otp); // Store hashed OTP, never plaintext
       user.otpExpires = otpExpires;
       await user.save();
     } else {
-      user = await User.create({ email, otp, otpExpires });
+      user = await User.create({ email, otp: sha256(otp), otpExpires });
     }
 
     const apiInstance = new Brevo.TransactionalEmailsApi();

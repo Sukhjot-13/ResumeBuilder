@@ -1,27 +1,23 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { verifyToken } from '@/lib/utils';
 import User from '@/models/User';
 import { PLANS } from '@/lib/constants';
 import dbConnect from '@/lib/mongodb';
+import { logger } from '@/lib/logger';
+
+// ARCH-2: Removed manual token extraction and verification.
+// The middleware proxy already authenticates the request and injects x-user-id.
+// This route now follows the same pattern as all other protected API routes.
 
 export async function POST(req) {
+  const userId = req.headers.get('x-user-id');
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { planName } = await req.json(); // e.g., 'PRO'
-    
-    // Verify user
-    // Note: In a real app, use a robust way to get user from session/token
-    // Here we assume the client sends the access token in Authorization header
-    let token = req.headers.get('authorization')?.split(' ')[1];
-    if (!token) {
-      token = req.cookies.get('accessToken')?.value;
-    }
-    
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const payload = await verifyToken(token, 'access');
-    const userId = payload.userId;
 
     await dbConnect();
     const user = await User.findById(userId);
@@ -71,9 +67,10 @@ export async function POST(req) {
       },
     });
 
+    logger.info('Stripe checkout session created', { userId, planName });
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error('Stripe Checkout Error:', error);
+    logger.error('Stripe Checkout Error', error, { userId });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

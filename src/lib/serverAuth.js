@@ -18,7 +18,7 @@ export async function getAuthenticatedUser() {
   try {
     const authResult = await verifyAuth(
       { accessToken, refreshToken },
-      { ip: 'server-action', userAgent: 'server-action' }
+      { ip: null, userAgent: 'server-action' } // No real IP available in server actions
     );
 
     if (!authResult.ok) {

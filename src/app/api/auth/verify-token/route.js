@@ -1,9 +1,10 @@
 
 import { NextResponse } from 'next/server';
 import { rotateRefreshToken } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 export async function POST(req) {
-  console.log('--- In verify-token route ---');
+  logger.debug('Token rotation requested via verify-token route');
   
   try {
     const { refreshToken } = await req.json();
@@ -22,13 +23,11 @@ export async function POST(req) {
     return NextResponse.json({ newAccessToken, newRefreshToken, userId });
 
   } catch (error) {
-    // Catch errors from JSON parsing or from rotateRefreshToken
-    console.error('Error in verify-token route:', error);
     if (error instanceof SyntaxError) {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
-    // `rotateRefreshToken` throws errors for specific cases.
-    // A 401 status is appropriate for auth failures.
-    return NextResponse.json({ error: error.message || 'Token verification failed' }, { status: 401 });
+    logger.error('Token rotation failed in verify-token route', error);
+    // Return generic message — never leak internal error details to client
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
   }
 }

@@ -222,6 +222,7 @@ export const PLANS = {
 
 export const TOKEN_CONFIG = {
   ACCESS_TOKEN_EXPIRY: '15m',
+  ACCESS_TOKEN_EXPIRY_SECONDS: 15 * 60, // Must match ACCESS_TOKEN_EXPIRY
   REFRESH_TOKEN_EXPIRY_DAYS: 15,
   REFRESH_TOKEN_EXPIRY_MS: 15 * 24 * 60 * 60 * 1000,
   TYPE_ACCESS: 'access',
@@ -230,4 +231,8 @@ export const TOKEN_CONFIG = {
 
 export const DEFAULTS = {
   CREDITS_ON_SIGNUP: 2,
+};
+
+export const OTP_CONFIG = {
+  EXPIRY_MS: 5 * 60 * 1000, // 5 minutes — change here to update everywhere
 };

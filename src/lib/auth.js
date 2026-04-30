@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/mongodb";
 import RefreshToken from "@/models/refreshToken";
+import User from "@/models/User";
 import {
   verifyToken,
   hashToken,
@@ -62,7 +63,6 @@ export async function rotateRefreshToken(refreshToken, reqInfo) {
   await RefreshToken.findByIdAndDelete(tokenDoc._id);
 
   // Fetch user to get current role
-  const User = (await import('@/models/User')).default;
   const user = await User.findById(userId);
   if (!user) {
     logger.error("User not found during token rotation", null, { userId });
@@ -118,7 +118,6 @@ export async function verifyAuth(tokens, reqInfo) {
       await rotateRefreshToken(refreshToken, reqInfo);
     
     // Decode new access token to get role (or we could have returned it from rotateRefreshToken)
-    const { verifyToken } = await import('@/lib/utils');
     const payload = await verifyToken(newAccessToken, TOKEN_CONFIG.TYPE_ACCESS);
     
     return { ok: true, userId, role: payload.role, newAccessToken, newRefreshToken };

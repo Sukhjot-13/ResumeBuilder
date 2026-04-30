@@ -1,52 +1,43 @@
-import { verifyAuth } from '@/lib/auth';
+import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import Resume from '@/models/resume';
 import ResumeMetadata from '@/models/resumeMetadata';
 import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
+import { logger } from '@/lib/logger';
+
+// ARCH-1: This route now follows the standard pattern — read x-user-id injected
+// by the middleware proxy. No manual cookie/token verification needed here.
 
 export async function GET(req) {
-  // Extract cookies (HttpOnly) from the request
-  const accessToken = req.cookies.get('accessToken')?.value;
-  const refreshToken = req.cookies.get('refreshToken')?.value;
+  const userId = req.headers.get('x-user-id');
 
-  // Optional request info for logging (same as proxy)
-  const reqInfo = {
-    ip: req.headers.get('x-forwarded-for') || req.ip,
-    userAgent: req.headers.get('user-agent'),
-  };
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-  const authResult = await verifyAuth({ accessToken, refreshToken }, reqInfo);
-
-  if (authResult.ok) {
+  try {
     await dbConnect();
-    
-    // Fetch user with populated mainResume and its metadata
-    const user = await User.findById(authResult.userId).populate({
+
+    const user = await User.findById(userId).populate({
       path: 'mainResume',
       populate: {
         path: 'metadata',
-        model: 'ResumeMetadata'
-      }
+        model: 'ResumeMetadata',
+      },
     });
-    
+
     if (!user) {
-      return new Response(JSON.stringify({ error: 'User not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      logger.warn('User not found in GET /api/user/profile', { userId });
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check permission
     if (!checkPermission(user, PERMISSIONS.VIEW_OWN_PROFILE)) {
-      return new Response(JSON.stringify({ error: 'Permission denied' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    return new Response(JSON.stringify({
+    return NextResponse.json({
       id: user._id,
       email: user.email,
       name: user.name,
@@ -54,109 +45,70 @@ export async function GET(req) {
       mainResume: user.mainResume,
       creditsUsed: user.creditsUsed || 0,
       role: user.role,
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
     });
+  } catch (error) {
+    logger.error('Error in GET /api/user/profile', error, { userId });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  return new Response(JSON.stringify({ ok: false }), {
-    status: 401,
-    headers: { 'Content-Type': 'application/json' },
-  });
 }
 
 export async function PUT(req) {
-  // Extract cookies (HttpOnly) from the request
-  const accessToken = req.cookies.get('accessToken')?.value;
-  const refreshToken = req.cookies.get('refreshToken')?.value;
+  const userId = req.headers.get('x-user-id');
 
-  // Optional request info for logging
-  const reqInfo = {
-    ip: req.headers.get('x-forwarded-for') || req.ip,
-    userAgent: req.headers.get('user-agent'),
-  };
-
-  const authResult = await verifyAuth({ accessToken, refreshToken }, reqInfo);
-
-  if (!authResult.ok) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     await dbConnect();
-    
+
     const body = await req.json();
     const { mainResume, name, dateOfBirth } = body;
 
-    const user = await User.findById(authResult.userId);
-    
+    const user = await User.findById(userId);
+
     if (!user) {
-      return new Response(JSON.stringify({ error: 'User not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      logger.warn('User not found in PUT /api/user/profile', { userId });
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check permission
     if (!checkPermission(user, PERMISSIONS.EDIT_OWN_PROFILE)) {
-      return new Response(JSON.stringify({ error: 'Permission denied' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Handle mainResume update
     if (mainResume) {
-      // Create a new Resume document
       const newResume = new Resume({
         userId: user._id,
         content: mainResume,
       });
       await newResume.save();
-
-      // Update user's mainResume reference
       user.mainResume = newResume._id;
     }
 
-    // Handle profile updates
-    if (name !== undefined) {
-      user.name = name;
-    }
-    if (dateOfBirth !== undefined) {
-      user.dateOfBirth = dateOfBirth;
-    }
+    if (name !== undefined) user.name = name;
+    if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
 
     await user.save();
 
-    // Fetch updated user with populated mainResume
     const updatedUser = await User.findById(user._id).populate({
       path: 'mainResume',
       populate: {
         path: 'metadata',
-        model: 'ResumeMetadata'
-      }
+        model: 'ResumeMetadata',
+      },
     });
 
-    return new Response(JSON.stringify({
+    logger.info('Profile updated', { userId });
+    return NextResponse.json({
       id: updatedUser._id,
       email: updatedUser.email,
       name: updatedUser.name,
       dateOfBirth: updatedUser.dateOfBirth,
       mainResume: updatedUser.mainResume,
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
     });
-
   } catch (error) {
-    console.error('Error updating profile:', error);
-    return new Response(JSON.stringify({ error: 'Failed to update profile' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    logger.error('Error in PUT /api/user/profile', error, { userId });
+    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
   }
 }

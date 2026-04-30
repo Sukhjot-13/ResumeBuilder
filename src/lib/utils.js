@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
+import { TOKEN_CONFIG } from '@/lib/constants';
 
 export function sha256(string) {
   return crypto.createHash('sha256').update(string).digest('hex');
@@ -13,7 +14,7 @@ export async function generateAccessToken(userId, role) {
   const secret = new TextEncoder().encode(process.env.ACCESS_TOKEN_SECRET);
   return await new SignJWT({ userId: userId.toString(), role })
     .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime('5m')
+    .setExpirationTime(TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY) // Single source of truth
     .sign(secret);
 }
 

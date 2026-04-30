@@ -5,9 +5,11 @@ import User from '@/models/User';
 import RefreshToken from '@/models/refreshToken';
 import {
   hashToken,
+  sha256,
   generateAccessToken,
   generateRefreshToken,
 } from '@/lib/utils';
+import { TOKEN_CONFIG } from '@/lib/constants';
 
 export async function POST(req) {
   const { email, otp } = await req.json();
@@ -21,12 +23,12 @@ export async function POST(req) {
   try {
     const user = await User.findOne({ email });
 
-    if (!user || user.otp !== otp || Date.now() > user.otpExpires) {
+    if (!user || user.otp !== sha256(otp) || Date.now() > user.otpExpires) {
       return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 });
     }
 
     let newUser = !user.name;
-    const refreshTokenExpirationSeconds = 15 * 24 * 60 * 60; // 15 days in seconds
+    const refreshTokenExpirationSeconds = TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS / 1000;
 
     const accessToken = await generateAccessToken(user._id, user.role);
     const refreshToken = await generateRefreshToken(user._id);
@@ -51,16 +53,20 @@ export async function POST(req) {
     const response = NextResponse.json({ newUser });
 
     // Set cookies
+    const secure = process.env.NODE_ENV === 'production';
     response.cookies.set('accessToken', accessToken, {
       path: '/',
-      maxAge: 5 * 60, // 5 minutes
-      secure: process.env.NODE_ENV === 'production',
+      maxAge: TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY_SECONDS,
+      httpOnly: true,
+      secure,
+      sameSite: 'lax',
     });
     response.cookies.set('refreshToken', refreshToken, {
       path: '/',
       maxAge: refreshTokenExpirationSeconds,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure,
+      sameSite: 'lax',
     });
 
     return response;
