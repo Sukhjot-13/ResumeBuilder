@@ -245,18 +245,33 @@ function DashboardContent() {
         </div>
 
         <div className="mt-12">
-          <PermissionGate user={profile} permission={PERMISSIONS.VIEW_OWN_RESUMES} fallback="default">
+          {/* Show skeleton during initial load to avoid flash.
+              Only apply PermissionGate once profile has loaded. */}
+          {loading || !profile ? (
             <ResumeList
-              resumes={resumes}
-              deletingId={deletingId}
+              resumes={[]}
+              deletingId={null}
               onDeleteResume={handleDeleteResume}
               onViewResume={setTailoredResume}
-              loading={loading}
-              masterResume={profile?.mainResume}
-              onUpdateResume={() => fetchResumes(profile)}
-              user={profile}
+              loading={true}
+              masterResume={null}
+              onUpdateResume={() => {}}
+              user={null}
             />
-          </PermissionGate>
+          ) : (
+            <PermissionGate user={profile} permission={PERMISSIONS.VIEW_OWN_RESUMES} fallback="default">
+              <ResumeList
+                resumes={resumes}
+                deletingId={deletingId}
+                onDeleteResume={handleDeleteResume}
+                onViewResume={setTailoredResume}
+                loading={false}
+                masterResume={profile?.mainResume}
+                onUpdateResume={() => fetchResumes(profile)}
+                user={profile}
+              />
+            </PermissionGate>
+          )}
         </div>
       </div>
     </div>

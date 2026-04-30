@@ -2,11 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/layout/Navbar';
 import { PERMISSIONS } from '@/lib/constants';
 import { checkPermission, getPermissionMetadata } from '@/lib/accessControl';
-// TemplateViewer is unused in this file, but keeping imports clean is good practice.
-// import TemplateViewer from "@/components/preview/TemplateViewer"; 
 import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
 
 export default function AIEditPage() {
@@ -25,9 +22,14 @@ export default function AIEditPage() {
     checkAccess();
   }, []);
 
+  // When profile loads, fetch generated resumes and auto-select master resume
   useEffect(() => {
     if (userProfile) {
       fetchResumes();
+      // Auto-select master resume by default if it exists
+      if (userProfile.mainResume?._id) {
+        setSelectedResumeId(userProfile.mainResume._id.toString());
+      }
     }
   }, [userProfile]);
 
@@ -38,7 +40,7 @@ export default function AIEditPage() {
         const data = await res.json();
         setUserProfile(data);
       } else {
-        router.push('/auth/login');
+        router.push('/login');
       }
     } catch (err) {
       console.error('Error checking access:', err);
@@ -57,9 +59,16 @@ export default function AIEditPage() {
       }
     } catch (err) {
       console.error('Error fetching resumes:', err);
-      setError('Failed to fetch resumes');
     }
   };
+
+  // Build the full dropdown list: master resume first, then generated resumes
+  // Filter out the master resume from generated resumes to avoid duplicates
+  const masterResumeId = userProfile?.mainResume?._id?.toString();
+  const allResumes = [
+    ...(userProfile?.mainResume ? [{ ...userProfile.mainResume, _isMaster: true }] : []),
+    ...resumes.filter(r => r._id?.toString() !== masterResumeId),
+  ];
 
   const handleEdit = async () => {
     if (!selectedResumeId || !query) {
@@ -72,17 +81,23 @@ export default function AIEditPage() {
     setSuccess('');
 
     try {
-      const selectedResume = resumes.find(r => r._id === selectedResumeId);
-      
+      // Find selected resume from the combined list (master + generated)
+      const selectedResume =
+        allResumes.find(r => r._id?.toString() === selectedResumeId);
+
+      if (!selectedResume) {
+        setError('Selected resume not found');
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch('/api/edit-resume-with-ai', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           resume: selectedResume.content,
           query,
-          createNewResume: createNew
+          createNewResume: createNew,
         }),
       });
 
@@ -102,11 +117,23 @@ export default function AIEditPage() {
     }
   };
 
-  // Loading state with dark theme
+  const getResumeLabel = (resume) => {
+    const name =
+      resume.metadata?.resumeName ||
+      resume.metadata?.jobTitle ||
+      resume.content?.profile?.headline ||
+      'Untitled Resume';
+    const date = resume.updatedAt
+      ? new Date(resume.updatedAt).toLocaleDateString()
+      : '';
+    const tag = resume._isMaster ? '⭐ Master — ' : '';
+    return `${tag}${name}${date ? ` (${date})` : ''}`;
+  };
+
+  // Loading state
   if (isCheckingAccess) {
     return (
       <div className="min-h-screen bg-slate-900">
-        <Navbar />
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -117,11 +144,9 @@ export default function AIEditPage() {
     );
   }
 
-  // Not authenticated / Loading profile
   if (!userProfile) {
     return (
-       <div className="min-h-screen bg-slate-900">
-        <Navbar />
+      <div className="min-h-screen bg-slate-900">
         <div className="text-white text-center mt-20">Loading...</div>
       </div>
     );
@@ -134,15 +159,13 @@ export default function AIEditPage() {
     <div className="min-h-screen bg-slate-900 text-slate-50 relative overflow-hidden">
       {/* Background Decor */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px]" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[100px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[100px]" />
       </div>
 
-      <Navbar />
-      
       <div className="relative z-10 max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         {!hasAccess ? (
-          <PremiumFeatureLock 
+          <PremiumFeatureLock
             featureName={getPermissionMetadata(PERMISSIONS.EDIT_RESUME_WITH_AI)?.name || "Feature Locked"}
             description={getPermissionMetadata(PERMISSIONS.EDIT_RESUME_WITH_AI)?.description}
             planName={getPermissionMetadata(PERMISSIONS.EDIT_RESUME_WITH_AI)?.requiredPlan}
@@ -172,22 +195,22 @@ export default function AIEditPage() {
                     onChange={(e) => setSelectedResumeId(e.target.value)}
                   >
                     <option value="" className="bg-slate-900">Select a resume...</option>
-                    {resumes.map((resume) => (
-                      <option key={resume._id} value={resume._id} className="bg-slate-900">
-                        {resume.metadata?.resumeName || resume.jobTitle || resume.content?.profile?.headline || 'Untitled Resume'} — {new Date(resume.updatedAt).toLocaleDateString()}
+                    {allResumes.map((resume) => (
+                      <option key={resume._id} value={resume._id?.toString()} className="bg-slate-900">
+                        {getResumeLabel(resume)}
                       </option>
                     ))}
                   </select>
-                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
-                {resumes.length === 0 && (
+                {allResumes.length === 0 && (
                   <p className="mt-2 text-sm text-yellow-500 flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    No resumes found. Please create a resume first.
+                    No resumes found. Please upload a resume in your Profile first.
                   </p>
                 )}
               </div>
@@ -232,7 +255,7 @@ export default function AIEditPage() {
               {/* Messages */}
               {error && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
-                   <svg className="w-5 h-5 text-red-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <svg className="w-5 h-5 text-red-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                   <p className="text-sm text-red-200">{error}</p>
                 </div>
               )}
@@ -256,15 +279,15 @@ export default function AIEditPage() {
                 }`}
               >
                 {loading ? (
-                   <div className="flex items-center gap-2">
-                     <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                     Processing edits...
-                   </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Processing edits...
+                  </div>
                 ) : (
-                   <span className="flex items-center gap-2">
-                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                     Generate AI Edits
-                   </span>
+                  <span className="flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Generate AI Edits
+                  </span>
                 )}
               </button>
             </div>
