@@ -127,17 +127,17 @@ export const ROLE_PERMISSIONS = {
   ],
   [ROLES.USER]: [
     // Free User: Basic features only, limited AI usage
-    // PERMISSIONS.PARSE_RESUME, // Can upload and parse resume
-    // PERMISSIONS.VIEW_OWN_RESUMES,
+    // PERMISSIONS.PARSE_RESUME, // Parse resume is Pro only
+    // PERMISSIONS.VIEW_OWN_RESUMES, // Viewing generated resumes list is Pro only
     PERMISSIONS.VIEW_OWN_PROFILE,
-    // PERMISSIONS.EDIT_RESUME_WITH_AI,
     PERMISSIONS.EDIT_OWN_PROFILE,
-    PERMISSIONS.UPLOAD_MAIN_RESUME,
+    PERMISSIONS.UPLOAD_MAIN_RESUME,   // Can save/update their master resume manually
+    PERMISSIONS.CREATE_RESUME,        // Can create a resume via manual form
     PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
     PERMISSIONS.DELETE_OWN_RESUME,
     PERMISSIONS.MANAGE_OWN_SUBSCRIPTION, // Can upgrade
-    PERMISSIONS.DOWNLOAD_PDF, // Can download their uploaded resume
-    // Note: NO AI features, limited by credits even if they try
+    PERMISSIONS.DOWNLOAD_PDF, // Can download their master resume
+    // Note: NO AI features
   ],
 };
 

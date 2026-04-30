@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useApiClient } from "@/hooks/useApiClient";
 import ResumeUpload from "@/components/profile/ResumeUpload";
+import ManualResumeForm from "@/components/profile/ManualResumeForm";
 import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
 import PermissionGate from "@/components/common/PermissionGate";
 import TemplateViewer from "@/components/preview/TemplateViewer";
@@ -18,6 +19,7 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("");
   const [masterResume, setMasterResume] = useState(null);
   const [showAiEditor, setShowAiEditor] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
   const [aiEditQuery, setAiEditQuery] = useState("");
   const [editing, setEditing] = useState(false);
   const apiClient = useApiClient();
@@ -430,15 +432,46 @@ export default function ProfilePage() {
           )}
 
           {activeTab === "details" && (
-            canParseResume ? (
-              <ResumeUpload parsing={parsing} handleFileUpload={handleFileUpload} />
-            ) : (
-              <PremiumFeatureLock 
-                featureName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.name || "Feature Locked"}
-                description={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.description}
-                planName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.requiredPlan}
-              />
-            )
+            <div className="space-y-6">
+              {/* Manual resume form — available to ALL users */}
+              <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-white">Your Resume Data</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {masterResume ? "Edit your saved resume details" : "Enter your resume details manually"}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowManualForm((v) => !v)}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
+                  >
+                    {showManualForm ? "Hide Form" : masterResume ? "Edit Resume" : "Add Resume"}
+                  </button>
+                </div>
+                {showManualForm && (
+                  <ManualResumeForm
+                    initialData={masterResume || undefined}
+                    onSaved={(saved) => {
+                      setMasterResume(saved.content);
+                      setShowManualForm(false);
+                      setSuccess("Resume saved!");
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* AI-powered file upload — Pro users only */}
+              {canParseResume ? (
+                <ResumeUpload parsing={parsing} handleFileUpload={handleFileUpload} />
+              ) : (
+                <PremiumFeatureLock
+                  featureName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.name || "AI Resume Parsing"}
+                  description={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.description}
+                  planName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.requiredPlan}
+                />
+              )}
+            </div>
           )}
         </div>
         <div>{masterResume && <TemplateViewer resume={masterResume} user={{ role: userRole }} />}</div>

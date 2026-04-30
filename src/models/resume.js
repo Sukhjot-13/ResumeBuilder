@@ -1,45 +1,14 @@
+/**
+ * Resume Mongoose Model
+ *
+ * The content structure is derived from the single source of truth:
+ * src/lib/resumeFields.js
+ *
+ * DO NOT add fields here manually. Add them to resumeFields.js instead.
+ */
 
 import mongoose from 'mongoose';
-
-const ProfileSchema = new mongoose.Schema({
-  full_name: String,
-  email: String,
-  phone: String,
-  location: String,
-  website: String,
-  headline: String,
-  generic_summary: String,
-});
-
-const WorkExperienceSchema = new mongoose.Schema({
-  job_title: String,
-  company: String,
-  start_date: String,
-  end_date: String,
-  is_current: Boolean,
-  responsibilities: [String],
-});
-
-const EducationSchema = new mongoose.Schema({
-  institution: String,
-  degree: String,
-  field_of_study: String,
-  start_date: String,
-  end_date: String,
-  relevant_coursework: String,
-  bullets: [String],
-});
-
-const SkillSchema = new mongoose.Schema({
-  skill_name: String,
-  category: String,
-});
-
-const AdditionalInfoSchema = new mongoose.Schema({
-  languages: [String],
-  certifications: [String],
-  awards_activities: [String],
-});
+import { generateMongooseContentSchema } from '@/lib/resumeFields';
 
 const ResumeSchema = new mongoose.Schema({
   userId: {
@@ -47,13 +16,7 @@ const ResumeSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
-  content: {
-    profile: ProfileSchema,
-    work_experience: [WorkExperienceSchema],
-    education: [EducationSchema],
-    skills: [SkillSchema],
-    additional_info: AdditionalInfoSchema,
-  },
+  content: generateMongooseContentSchema(),
   metadata: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ResumeMetadata',
