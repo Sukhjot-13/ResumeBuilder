@@ -2,6 +2,7 @@
 
 import { checkPermission, getPermissionMetadata } from '@/lib/accessControl';
 import PremiumFeatureLock from './PremiumFeatureLock';
+import AccessDenied from './AccessDenied';
 
 /**
  * A wrapper component that conditionally renders children based on permission.
@@ -11,9 +12,10 @@ import PremiumFeatureLock from './PremiumFeatureLock';
  * @param {object} props.user - User object with role property.
  * @param {string} props.permission - The permission to check (from PERMISSIONS).
  * @param {React.ReactNode} props.children - Content to render if permitted.
- * @param {'default' | 'compact' | 'hidden'} props.fallback - How to handle denied access.
+ * @param {'default' | 'compact' | 'hidden' | 'simple'} props.fallback - How to handle denied access.
  *   - 'default': Show full PremiumFeatureLock.
  *   - 'compact': Show compact PremiumFeatureLock.
+ *   - 'simple': Show simple AccessDenied (no upsell).
  *   - 'hidden': Render nothing if denied.
  */
 export default function PermissionGate({ 
@@ -36,6 +38,10 @@ export default function PermissionGate({
   // Handle fallback based on variant
   if (fallback === 'hidden') {
     return null;
+  }
+
+  if (fallback === 'simple') {
+    return <AccessDenied />;
   }
 
   const metadata = getPermissionMetadata(permission);
