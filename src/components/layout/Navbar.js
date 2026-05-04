@@ -128,8 +128,11 @@ export default function Navbar() {
                 {user && checkPermission(user, PERMISSIONS.ACCESS_AI_EDIT_PAGE) && (
                    <Link href="/ai-edit" className="hover:text-white transition-colors" onClick={() => setIsMenuOpen(false)}>AI Edit</Link>
                 )}
+                {user && checkPermission(user, PERMISSIONS.ACCESS_ADMIN_PANEL) && (
+                   <Link href="/admin/dashboard" className="text-purple-300 hover:text-white transition-colors" onClick={() => setIsMenuOpen(false)}>Admin</Link>
+                )}
                 <Link href="/profile" className="hover:text-white transition-colors" onClick={() => setIsMenuOpen(false)}>Profile</Link>
-                <button onClick={handleLogout} className="hover:text-white transition-colors text-left">Logout</button>
+                <button onClick={handleLogout} className="text-red-400 hover:text-red-300 transition-colors text-left">Logout</button>
               </nav>
             </div>
           )
