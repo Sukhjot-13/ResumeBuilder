@@ -85,6 +85,9 @@ for more things that might need to be changed constantly , we should have a prop
 
 <!--  -->
 
+also make sure for the things that we now add or are already added in db there should be a permission check before accessing or modifying it, admin will have all the permissions by default and for each role there will be specific permissions that can be assigned to it from the admin dashboard and no feature should be accessible without a permission check ( admin can always override the permission check)
+...also checking permissions is also a permission that admin can assign or revoke to any role ( it is just another feature) make sure it is implemented in the best way possible.
+
 <!--  -->
 
 ## ✅ COMPLETED
