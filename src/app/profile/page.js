@@ -20,6 +20,8 @@ export default function ProfilePage() {
   const [masterResume, setMasterResume] = useState(null);
   const [showAiEditor, setShowAiEditor] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [deletingMaster, setDeletingMaster] = useState(false);
+  const [confirmDeleteMaster, setConfirmDeleteMaster] = useState(false);
   const [aiEditQuery, setAiEditQuery] = useState("");
   const [editing, setEditing] = useState(false);
   const apiClient = useApiClient();
@@ -62,6 +64,26 @@ export default function ProfilePage() {
 
     fetchProfile();
   }, [apiClient]);
+
+  const handleDeleteMasterResume = async () => {
+    setDeletingMaster(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await apiClient("/api/resumes/master", { method: "DELETE" });
+      if (res.ok) {
+        setMasterResume(null);
+        setConfirmDeleteMaster(false);
+        setSuccess("Master resume deleted.");
+      } else {
+        const data = await res.json();
+        setError(data.error || "Failed to delete resume.");
+      }
+    } catch {
+      setError("An unexpected error occurred.");
+    }
+    setDeletingMaster(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -442,13 +464,49 @@ export default function ProfilePage() {
                       {masterResume ? "Edit your saved resume details" : "Enter your resume details manually"}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setShowManualForm((v) => !v)}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
-                  >
-                    {showManualForm ? "Hide Form" : masterResume ? "Edit Resume" : "Add Resume"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {masterResume && !confirmDeleteMaster && (
+                      <button
+                        onClick={() => setConfirmDeleteMaster(true)}
+                        className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 text-sm rounded-lg transition-colors border border-red-500/30 flex items-center gap-1.5"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowManualForm((v) => !v)}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
+                    >
+                      {showManualForm ? "Hide Form" : masterResume ? "Edit Resume" : "Add Resume"}
+                    </button>
+                  </div>
                 </div>
+
+                {/* Inline delete confirmation */}
+                {confirmDeleteMaster && (
+                  <div className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-lg flex items-center justify-between gap-3">
+                    <p className="text-sm text-red-300">Delete your master resume? This cannot be undone.</p>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => setConfirmDeleteMaster(false)}
+                        className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDeleteMasterResume}
+                        disabled={deletingMaster}
+                        className="px-3 py-1 text-xs bg-red-600 hover:bg-red-500 text-white rounded-md transition-colors disabled:opacity-50"
+                      >
+                        {deletingMaster ? "Deleting…" : "Yes, delete"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {showManualForm && (
                   <ManualResumeForm
                     initialData={masterResume || undefined}

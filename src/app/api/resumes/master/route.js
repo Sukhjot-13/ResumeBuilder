@@ -1,10 +1,10 @@
 /**
- * PUT /api/resumes/master
+ * PUT    /api/resumes/master — Create or update the master resume.
+ * DELETE /api/resumes/master — Delete the master resume.
  *
- * Creates or updates the authenticated user's master (main) resume
- * from a manually entered content object.
- *
- * Permission required: UPLOAD_MAIN_RESUME (granted to all users including free tier)
+ * Permission required:
+ *   PUT    → UPLOAD_MAIN_RESUME (all users)
+ *   DELETE → DELETE_OWN_RESUME  (all users)
  */
 
 import { NextResponse } from 'next/server';
@@ -16,13 +16,11 @@ import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { RESUME_FIELD_SCHEMA } from '@/lib/resumeFields';
 
-/**
- * Validates that all required fields in the schema are present and non-empty.
- * Returns an array of error strings (empty array = valid).
- */
+// ---------------------------------------------------------------------------
+// Validator
+// ---------------------------------------------------------------------------
 function validateContent(content) {
   const errors = [];
-
   for (const [sectionKey, section] of Object.entries(RESUME_FIELD_SCHEMA)) {
     if (section.type === 'object') {
       const sectionData = content[sectionKey] || {};
@@ -42,19 +40,18 @@ function validateContent(content) {
       });
     }
   }
-
   return errors;
 }
 
+// ---------------------------------------------------------------------------
+// PUT — create or update master resume
+// ---------------------------------------------------------------------------
 export async function PUT(req) {
   const userId = req.headers.get('x-user-id');
 
-  // Check permission
   await dbConnect();
   const permResult = await requirePermission(userId, PERMISSIONS.UPLOAD_MAIN_RESUME);
-  if (isPermissionError(permResult)) {
-    return permResult.error;
-  }
+  if (isPermissionError(permResult)) return permResult.error;
 
   let body;
   try {
@@ -64,12 +61,10 @@ export async function PUT(req) {
   }
 
   const { content } = body;
-
   if (!content || typeof content !== 'object') {
     return NextResponse.json({ error: 'Resume content is required' }, { status: 400 });
   }
 
-  // Validate required fields
   const validationErrors = validateContent(content);
   if (validationErrors.length > 0) {
     return NextResponse.json(
@@ -80,16 +75,13 @@ export async function PUT(req) {
 
   try {
     const user = await User.findById(userId).populate('mainResume');
-
     if (!user) {
       logger.warn('User not found in PUT /api/resumes/master', { userId });
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     let resume;
-
     if (user.mainResume) {
-      // Update existing master resume content
       resume = await Resume.findByIdAndUpdate(
         user.mainResume._id,
         { $set: { content } },
@@ -97,14 +89,12 @@ export async function PUT(req) {
       );
       logger.info('Master resume updated', { userId, resumeId: resume._id });
     } else {
-      // Create a new resume and set it as master
       resume = await Resume.create({ userId, content });
       user.mainResume = resume._id;
       await user.save();
       logger.info('Master resume created', { userId, resumeId: resume._id });
     }
 
-    // Return the updated user profile with mainResume populated
     const updatedUser = await User.findById(userId)
       .populate({ path: 'mainResume', populate: { path: 'metadata', model: 'ResumeMetadata' } })
       .select('name email mainResume role');
@@ -112,6 +102,40 @@ export async function PUT(req) {
     return NextResponse.json({ user: updatedUser, resume });
   } catch (error) {
     logger.error('Error in PUT /api/resumes/master', error, { userId });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE — remove master resume
+// ---------------------------------------------------------------------------
+export async function DELETE(req) {
+  const userId = req.headers.get('x-user-id');
+
+  await dbConnect();
+  const permResult = await requirePermission(userId, PERMISSIONS.DELETE_OWN_RESUME);
+  if (isPermissionError(permResult)) return permResult.error;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      logger.warn('User not found in DELETE /api/resumes/master', { userId });
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (!user.mainResume) {
+      return NextResponse.json({ error: 'No master resume to delete' }, { status: 404 });
+    }
+
+    const resumeId = user.mainResume;
+    await Resume.findByIdAndDelete(resumeId);
+    user.mainResume = null;
+    await user.save();
+
+    logger.info('Master resume deleted', { userId, resumeId });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logger.error('Error in DELETE /api/resumes/master', error, { userId });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

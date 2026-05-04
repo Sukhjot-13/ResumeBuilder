@@ -7,9 +7,8 @@ import JobDescriptionInput from "@/components/home/JobDescriptionInput";
 import SpecialInstructionsInput from "@/components/home/SpecialInstructionsInput";
 import TemplateViewer from "@/components/preview/TemplateViewer";
 import ResumeList from "@/components/ResumeList";
-import { checkPermission, getPermissionMetadata } from "@/lib/accessControl";
+import { checkPermission } from "@/lib/accessControl";
 import { PERMISSIONS } from "@/lib/constants";
-import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
 import PermissionGate from "@/components/common/PermissionGate";
 
 function DashboardContent() {
@@ -93,17 +92,23 @@ function DashboardContent() {
     fetchData();
   }, [apiClient, searchParams, router]);
 
+  const [generateError, setGenerateError] = useState('');
+
   const handleGenerateResume = async () => {
+    if (!profile?.mainResume?.content) {
+      setGenerateError('Please save a master resume in your Profile first.');
+      return;
+    }
     setGenerating(true);
+    setGenerateError('');
     try {
       const generateResponse = await apiClient("/api/generate-content", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          resume: profile.mainResume.content, // Always send the master resume
+          resume: profile.mainResume.content,
           jobDescription,
+          // specialInstructions is passed; the server enforces permission
           specialInstructions,
         }),
       });
@@ -114,9 +119,7 @@ function DashboardContent() {
 
         const saveResponse = await apiClient("/api/resumes", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: resume, metadata }),
         });
 
@@ -125,13 +128,11 @@ function DashboardContent() {
           setResumes([newResume, ...resumes]);
         }
       } else {
-        console.error(
-          "Error generating resume:",
-          await generateResponse.text()
-        );
+        const errData = await generateResponse.json().catch(() => ({}));
+        setGenerateError(errData.message || errData.error || 'Failed to generate resume.');
       }
     } catch (error) {
-      console.error("Error generating resume:", error);
+      setGenerateError('An unexpected error occurred.');
     }
     setGenerating(false);
   };
@@ -178,42 +179,30 @@ function DashboardContent() {
                 </span>
                 Job Details
               </h2>
-              <div className="space-y-6">
+              <div className="space-y-4">
+                {/* Both inputs always rendered — they handle skeleton/lock states internally */}
                 <JobDescriptionInput
                   jobDescription={jobDescription}
                   setJobDescription={setJobDescription}
+                  loading={loading}
                 />
-                {profile && checkPermission(profile, PERMISSIONS.USE_SPECIAL_INSTRUCTIONS) ? (
-                  <SpecialInstructionsInput
-                    specialInstructions={specialInstructions}
-                    setSpecialInstructions={setSpecialInstructions}
-                    handleGenerateResume={handleGenerateResume}
-                    generating={generating}
-                    profile={profile}
-                  />
-                ) : profile && checkPermission(profile, PERMISSIONS.GENERATE_RESUME) ? (
-                  <div className="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4">
-                    <PremiumFeatureLock
-                      featureName={getPermissionMetadata(PERMISSIONS.USE_SPECIAL_INSTRUCTIONS)?.name || "Custom AI Instructions"}
-                      description={getPermissionMetadata(PERMISSIONS.USE_SPECIAL_INSTRUCTIONS)?.description}
-                      planName={getPermissionMetadata(PERMISSIONS.USE_SPECIAL_INSTRUCTIONS)?.requiredPlan}
-                      variant="compact"
-                    />
-                    <button
-                      onClick={handleGenerateResume}
-                      className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-500 transition-colors disabled:bg-gray-500"
-                      disabled={generating || !profile}
-                    >
-                      {generating ? "Generating..." : "Generate Tailored Resume"}
-                    </button>
-                  </div>
-                ) : profile ? (
-                  <PremiumFeatureLock
-                    featureName={getPermissionMetadata(PERMISSIONS.GENERATE_RESUME)?.name || "AI Resume Generation"}
-                    description={getPermissionMetadata(PERMISSIONS.GENERATE_RESUME)?.description}
-                    planName={getPermissionMetadata(PERMISSIONS.GENERATE_RESUME)?.requiredPlan}
-                  />
-                ) : null}
+                <SpecialInstructionsInput
+                  specialInstructions={specialInstructions}
+                  setSpecialInstructions={setSpecialInstructions}
+                  handleGenerateResume={handleGenerateResume}
+                  generating={generating}
+                  profile={profile}
+                  loading={loading}
+                />
+                {/* Error message from generate attempt */}
+                {generateError && (
+                  <p className="text-sm text-red-400 flex items-center gap-1.5">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {generateError}
+                  </p>
+                )}
               </div>
             </div>
           </div>
