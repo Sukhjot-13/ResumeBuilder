@@ -90,6 +90,14 @@ also make sure for the things that we now add or are already added in db there s
 
 <!--  -->
 
+add a preview in ai edit page also
+
+<!--  -->
+
+enhance the edit resume functionality nothing in mind but can think on more features
+
+<!--  -->
+
 ## ✅ COMPLETED
 
 All items below have been implemented.
