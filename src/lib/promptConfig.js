@@ -6,9 +6,9 @@
  * HOW TO ADD A NEW TIER / CHANGE A PROMPT:
  *   1. Add or edit an entry in PROMPT_STRATEGIES to map a role to a template name.
  *   2. Add or edit the corresponding builder function in PROMPT_TEMPLATES.
- *   3. That's it — contentGenerationService picks it up automatically.
+ *   3. That's it — the AI config system picks it up automatically.
  *
- * NEVER hardcode prompt text in contentGenerationService.js or any API route.
+ * NEVER hardcode prompt text in API routes.
  */
 
 import { ROLES } from '@/lib/constants';

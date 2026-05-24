@@ -1,21 +1,18 @@
+import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { PERMISSIONS } from '@/lib/constants';
 import User from '@/models/User';
-import { verifyAuthEdge } from '@/lib/auth-edge';
-import { ROLES } from '@/lib/constants';
-import dbConnect from '@/lib/mongodb';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const DELETE = withErrorHandler(async (req, { params }) => {
-  const accessToken = req.cookies.get('accessToken')?.value;
-  const auth = await verifyAuthEdge({ accessToken });
-
-  if (!auth.ok || auth.role !== ROLES.ADMIN) {
-    return fail('Unauthorized', 403);
-  }
-
+  const userId = req.headers.get('x-user-id');
   const { id } = await params;
 
-  // Don't allow deleting yourself
-  if (auth.userId === id) {
+  const permResult = await requirePermission(userId, PERMISSIONS.ACCESS_ADMIN_PANEL);
+  if (isPermissionError(permResult)) {
+    return permResult.error;
+  }
+
+  if (userId === id) {
     return fail('Cannot delete your own account', 400);
   }
 

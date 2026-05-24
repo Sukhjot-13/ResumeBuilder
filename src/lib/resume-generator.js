@@ -1,7 +1,7 @@
 /**
  * Resume Generator — shared core for resume generation.
  * Used by:
- *   - Old UI:  /api/generate-content  (via contentGenerationService)
+ *   - Old UI:  /api/generate-content
  *   - Worker:  /api/resume/generate
  */
 

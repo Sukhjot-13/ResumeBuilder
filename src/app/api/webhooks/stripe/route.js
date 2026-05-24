@@ -1,7 +1,6 @@
 import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe';
 import User from '@/models/User';
-import Plan from '@/models/plan';
 import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongodb';
 import { PLANS, ROLES } from '@/lib/constants';

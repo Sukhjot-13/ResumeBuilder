@@ -1,5 +1,4 @@
 import { stripe } from '@/lib/stripe';
-import { verifyToken } from '@/lib/utils';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongodb';
@@ -7,23 +6,15 @@ import { ROLES, PLANS } from '@/lib/constants';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (req) => {
-  const { sessionId } = await req.json();
+  const userId = req.headers.get('x-user-id');
+  if (!userId) {
+    return fail('Unauthorized', 401);
+  }
 
+  const { sessionId } = await req.json();
   if (!sessionId) {
     return fail('Session ID is required', 400);
   }
-
-  // Verify user
-  let token = req.headers.get('authorization')?.split(' ')[1];
-  if (!token) {
-    token = req.cookies.get('accessToken')?.value;
-  }
-
-  if (!token) {
-    return fail('Unauthorized', 401);
-  }
-  const payload = await verifyToken(token, 'access');
-  const userId = payload.userId;
 
   await dbConnect();
 
