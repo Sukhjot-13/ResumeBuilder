@@ -1,4 +1,4 @@
-import { getGeminiFlashModel, parseGeminiJsonResponse } from './geminiService';
+import { callAI } from '@/lib/ai/client';
 import { RESUME_SCHEMA_FOR_PROMPT } from '@/lib/resumeSchema';
 
 /**
@@ -8,8 +8,7 @@ import { RESUME_SCHEMA_FOR_PROMPT } from '@/lib/resumeSchema';
  * @returns {Promise<object>} The updated resume data.
  */
 export async function editResumeWithAI(resume, query) {
-  // Construct the prompt for the Gemini API
-  let prompt = `
+  const prompt = `
     [TASK]
     You are an expert resume editor. Your task is to edit the user's resume based on their natural language query.
     You will receive the user's current resume data and their edit query.
@@ -33,10 +32,5 @@ export async function editResumeWithAI(resume, query) {
     ${RESUME_SCHEMA_FOR_PROMPT}
   `;
 
-  // Call the Gemini API to generate the edited content
-  const model = getGeminiFlashModel();
-  const result = await model.generateContent(prompt);
-  
-  // Parse and return the JSON response using shared helper
-  return parseGeminiJsonResponse(result.response.text());
+  return callAI('AI_EDIT', prompt, { parseJson: true });
 }

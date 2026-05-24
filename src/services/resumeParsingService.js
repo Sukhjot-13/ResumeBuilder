@@ -1,6 +1,6 @@
 import mammoth from 'mammoth';
 import { extractText as extractPdfText } from 'unpdf';
-import { getGeminiFlashModel } from './geminiService';
+import { callAI } from '@/lib/ai/client';
 
 /**
  * Extracts text from a file buffer.
@@ -18,7 +18,7 @@ async function extractText(fileBuffer, fileType) {
       console.error('Error in PDF parsing:', error);
       throw new Error('Error processing PDF file');
     }
-  } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') { // .docx
+  } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
     const { value } = await mammoth.extractRawText({ buffer: fileBuffer });
     return value;
   }
@@ -35,11 +35,9 @@ export async function parseResume(file) {
     throw new Error("No file provided");
   }
 
-  // Extract raw text from the file
   const fileBuffer = Buffer.from(await file.arrayBuffer());
   const rawText = await extractText(fileBuffer, file.type);
 
-  // Construct the Gemini "Parser" Prompt
   const prompt = `
     [TASK]
     You are an expert resume parsing AI. Read the following raw text from a user's resume and extract all structured data.
@@ -94,16 +92,5 @@ export async function parseResume(file) {
     }
   `;
 
-  // Call the Gemini API to parse the resume
-  const model = getGeminiFlashModel();
-  const result = await model.generateContent(prompt);
-  const text = result.response.text().replace(/```json/g, "").replace(/```/g, "");
-
-  // Return the parsed JSON
-  try {
-    const parsedData = JSON.parse(text);
-    return parsedData;
-  } catch (e) {
-    throw new Error(`AI parsing error: ${text}`);
-  }
+  return callAI('RESUME_PARSING', prompt, { parseJson: true });
 }

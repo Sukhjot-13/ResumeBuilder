@@ -1,4 +1,4 @@
-import { generateTailoredContent } from '../../../services/contentGenerationService';
+import { generateResume } from '@/lib/resume-generator';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
@@ -7,12 +7,6 @@ import { checkPermission } from '@/lib/accessControl';
 import User from '@/models/User';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
-// ---------------------------------------------------------------------------
-// Prompt-injection sanitizer for the job description field
-// Strips common patterns users might embed to hijack the AI prompt.
-// ---------------------------------------------------------------------------
-
-/** Patterns that look like injected instructions */
 const INJECTION_PATTERNS = [
   /\[.*?(ignore|disregard|forget|override|system|instruction|task|prompt|jailbreak).*?\]/gi,
   /<\s*(system|instruction|prompt|task|override)\s*>/gi,
@@ -32,10 +26,6 @@ function sanitizeJobDescription(text) {
   return sanitized.slice(0, 8000);
 }
 
-// ---------------------------------------------------------------------------
-// Route handler
-// ---------------------------------------------------------------------------
-
 export const POST = withErrorHandler(async (request) => {
   const userId = request.headers.get('x-user-id');
 
@@ -54,7 +44,6 @@ export const POST = withErrorHandler(async (request) => {
   }
 
   const { resume, jobDescription, specialInstructions: rawSpecialInstructions } = body;
-
   const cleanJobDescription = sanitizeJobDescription(jobDescription);
 
   if (!cleanJobDescription.trim()) {
@@ -67,7 +56,6 @@ export const POST = withErrorHandler(async (request) => {
   }
 
   const userRole = user.role;
-
   const hasSpecialInstructionsPermission = checkPermission(
     { role: userRole },
     PERMISSIONS.USE_SPECIAL_INSTRUCTIONS
@@ -81,7 +69,7 @@ export const POST = withErrorHandler(async (request) => {
   }
 
   try {
-    const tailoredData = await generateTailoredContent(
+    const tailoredData = await generateResume(
       resume,
       cleanJobDescription,
       specialInstructions,
