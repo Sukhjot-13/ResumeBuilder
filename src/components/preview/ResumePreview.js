@@ -37,7 +37,7 @@ export default function ResumePreview({ tailoredResume, selectedTemplate, user }
             view === "display" ? "bg-blue-600" : "bg-gray-700"
           }`}
         >
-          Display View
+          Text View
         </button>
         <button
           onClick={() => setView("react-pdf")}
@@ -45,7 +45,7 @@ export default function ResumePreview({ tailoredResume, selectedTemplate, user }
             view === "react-pdf" ? "bg-blue-600" : "bg-gray-700"
           }`}
         >
-          React PDF
+          PDF View
         </button>
       </div>
       <div className="w-full h-96 bg-white">
