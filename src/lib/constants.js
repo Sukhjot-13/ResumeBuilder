@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   UNLIMITED_CREDITS: 'unlimited_credits', // Bypass all credit limits
   VIEW_ANALYTICS: 'view_analytics',
   ACCESS_ADMIN_PANEL: 'access_admin_panel',
+  DELETE_USER: 'delete_user', // Permanently delete user accounts
   
   // ==========================================
   // AI & Content Generation Features
@@ -62,6 +63,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.UNLIMITED_CREDITS,
     PERMISSIONS.VIEW_ANALYTICS,
     PERMISSIONS.ACCESS_ADMIN_PANEL,
+    PERMISSIONS.DELETE_USER,
     // AI & Generation
     PERMISSIONS.GENERATE_RESUME,
     PERMISSIONS.EDIT_RESUME_WITH_AI,

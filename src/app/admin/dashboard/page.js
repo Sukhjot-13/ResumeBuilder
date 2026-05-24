@@ -71,6 +71,26 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteUser = async (userId, userEmail) => {
+    if (!confirm(`Are you sure you want to permanently delete user ${userEmail}? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        fetchUsers();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete user');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting user');
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-white">Loading users...</div>;
   if (error) return <div className="p-8 text-center text-red-400">Error: {error}</div>;
 
@@ -145,6 +165,12 @@ export default function AdminDashboard() {
                           Reset Usage
                         </button>
                         {/* Add more actions here like Ban/Delete */}
+                        <button
+                          onClick={() => handleDeleteUser(user._id, user.email)}
+                          className="px-3 py-1 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded transition-colors"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>

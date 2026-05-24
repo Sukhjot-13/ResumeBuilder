@@ -251,8 +251,8 @@ export async function deleteUser(targetUserId) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!checkPermission({ role }, PERMISSIONS.MANAGE_USERS)) {
-      logger.info('Permission denied: MANAGE_USERS', { userId, role });
+    if (!checkPermission({ role }, PERMISSIONS.DELETE_USER)) {
+      logger.info('Permission denied: DELETE_USER', { userId, role });
       return { success: false, error: 'Permission denied' };
     }
 
