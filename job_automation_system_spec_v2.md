@@ -47,6 +47,71 @@ REFACTOR PLAN:
 
 ---
 
+## 🚀 Current Implementation Decisions (Live — Updated 2026-05-24)
+
+This section documents actual decisions made during implementation. Deviations from the original spec below are intentional. Refer here instead of re-reading the full spec every time.
+
+### Database
+| Original Spec | Actual | Why |
+|---|---|---|
+| Supabase (Postgres) | **MongoDB** | App already uses MongoDB. No Postgres at all. |
+| Supabase Storage for PDFs | **On-the-fly generation** | Resumes generated per-application, not stored. Simplify for v1. |
+
+### Auth
+| Original Spec | Actual | Why |
+|---|---|---|
+| NextAuth.js for Dashboard | **Custom JWT** (existing `AuthContext` + `requirePermission()`) | Dashboard lives in same app, reuses existing auth. |
+| Shared secret / JWT for Worker | **API Keys** — `ApiKey` Mongoose model + `Authorization: Bearer <key>` | Future-proof for service split. Industry standard pattern. |
+
+### Gatekeeper AI
+| Original Spec | Actual | Why |
+|---|---|---|
+| Anthropic/OpenAI SDK in Worker | **Gemini Flash** via `callAI('GATEKEEPER')`, routed through `POST /api/gatekeeper/evaluate` API route | Reuses existing `src/lib/ai/client.js`. Swappable via `AI_TASK_GATEKEEPER=provider:model` env var. |
+
+### Architecture
+| Original Spec | Actual | Why |
+|---|---|---|
+| Separate Next.js app for Dashboard | **Same Next.js app** at `/automation/*` | Reuses auth, DB, deployment. Extract later when needed. |
+| CORS headers needed | **Not needed initially** | Same origin. Add when separating services. |
+
+### Resume Modes (planned)
+- **Mode A** (Custom): `callAI('RESUME_GENERATION')` with job description + user profile — tailored per job
+- **Mode B** (Static): Pre-set profile, same resume for all — faster, less targeted
+
+### Templates
+- Exposed via `GET /api/resume/templates` endpoint
+- Worker discovers templates dynamically at runtime
+- Internal mapping: `"standard"` → `Professional`, `"modern"` → `Modern`, `"classic"` → `ClassicTemplate`, etc.
+
+### Future Separation Plan (Dashboard → own Next.js app)
+
+**Why it's easy:**
+- Same MongoDB — just add `MONGODB_URI` to the new app's env vars, both apps read the same collections
+- Same JWT auth — stateless tokens. Same `JWT_SECRET` on both apps = same login works on both
+- API keys already exist for cross-service calls — no new auth to build
+
+**Steps:**
+1. Copy `/app/automation/*` pages + their API routes → new Next.js project
+2. Copy Mongoose models (`src/models/`) + DB connection utility → both apps
+3. Copy auth utilities (`AuthContext`, `requirePermission`, `jwt.js`, `proxy.js`) → new app
+4. Add `MONGODB_URI`, `JWT_SECRET`, `NEXT_PUBLIC_APP_URL` to new app's Vercel env vars
+5. Add CORS headers to Resume Builder API routes called by the new Dashboard
+6. Deploy both to Vercel
+
+**Nothing changes architecture-wise:**
+- Dashboard and Dashboard API routes keep working with same MongoDB collections
+- Worker keeps calling Resume Builder API with the same API keys (URL changes to production)
+- The split is just file extraction + env var config — no structural rewrite
+
+### What This Means for Development
+- All automation MongoDB models go in the existing `src/models/` folder
+- All automation API routes go in `src/app/api/`
+- Dashboard pages go in `src/app/automation/`
+- Auth is already handled — just use `requirePermission()` and `useAuth()`
+- Worker is STILL a separate Node.js service at `/worker` (has Playwright, BullMQ, Redis)
+
+---
+
 ## 🗺️ SYSTEM OVERVIEW
 
 Three separate applications working as an ecosystem:
@@ -234,20 +299,17 @@ export const config = {
 
 ---
 
-### Resume Storage
+### Resume Storage (v1 — On-the-fly, no storage)
 
-- Store generated PDFs in **Supabase Storage** bucket `resumes`
-- Key: `resumes/{resumeId}.pdf`
-- Generate signed URL valid for 48 hours
-- Clean up expired resumes with a daily cron (in the Worker)
-- If user is authenticated on the resume site, optionally save permanently
+- **v1**: Resumes are generated per-application, returned to the Worker, and submitted immediately. Not stored in DB.
+- **Future**: If storage is needed, add MongoDB GridFS or S3-compatible storage.
 
 ---
 
-### CORS Config (required — Worker calls this cross-origin)
+### CORS Config (required for Worker — Worker calls this cross-origin)
 
 ```typescript
-// In every API route handler:
+// In every Worker-facing API route:
 export async function OPTIONS() {
   return new Response(null, {
     headers: {
@@ -258,13 +320,14 @@ export async function OPTIONS() {
   });
 }
 ```
+> **Note**: Not needed while Worker is same-origin. Add when separating.
 
 ---
 
 ### Rate Limiting
 
 - 100 resume generations per API key per day
-- Track usage in Supabase: `api_key_usage (key_id, date, count)`
+- Track usage in MongoDB: `api_key_usage` model `(key_id, date, count)`
 - Return `429` with `code: RATE_LIMIT_EXCEEDED` when exceeded
 
 ---
@@ -272,26 +335,19 @@ export async function OPTIONS() {
 ### Resume Builder Checklist
 
 **Step 0 (MUST DO FIRST)**
-- [ ] User provides codebase
-- [ ] AI assistant runs audit and outputs audit report
-- [ ] Audit report reviewed and refactor plan confirmed
+- [x] User provides codebase
+- [x] AI assistant runs audit and outputs audit report
+- [x] Audit report reviewed and refactor plan confirmed
 
-**Refactor**
-- [ ] Move resume generation logic to `/lib/resume-generator.ts`
-- [ ] Move PDF generation logic to `/lib/pdf-generator.ts`
-- [ ] Create `/app/api/resume/generate/route.ts`
-- [ ] Create `/app/api/resume/download/[id]/route.ts`
-- [ ] Create `/app/api/resume/preview/[id]/route.ts`
+**Shared Infrastructure (in existing Next.js app)**
+- [ ] Add automation Mongoose models (ApiKey, JobListing, Application, etc.)
+- [ ] Create `/app/api/gatekeeper/evaluate/route.ts` — Worker calls this
+- [ ] Create `/app/api/resume/templates/route.ts` — list templates
 - [ ] Create `/app/api/health/route.ts`
-- [ ] Create `/app/api/profile/route.ts` (POST save, GET retrieve)
-- [ ] Add API key middleware (`/middleware.ts`)
-- [ ] Add Supabase storage for resume PDFs
-- [ ] Add CORS headers to all API routes
+- [ ] Add API key middleware for Worker-facing routes
+- [ ] Add API key management routes + UI (`/app/api-keys/`)
 - [ ] Add rate limiting (100/day per key)
-- [ ] Add API key management UI (`/app/api-keys/page.tsx`)
 - [ ] Add API docs page (`/app/docs/page.tsx`)
-- [ ] Verify existing UI still works after refactor
-- [ ] Test all endpoints with curl / Postman
 
 ---
 
@@ -307,12 +363,14 @@ This is purely a **frontend + thin API layer** — all heavy work is delegated t
 ### Tech Stack
 
 ```
-Framework:    Next.js 14+ (App Router, TypeScript)
-Auth:         NextAuth.js (email/password or Google OAuth)
-Database:     Supabase (shared with Worker via same Postgres instance)
-UI:           Tailwind CSS + shadcn/ui
-Deployment:   Vercel
+Framework:    Next.js (same app — not separate)
+Auth:         Custom JWT (existing — not NextAuth)
+Database:     MongoDB (existing — not Supabase)
+UI:           Tailwind CSS (existing — no new shadcn/ui)
+Deployment:   Vercel (same deploy)
 ```
+
+> All Dashboard pages go under `/app/automation/` in the existing Next.js app.
 
 ---
 
@@ -423,7 +481,7 @@ Indeed Account
   (same pattern)
 ```
 
-Cookies are AES-256 encrypted before storing in Supabase.
+Cookies are AES-256 encrypted before storing in MongoDB.
 
 ---
 
@@ -439,23 +497,24 @@ Filters: Platform, Status, Gatekeeper Decision, Date Range, Title search
 
 ---
 
-### Job Engine Dashboard Checklist
+### Automation Dashboard Checklist (in same Next.js app at `/app/automation/`)
 
-- [ ] Project setup: Next.js 14 + Supabase + NextAuth + Tailwind + shadcn/ui
-- [ ] Auth: login/logout, protected routes
-- [ ] Connect to shared Supabase DB (same instance as Worker)
-- [ ] Dashboard page with live stats from DB
-- [ ] Jobs page: table with filters and gatekeeper decisions
-- [ ] Job detail page: full description + gatekeeper reasoning
-- [ ] Applications history page with filters
-- [ ] Settings: Profile editor (POST to Resume Builder `/api/profile`)
-- [ ] Settings: Accounts (cookie paste + save, encrypted storage)
-- [ ] Settings: Criteria (job search filters saved to DB)
-- [ ] Settings: Gatekeeper rules form
-- [ ] Settings: Scheduler form (all fields above)
-- [ ] Settings: API keys (store Resume Builder API key in DB)
-- [ ] Settings: Notifications preferences
-- [ ] Emergency stop button (sets `scheduler.enabled = false` instantly)
+> **No project setup needed** — same app, same auth, same DB, same deployment.
+> Pages go at `/automation/jobs`, `/automation/jobs/[id]`, etc.
+
+- [ ] Dashboard page (`/automation`) with live stats from MongoDB
+- [ ] Jobs page (`/automation/jobs`): table with filters and gatekeeper decisions
+- [ ] Job detail page (`/automation/jobs/[id]`): full description + gatekeeper reasoning
+- [ ] Applications history page (`/automation/applications`) with filters
+- [ ] Application detail page (`/automation/applications/[id]`)
+- [ ] Settings: Accounts (`/automation/settings/accounts`) — cookie paste + save, AES-256 encrypted in MongoDB
+- [ ] Settings: Criteria (`/automation/settings/criteria`) — job search filters saved to MongoDB
+- [ ] Settings: Gatekeeper rules (`/automation/settings/gatekeeper`) — rules form
+- [ ] Settings: Scheduler (`/automation/settings/scheduler`) — schedule form
+- [ ] Settings: API keys (`/automation/settings/api-keys`) — API key management
+- [ ] Settings: Profile (`/automation/settings/profile`) — resume profile
+- [ ] Settings: Notifications (`/automation/settings/notifications`)
+- [ ] Emergency stop button (sets `scheduler.enabled = false` in MongoDB)
 - [ ] Real-time queue status indicator (poll Worker `/health` endpoint)
 
 ---
@@ -479,9 +538,9 @@ Framework:     Express.js (thin HTTP layer for health + trigger endpoints)
 Automation:    Playwright + playwright-extra + puppeteer-extra-plugin-stealth
 Queue:         BullMQ + Upstash Redis (or self-hosted Redis on Render)
 Scheduler:     node-cron (triggers queue jobs on schedule)
-AI:            Anthropic SDK (Gatekeeper) or OpenAI SDK
-Database:      Supabase JS client (reads/writes shared Postgres)
-Storage:       Supabase Storage (download resumes from Resume Builder)
+AI:            Calls this app's POST /api/gatekeeper/evaluate (Gemini Flash)
+Database:      MongoDB (reads/writes via this app's API — Worker doesn't connect directly to DB)
+Storage:       N/A for v1 (on-the-fly resume generation)
 Encryption:    Node.js crypto (AES-256-GCM for cookie decryption)
 Deployment:    Render (Web Service, always-on)
 Language:      TypeScript
@@ -671,10 +730,14 @@ export const randomDelay = (min: number, max: number) =>
 
 ---
 
-### Gatekeeper AI (in /src/gatekeeper/)
+### Gatekeeper AI (in Worker's /src/gatekeeper/ — but prompt lives in the API route)
+
+> **Actual implementation**: The Gatekeeper AI lives in `POST /api/gatekeeper/evaluate` on the Next.js app.
+> The Worker's `/src/gatekeeper/` is an HTTP client that calls that endpoint.
+> The prompt content below is still valid — it's used in the API route.
 
 ```typescript
-// prompt.ts
+// prompt.ts — reference for the prompt used in /api/gatekeeper/evaluate
 export const SYSTEM_PROMPT = `
 You are a job application gatekeeper. Evaluate job listings against
 the user's rules and decide whether they should apply.
@@ -741,12 +804,15 @@ Evaluate and return JSON.
 
 ### Resume Builder Client (in /src/resume-client/)
 
+**v1 approach**: Worker calls existing `POST /api/generate-content` (already generates tailored resumes).
+Adds `Authorization: Bearer <api-key>` header. The API route checks: if API key present → verify key, if not → use existing cookie auth.
+
 ```typescript
 export async function generateResume(
   jobDescription: string,
   profileId: string
 ): Promise<ResumeResult> {
-  const response = await fetch(`${process.env.RESUME_BUILDER_URL}/api/resume/generate`, {
+  const response = await fetch(`${process.env.RESUME_BUILDER_URL}/api/generate-content`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.RESUME_BUILDER_API_KEY}`,
@@ -769,25 +835,25 @@ export async function generateResume(
 
 **Setup**
 - [ ] Init Node.js + TypeScript project
-- [ ] Install: express, bullmq, playwright, playwright-extra, puppeteer-extra-plugin-stealth, node-cron, @supabase/supabase-js, @anthropic-ai/sdk, ioredis
-- [ ] Set up Supabase client (shared DB with Dashboard)
+- [ ] Install: express, bullmq, playwright, playwright-extra, puppeteer-extra-plugin-stealth, node-cron, ioredis, mongodb (mongoose)
+- [ ] Set up HTTP client to this app's API (for DB reads/writes via API routes)
 - [ ] Set up Redis connection (Upstash or Render Redis)
 - [ ] Set up BullMQ queues: scrapeQueue, gateQueue, generateQueue, applyQueue
 
 **Scheduler**
-- [ ] Cron job (every 30min) reads settings from DB
+- [ ] Cron job (every 30min) reads settings from this app's API
 - [ ] Time window check (hour + day of week + timezone)
 - [ ] Daily cap check before starting any run
-- [ ] Settings hot-reload (re-read DB each tick, no restart needed)
+- [ ] Settings hot-reload (re-read API each tick, no restart needed)
 
 **Scraper**
-- [ ] LinkedIn scraper (Playwright, reads criteria from DB)
+- [ ] LinkedIn scraper (Playwright, reads criteria from this app's API)
 - [ ] Indeed scraper (Publisher API or Playwright fallback)
-- [ ] Deduplication (skip jobs already in DB)
-- [ ] Save raw listings to `job_listings` table
+- [ ] Deduplication (skip jobs already in DB — call API to check)
+- [ ] Save raw listings via this app's API
 
 **Gatekeeper**
-- [ ] Anthropic/OpenAI API call with system + user prompt
+- [ ] HTTP call to this app's `POST /api/gatekeeper/evaluate`
 - [ ] JSON response parsing with fallback handling
 - [ ] Save decisions to `gatekeeper_decisions` table
 - [ ] Review queue routing (confidence in 40-74 range)
@@ -821,7 +887,11 @@ export async function generateResume(
 
 ---
 
-## DATABASE SCHEMA (Supabase — shared by Dashboard + Worker)
+## DATABASE SCHEMA (Reference Design — Using MongoDB, not Supabase)
+
+> **NOTE**: The original spec used Supabase (Postgres). All of this is implemented as **MongoDB Mongoose models** instead.
+> The SQL below is kept as a reference for the data structure. Each table maps to a Mongoose schema.
+> MongoDB models go in `src/models/` (e.g. `JobListing.js`, `Application.js`, etc.).
 
 ```sql
 -- ============================================================
@@ -995,39 +1065,32 @@ CREATE TABLE daily_counts (
 
 ## ENVIRONMENT VARIABLES
 
-### Resume Builder (Vercel)
+### Resume Builder + Dashboard (Vercel — same app)
 ```env
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=xxx
-SUPABASE_ANON_KEY=xxx
-OPENAI_API_KEY=sk-...          # or ANTHROPIC_API_KEY
+# MongoDB (existing — already set)
+MONGODB_URI=mongodb://...
+MONGODB_DB=resume-builder
+
+# AI (existing — already set)
+GEMINI_API_KEY=xxx
+
+# Worker (add when Worker is deployed)
 WORKER_ORIGIN=https://your-worker.onrender.com
 NEXT_PUBLIC_APP_URL=https://your-resume-site.vercel.app
 ```
 
-### Job Engine Dashboard (Vercel)
-```env
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_ANON_KEY=xxx
-NEXTAUTH_SECRET=random-32-char-string
-NEXTAUTH_URL=https://your-dashboard.vercel.app
-WORKER_URL=https://your-worker.onrender.com
-RESUME_BUILDER_URL=https://your-resume-site.vercel.app
-```
-
 ### Automation Worker (Render)
 ```env
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=xxx
 UPSTASH_REDIS_URL=redis://xxx
 UPSTASH_REDIS_TOKEN=xxx
 RESUME_BUILDER_URL=https://your-resume-site.vercel.app
 RESUME_BUILDER_API_KEY=your-api-key
-ANTHROPIC_API_KEY=sk-ant-...   # for Gatekeeper
-COOKIE_ENCRYPTION_KEY=32-char-random-string   # AES-256 key
-RESEND_API_KEY=xxx             # for email notifications
+COOKIE_ENCRYPTION_KEY=32-char-random-string   # AES-256-GCM key
+RESEND_API_KEY=xxx             # for email notifications (future)
 PORT=3001
 ```
+
+> **Note**: No Supabase env vars needed. No Anthropic/OpenAI keys — Gatekeeper runs on this app via Gemini.
 
 ---
 
@@ -1068,74 +1131,82 @@ npx playwright install-deps chromium && npx playwright install chromium
 
 ---
 
-## BUILD ORDER (Phases)
+## BUILD ORDER (Phases — Updated)
 
-### Phase 0 — Codebase Audit
-- [ ] User provides Resume Builder codebase
-- [ ] AI runs audit, outputs report
-- [ ] Confirm refactor plan
+### Phase 0 — Codebase Audit ✅ (DONE)
+- [x] User provides Resume Builder codebase
+- [x] AI runs audit, outputs report
+- [x] Confirm refactor plan
 
-### Phase 1 — Resume Builder Refactor
-- [ ] Refactor per audit plan
-- [ ] Add API endpoints + auth
-- [ ] Deploy to Vercel
-- [ ] Test API with curl
+### Phase 1 — Shared Infrastructure (in existing Next.js app)
+- [ ] Add automation Mongoose models (ApiKey, JobListing, Application, etc.)
+- [ ] Create `POST /api/gatekeeper/evaluate` — Gatekeeper AI route
+- [ ] Create `GET /api/resume/templates` — Templates endpoint
+- [ ] Create `GET /api/health` — Health check
+- [ ] Add API key auth support to existing `/api/generate-content` (supports both cookie + Bearer)
+- [ ] Add API key middleware + management UI (`/api-keys`)
+- [ ] Add rate limiting on generation endpoint
+- [ ] Add API docs page (`/docs`)
+- [ ] Add encryption utilities (AES-256-GCM for cookies)
 
-### Phase 2 — Supabase Setup
-- [ ] Create Supabase project
-- [ ] Run all SQL schema above
-- [ ] Set up Storage bucket for resumes
-- [ ] Test DB connection from both Next.js apps
+### Phase 2 — Automation Dashboard (in existing Next.js app at `/automation/*`)
+- [ ] Dashboard page with stats from MongoDB
+- [ ] Settings: Accounts (cookie paste, encrypted storage)
+- [ ] Settings: Criteria (job search filters)
+- [ ] Settings: Gatekeeper rules
+- [ ] Settings: Scheduler
+- [ ] Settings: API keys management
+- [ ] Settings: Notifications
+- [ ] Jobs page with filters + gatekeeper decisions
+- [ ] Job detail page + gatekeeper reasoning
+- [ ] Applications history
 
-### Phase 3 — Job Engine Dashboard
-- [ ] Project setup + auth
-- [ ] Settings pages (accounts, criteria, gatekeeper, scheduler)
-- [ ] Connect to Supabase
-- [ ] Deploy to Vercel (even before Worker is ready)
-
-### Phase 4 — Automation Worker Core
-- [ ] Project setup (Node.js + TypeScript + Express)
+### Phase 3 — Automation Worker Core
+- [ ] Project setup (Node.js + TypeScript + Express at `/worker`)
 - [ ] BullMQ + Redis setup
-- [ ] Cron scheduler reading from DB
-- [ ] Gatekeeper AI (test with sample jobs)
-- [ ] Resume Builder API client
-
-### Phase 5 — Scraper
+- [ ] HTTP client for this app's API (generate-content, gatekeeper, etc.)
+- [ ] Cron scheduler (reads settings via API)
 - [ ] LinkedIn scraper (Playwright)
 - [ ] Indeed scraper
-- [ ] Deduplication
-- [ ] Test: run scraper, see jobs in DB, see them in Dashboard
-
-### Phase 6 — Playwright Automation
 - [ ] Browser + stealth setup
-- [ ] Cookie injection
 - [ ] LinkedIn Easy Apply
 - [ ] Indeed Apply
-- [ ] Full end-to-end test (1 application manually triggered)
+- [ ] Anti-detection rules
+- [ ] Full end-to-end pipeline (scrape → gate → generate → apply)
 
-### Phase 7 — Scheduler + Automation
-- [ ] Cron wired to full pipeline
-- [ ] All limit checks enforced
-- [ ] Test full run end-to-end with scheduler enabled
-
-### Phase 8 — Polish
-- [ ] Notifications (email on session expiry, errors, weekly summary)
-- [ ] Dashboard real-time stats
-- [ ] Emergency stop from Dashboard
-- [ ] Error handling everywhere
-
----
+### Phase 4 — Polish & Separation Prep
+- [ ] Notifications (email alerts)
+- [ ] Emergency stop
+- [ ] CORS headers (when separating)
+- [ ] API documentation
+- [ ] 2 resume modes (custom per job + static profile)
 
 ## NOTES FOR AI CODING ASSISTANT
 
-- **Resume Builder:** DO NOT touch until audit is complete. Audit first, plan, confirm, then refactor.
-- **Architecture:** Next.js (Vercel) for both UI apps. Plain Node.js + Express for the Worker. Do not put Playwright or BullMQ in Next.js.
-- **TypeScript everywhere** — all three services.
-- **Single Supabase instance** — both Next.js apps and the Worker all read/write the same DB.
-- **Cookies are sensitive** — always AES-256-GCM encrypt before DB, decrypt in Worker only. Never log decrypted cookies.
-- **Never exceed rate limits** — check `daily_counts` table BEFORE every application attempt.
-- **Gatekeeper is in the Worker** — not a Next.js API route. The Dashboard only reads gatekeeper decisions from the DB, it doesn't call the AI directly.
-- **Scheduler settings are hot** — Worker reads them from DB every cron tick. No restart needed when user changes settings.
-- **Render deployment** — Worker must install Playwright browser deps during build, not start. Add `npx playwright install chromium --with-deps` to build command.
+### Audit ✅ (Already Done)
+- **Codebase audit is complete** — see `a1.md` for full report.
+- **Shared libs are already extracted** — `src/lib/ai/`, `src/lib/resume-generator.js`, `src/lib/pdf-generator.js` exist and are in use.
+
+### Architecture Decisions
+- **Dashboard is in the same Next.js app** (at `/automation/*`), not a separate Vercel deploy. Reuses existing custom JWT auth.
+- **MongoDB is the database**, not Supabase/Postgres. All automation data goes into Mongoose models in `src/models/`.
+- **Gatekeeper AI runs in the Next.js app** at `POST /api/gatekeeper/evaluate`, not in the Worker. Worker calls this endpoint via HTTP. This keeps all AI config in one place (`src/lib/ai/config.js`).
+- **Worker does NOT connect directly to MongoDB** — it reads/writes through this app's API routes (via Bearer API key auth). This is important for security: the Worker only has the API key, not DB credentials.
+- **Resumes are generated on-the-fly** — no PDF storage for v1. The Worker gets the generated content/PDF and submits it immediately.
+- **API keys** for Worker → App auth. `ApiKey` Mongoose model + middleware.
+
+### Worker Details
+- Plain Node.js + Express (NOT Next.js).
+- Has Playwright, BullMQ, Redis — these don't belong in Next.js.
+- Calls this app's API for: resume generation, gatekeeper evaluation, DB reads/writes.
+- Scheduled via node-cron, reads settings through this app's API (hot-reload each tick).
+- **Cookies are sensitive** — always AES-256-GCM encrypt before storing in MongoDB, decrypt in Worker only. Never log decrypted cookies.
+- **Never exceed rate limits** — check daily count BEFORE every application attempt.
+- **Render deployment** — must install Playwright browser deps during build, not start. Add `npx playwright install chromium --with-deps` to build command.
 - **Never hardcode credentials** — 100% env vars.
-- **The Dashboard talks to the Worker** via HTTP (health, trigger, pause endpoints). Keep this interface minimal — DB is the main communication channel.
+
+### Future Separation Prep
+- When splitting Dashboard into its own app: extract `/automation/*` pages + relevant API routes + MongoDB models.
+- API key auth already supports cross-origin — no auth rewrite needed.
+- Add CORS headers at separation time, not before.
+- The DB section currently shows SQL schema as a reference design. MongoDB models mirror this structure.
