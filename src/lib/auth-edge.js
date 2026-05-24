@@ -1,9 +1,10 @@
 import { jwtVerify } from 'jose';
+import env from '@/config/env';
 
 export async function verifyTokenEdge(token, tokenType) {
   const secret = tokenType === 'access'
-    ? process.env.ACCESS_TOKEN_SECRET
-    : process.env.REFRESH_TOKEN_SECRET;
+    ? env.accessTokenSecret
+    : env.refreshTokenSecret;
   
   if (!secret) throw new Error(`Secret for ${tokenType} token is not defined.`);
   

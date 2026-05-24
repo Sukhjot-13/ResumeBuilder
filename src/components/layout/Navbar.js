@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { PLANS, PERMISSIONS } from "@/lib/constants";
+import { PLANS, PERMISSIONS, API_ENDPOINTS, ROUTES } from "@/lib/constants";
 import { checkPermission } from "@/lib/accessControl";
 
 export default function Navbar() {

@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { generateTailoredContent } from '../../../services/contentGenerationService';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
@@ -6,6 +5,7 @@ import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
 import { checkPermission } from '@/lib/accessControl';
 import User from '@/models/User';
+import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 // ---------------------------------------------------------------------------
 // Prompt-injection sanitizer for the job description field
@@ -29,7 +29,6 @@ function sanitizeJobDescription(text) {
   for (const pattern of INJECTION_PATTERNS) {
     sanitized = sanitized.replace(pattern, '[removed]');
   }
-  // Trim to a reasonable max length to avoid token abuse
   return sanitized.slice(0, 8000);
 }
 
@@ -37,12 +36,11 @@ function sanitizeJobDescription(text) {
 // Route handler
 // ---------------------------------------------------------------------------
 
-export async function POST(request) {
+export const POST = withErrorHandler(async (request) => {
   const userId = request.headers.get('x-user-id');
 
   await dbConnect();
 
-  // Permission: user must be able to generate a resume
   const permResult = await requirePermission(userId, PERMISSIONS.GENERATE_RESUME);
   if (isPermissionError(permResult)) {
     return permResult.error;
@@ -52,30 +50,24 @@ export async function POST(request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return fail('Invalid JSON body', 400);
   }
 
   const { resume, jobDescription, specialInstructions: rawSpecialInstructions } = body;
 
-  // 1. Sanitize the job description server-side (never trust client input)
   const cleanJobDescription = sanitizeJobDescription(jobDescription);
 
   if (!cleanJobDescription.trim()) {
-    return NextResponse.json({ error: 'Job description is required' }, { status: 400 });
+    return fail('Job description is required', 400);
   }
 
-  // 2. Fetch the user's role so we can:
-  //    a) select the right prompt tier
-  //    b) enforce special instructions permission server-side
   const user = await User.findById(userId).select('role').lean();
   if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    return fail('User not found', 404);
   }
 
   const userRole = user.role;
 
-  // 3. Only forward special instructions if the user actually has the permission.
-  //    Even if the client sends them, we ignore them for users without access.
   const hasSpecialInstructionsPermission = checkPermission(
     { role: userRole },
     PERMISSIONS.USE_SPECIAL_INSTRUCTIONS
@@ -97,12 +89,9 @@ export async function POST(request) {
     );
 
     logger.info('Resume content generated successfully', { userId, role: userRole });
-    return NextResponse.json(tailoredData);
+    return ok(tailoredData);
   } catch (error) {
     logger.error('Error generating content', error, { userId });
-    return NextResponse.json(
-      { message: error.message || 'Error generating content' },
-      { status: 500 }
-    );
+    return fail(error.message || 'Error generating content', 500);
   }
-}
+});

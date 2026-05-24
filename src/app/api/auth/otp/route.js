@@ -1,16 +1,17 @@
 import crypto from 'crypto';
-import { NextResponse } from 'next/server';
 import * as Brevo from '@getbrevo/brevo';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { sha256 } from '@/lib/utils';
 import { OTP_CONFIG } from '@/lib/constants';
+import env from '@/config/env';
+import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
-export async function POST(req) {
+export const POST = withErrorHandler(async (req) => {
   const { email } = await req.json();
 
   if (!email) {
-    return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    return fail('Email is required', 400);
   }
 
   const otp = crypto.randomInt(100000, 999999).toString();
@@ -30,20 +31,20 @@ export async function POST(req) {
     }
 
     const apiInstance = new Brevo.TransactionalEmailsApi();
-    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+    apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, env.brevoApiKey);
 
     const sendSmtpEmail = new Brevo.SendSmtpEmail();
 
     sendSmtpEmail.subject = "Your OTP for ATS-Friendly Resume Builder";
     sendSmtpEmail.htmlContent = `<html><body><h1>Your OTP is ${otp}</h1></body></html>`;
-    sendSmtpEmail.sender = { name: "ATS-Friendly Resume Builder", email: process.env.BREVO_SENDER_EMAIL };
+    sendSmtpEmail.sender = { name: "ATS-Friendly Resume Builder", email: env.brevoSenderEmail };
     sendSmtpEmail.to = [{ email }];
 
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    return NextResponse.json({ message: 'OTP sent successfully' });
+    return ok(null, 'OTP sent successfully');
   } catch (error) {
     console.error('OTP sending error:', error);
-    return NextResponse.json({ error: 'Failed to send OTP' }, { status: 500 });
+    return fail('Failed to send OTP', 500);
   }
-}
+});

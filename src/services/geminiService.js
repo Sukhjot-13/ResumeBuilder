@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import env from '@/config/env';
 
 // Single source of truth for model names — update here to change globally
 const GEMINI_MODELS = {
@@ -10,7 +11,7 @@ let geminiAI = null;
 
 export function getGeminiClient() {
   if (!geminiAI) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = env.geminiApiKey;
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY is not set in environment variables.");
     }

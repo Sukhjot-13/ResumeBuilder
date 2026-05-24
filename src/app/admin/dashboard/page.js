@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ROLES, PERMISSIONS, PLANS } from '@/lib/constants';
+import { ROLES, PERMISSIONS, PLANS, API_ENDPOINTS, ROUTES } from '@/lib/constants';
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);

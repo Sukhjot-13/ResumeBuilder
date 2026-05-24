@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { ok } from '@/lib/apiResponse';
 
 export async function POST() {
-  const response = NextResponse.json({ message: 'Logged out successfully' });
+  const response = ok(null, 'Logged out successfully');
 
   // Clear cookies
   response.cookies.set('accessToken', '', {

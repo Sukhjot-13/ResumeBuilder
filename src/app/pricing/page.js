@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PLANS } from '@/lib/constants';
+import { PLANS, API_ENDPOINTS, ROUTES } from '@/lib/constants';
 import { useAuth } from '@/context/AuthContext';
 
 export default function PricingPage() {

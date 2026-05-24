@@ -1,100 +1,64 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApiClient } from "@/hooks/useApiClient";
+import { useProfile } from "@/hooks/useProfile";
+import { useResumes } from "@/hooks/useResumes";
 import JobDescriptionInput from "@/components/home/JobDescriptionInput";
 import SpecialInstructionsInput from "@/components/home/SpecialInstructionsInput";
 import TemplateViewer from "@/components/preview/TemplateViewer";
 import ResumeList from "@/components/ResumeList";
-import { checkPermission } from "@/lib/accessControl";
-import { PERMISSIONS } from "@/lib/constants";
+import { PERMISSIONS, API_ENDPOINTS, ROUTES } from "@/lib/constants";
 import PermissionGate from "@/components/common/PermissionGate";
 
 function DashboardContent() {
   const [jobDescription, setJobDescription] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState('');
   const [tailoredResume, setTailoredResume] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [resumes, setResumes] = useState([]);
-  const [deletingId, setDeletingId] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const apiClient = useApiClient();
 
-  const fetchResumes = async (userProfile) => {
-    // Only fetch if user has permission
-    if (!userProfile || !checkPermission(userProfile, PERMISSIONS.VIEW_OWN_RESUMES)) {
-      return;
-    }
-    try {
-      const resumesResponse = await apiClient("/api/resumes");
-      if (resumesResponse.ok) {
-        const data = await resumesResponse.json();
-        setResumes(data);
-      } else {
-        console.error("Failed to fetch resumes");
-      }
-    } catch (err) {
-      console.error("Error fetching resumes:", err);
-    }
-  };
+  // ── Hook layer: no fetch calls in this component ───────────────────────────
+  const { profile, loading } = useProfile();
+  const { resumes, deletingId, fetchResumes, createResume, deleteResume } = useResumes(profile);
 
-  const searchParams = useSearchParams();
-
+  // Verify subscription after Stripe redirect
   useEffect(() => {
-    const fetchData = async () => {
+    const sessionId = searchParams.get('session_id');
+    const success = searchParams.get('success');
+    if (!success || !sessionId) return;
+
+    const verifySession = async () => {
       try {
-        // Check for session_id to verify subscription
-        const sessionId = searchParams.get('session_id');
-        const success = searchParams.get('success');
-
-        if (success && sessionId) {
-            try {
-                const verifyResponse = await apiClient('/api/checkout/verify-session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionId }),
-                });
-                
-                if (verifyResponse.ok) {
-                    // Clear URL params to prevent re-verification
-                    router.replace('/dashboard');
-                    // Show success message (could use a toast here)
-                    alert('Subscription activated successfully!');
-                }
-            } catch (err) {
-                console.error('Verification failed', err);
-            }
-        }
-
-        // Fetch profile
-        const profileResponse = await apiClient("/api/user/profile");
-
-        if (profileResponse.ok) {
-          const data = await profileResponse.json();
-          setProfile(data);
-          
-          // Fetch resumes (only if user has permission)
-          await fetchResumes(data);
-        } else {
-          console.error("Failed to fetch profile");
+        const res = await apiClient(API_ENDPOINTS.CHECKOUT.VERIFY_SESSION, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        });
+        if (res.ok) {
+          router.replace(ROUTES.DASHBOARD);
+          alert('Subscription activated successfully!');
         }
       } catch (err) {
-        console.error("An unexpected error occurred while fetching data.");
-      } finally {
-        setLoading(false);
+        console.error('Verification failed', err);
       }
     };
 
-    fetchData();
-  }, [apiClient, searchParams, router]);
+    verifySession();
+  }, [searchParams, apiClient, router]);
 
-  const [generateError, setGenerateError] = useState('');
+  // Fetch resumes once profile is loaded
+  useEffect(() => {
+    if (profile) fetchResumes();
+  }, [profile, fetchResumes]);
 
-  const handleGenerateResume = async () => {
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const handleGenerateResume = useCallback(async () => {
     if (!profile?.mainResume?.content) {
       setGenerateError('Please save a master resume in your Profile first.');
       return;
@@ -102,63 +66,36 @@ function DashboardContent() {
     setGenerating(true);
     setGenerateError('');
     try {
-      const generateResponse = await apiClient("/api/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await apiClient(API_ENDPOINTS.GENERATE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           resume: profile.mainResume.content,
           jobDescription,
-          // specialInstructions is passed; the server enforces permission
-          specialInstructions,
+          specialInstructions, // server enforces the permission
         }),
       });
 
-      if (generateResponse.ok) {
-        const { resume, metadata } = await generateResponse.json();
+      if (res.ok) {
+        const { resume, metadata } = await res.json();
         setTailoredResume(resume);
-
-        const saveResponse = await apiClient("/api/resumes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: resume, metadata }),
-        });
-
-        if (saveResponse.ok) {
-          const newResume = await saveResponse.json();
-          setResumes([newResume, ...resumes]);
-        }
+        await createResume(resume, metadata);
       } else {
-        const errData = await generateResponse.json().catch(() => ({}));
+        const errData = await res.json().catch(() => ({}));
         setGenerateError(errData.message || errData.error || 'Failed to generate resume.');
       }
-    } catch (error) {
+    } catch {
       setGenerateError('An unexpected error occurred.');
+    } finally {
+      setGenerating(false);
     }
-    setGenerating(false);
-  };
+  }, [apiClient, profile, jobDescription, specialInstructions, createResume]);
 
-  const handleDeleteResume = async (resumeId) => {
-    setDeletingId(resumeId);
-    try {
-      const response = await apiClient(`/api/resumes/${resumeId}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        setResumes(resumes.filter((resume) => resume._id !== resumeId));
-      } else {
-        console.error("Error deleting resume:", await response.text());
-      }
-    } catch (error) {
-      console.error("Error deleting resume:", error);
-    }
-    setDeletingId(null);
-  };
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen pb-20">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-900/10 via-slate-900 to-slate-900 -z-10" />
-      
+
       <div className="container mx-auto px-6 pt-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
           <div>
@@ -180,7 +117,6 @@ function DashboardContent() {
                 Job Details
               </h2>
               <div className="space-y-4">
-                {/* Both inputs always rendered — they handle skeleton/lock states internally */}
                 <JobDescriptionInput
                   jobDescription={jobDescription}
                   setJobDescription={setJobDescription}
@@ -194,7 +130,6 @@ function DashboardContent() {
                   profile={profile}
                   loading={loading}
                 />
-                {/* Error message from generate attempt */}
                 {generateError && (
                   <p className="text-sm text-red-400 flex items-center gap-1.5">
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -234,13 +169,11 @@ function DashboardContent() {
         </div>
 
         <div className="mt-12">
-          {/* Show skeleton during initial load to avoid flash.
-              Only apply PermissionGate once profile has loaded. */}
           {loading || !profile ? (
             <ResumeList
               resumes={[]}
               deletingId={null}
-              onDeleteResume={handleDeleteResume}
+              onDeleteResume={deleteResume}
               onViewResume={setTailoredResume}
               loading={true}
               masterResume={null}
@@ -252,11 +185,11 @@ function DashboardContent() {
               <ResumeList
                 resumes={resumes}
                 deletingId={deletingId}
-                onDeleteResume={handleDeleteResume}
+                onDeleteResume={deleteResume}
                 onViewResume={setTailoredResume}
                 loading={false}
                 masterResume={profile?.mainResume}
-                onUpdateResume={() => fetchResumes(profile)}
+                onUpdateResume={fetchResumes}
                 user={profile}
               />
             </PermissionGate>

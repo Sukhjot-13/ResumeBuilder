@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PERMISSIONS } from '@/lib/constants';
+import { PERMISSIONS, API_ENDPOINTS, ROUTES } from '@/lib/constants';
 import { checkPermission, getPermissionMetadata } from '@/lib/accessControl';
 import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
 

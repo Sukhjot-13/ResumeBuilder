@@ -236,3 +236,54 @@ export const DEFAULTS = {
 export const OTP_CONFIG = {
   EXPIRY_MS: 5 * 60 * 1000, // 5 minutes — change here to update everywhere
 };
+
+// ---------------------------------------------------------------------------
+// Routing
+// ---------------------------------------------------------------------------
+
+export const ROUTES = {
+  HOME: '/',
+  LOGIN: '/login',
+  ONBOARDING: '/onboarding',
+  DASHBOARD: '/dashboard',
+  PROFILE: '/profile',
+  PRICING: '/pricing',
+  CHECKOUT: '/checkout',
+  RESUME_HISTORY: '/resume-history',
+  AI_EDIT: '/ai-edit',
+  ADMIN: '/admin',
+};
+
+// ---------------------------------------------------------------------------
+// API Endpoints
+// ---------------------------------------------------------------------------
+
+export const API_ENDPOINTS = {
+  AUTH: {
+    OTP: '/api/auth/otp',
+    VERIFY_OTP: '/api/auth/verify-otp',
+    LOGOUT: '/api/auth/logout',
+    VERIFY_TOKEN: '/api/auth/verify-token',
+    CHECK_SUBSCRIPTION: '/api/auth/check-subscription',
+  },
+  USER: {
+    PROFILE: '/api/user/profile',
+  },
+  RESUMES: {
+    LIST: '/api/resumes',
+    BY_ID: (id) => `/api/resumes/${id}`,
+  },
+  GENERATE: '/api/generate-content',
+  EDIT_WITH_AI: '/api/edit-resume-with-ai',
+  PARSE_RESUME: '/api/parse-resume',
+  CHECKOUT: {
+    CREATE_SESSION: '/api/checkout/create-session',
+    CREATE_PORTAL: '/api/checkout/create-portal-session',
+    VERIFY_SESSION: '/api/checkout/verify-session',
+  },
+  ADMIN: {
+    USERS: '/api/admin/users',
+    USER_ROLE: (id) => `/api/admin/users/${id}/role`,
+    USER_RESET_USAGE: (id) => `/api/admin/users/${id}/reset-usage`,
+  },
+};

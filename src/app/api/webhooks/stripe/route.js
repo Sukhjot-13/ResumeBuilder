@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe';
 import User from '@/models/User';
@@ -6,6 +5,8 @@ import Plan from '@/models/plan';
 import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongodb';
 import { PLANS, ROLES } from '@/lib/constants';
+import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import env from '@/config/env';
 
 export async function POST(req) {
   const body = await req.text();
@@ -17,12 +18,12 @@ export async function POST(req) {
     event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET
+      env.stripeWebhookSecret,
     );
     console.log('🔔 Webhook received:', event.type);
   } catch (err) {
     console.error('❌ Webhook signature verification failed:', err.message);
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+    return fail(`Webhook Error: ${err.message}`, 400);
   }
 
   await dbConnect();
@@ -149,5 +150,5 @@ export async function POST(req) {
     }
   }
 
-  return NextResponse.json({ received: true });
+  return ok({ received: true });
 }

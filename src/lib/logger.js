@@ -6,6 +6,8 @@
  * to log to a database, file, or external service in the future.
  */
 
+import env from '@/config/env';
+
 const LOG_LEVELS = {
   INFO: 'INFO',
   WARN: 'WARN',
@@ -80,7 +82,7 @@ class Logger {
    * @param {object} meta 
    */
   debug(message, meta = {}) {
-    if (process.env.NODE_ENV === 'development') {
+    if (env.isDevelopment) {
       const logEntry = this._format(LOG_LEVELS.DEBUG, message, meta);
       console.debug(JSON.stringify(logEntry));
     }

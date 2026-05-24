@@ -1,5 +1,4 @@
 
-import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import RefreshToken from '@/models/refreshToken';
@@ -10,12 +9,14 @@ import {
   generateRefreshToken,
 } from '@/lib/utils';
 import { TOKEN_CONFIG } from '@/lib/constants';
+import env from '@/config/env';
+import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
-export async function POST(req) {
+export const POST = withErrorHandler(async (req) => {
   const { email, otp } = await req.json();
 
   if (!email || !otp) {
-    return NextResponse.json({ error: 'Email and OTP are required' }, { status: 400 });
+    return fail('Email and OTP are required', 400);
   }
 
   await dbConnect();
@@ -24,7 +25,7 @@ export async function POST(req) {
     const user = await User.findOne({ email });
 
     if (!user || user.otp !== sha256(otp) || Date.now() > user.otpExpires) {
-      return NextResponse.json({ error: 'Invalid or expired OTP' }, { status: 400 });
+      return fail('Invalid or expired OTP', 400);
     }
 
     let newUser = !user.name;
@@ -50,10 +51,10 @@ export async function POST(req) {
     user.otpExpires = undefined;
     await user.save();
 
-    const response = NextResponse.json({ newUser });
+    const response = ok({ newUser });
 
     // Set cookies
-    const secure = process.env.NODE_ENV === 'production';
+    const secure = env.isProduction;
     response.cookies.set('accessToken', accessToken, {
       path: '/',
       maxAge: TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY_SECONDS,
@@ -72,6 +73,6 @@ export async function POST(req) {
     return response;
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return fail('Internal server error', 500);
   }
-}
+});

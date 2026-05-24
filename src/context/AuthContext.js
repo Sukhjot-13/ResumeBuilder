@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from 'react';
+import { API_ENDPOINTS } from '@/lib/constants';
 
 // AuthContext holds loading state, auth status, and minimal user info
 const AuthContext = createContext({ loading: true, isAuthenticated: false, user: null, refetch: async () => {} });

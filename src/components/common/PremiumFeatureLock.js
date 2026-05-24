@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PLANS } from '@/lib/constants';
+import { PLANS, API_ENDPOINTS } from '@/lib/constants';
 
 /**
  * A reusable component to lock premium features.

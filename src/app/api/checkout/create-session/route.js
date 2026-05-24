@@ -1,19 +1,20 @@
-import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import User from '@/models/User';
 import { PLANS } from '@/lib/constants';
 import dbConnect from '@/lib/mongodb';
 import { logger } from '@/lib/logger';
+import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import env from '@/config/env';
 
 // ARCH-2: Removed manual token extraction and verification.
 // The middleware proxy already authenticates the request and injects x-user-id.
 // This route now follows the same pattern as all other protected API routes.
 
-export async function POST(req) {
+export const POST = withErrorHandler(async (req) => {
   const userId = req.headers.get('x-user-id');
 
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return fail('Unauthorized', 401);
   }
 
   try {
@@ -22,15 +23,15 @@ export async function POST(req) {
     await dbConnect();
     const user = await User.findById(userId);
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return fail('User not found', 404);
     }
 
     const selectedPlan = PLANS[planName];
     if (!selectedPlan) {
-      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+      return fail('Invalid plan', 400);
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = env.appUrl;
 
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -68,9 +69,9 @@ export async function POST(req) {
     });
 
     logger.info('Stripe checkout session created', { userId, planName });
-    return NextResponse.json({ url: session.url });
+    return ok({ url: session.url });
   } catch (error) {
     logger.error('Stripe Checkout Error', error, { userId });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return fail('Internal Server Error', 500);
   }
-}
+});

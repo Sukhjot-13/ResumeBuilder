@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { verifyAuthEdge } from '@/lib/auth-edge';
 import { ROLES, TOKEN_CONFIG } from '@/lib/constants';
+import env from '@/config/env';
 
 export async function proxy(req) {
   const { pathname } = req.nextUrl;
@@ -96,7 +97,7 @@ export async function proxy(req) {
 
     // Set new cookies if rotation happened
     if (authResult.newAccessToken && authResult.newRefreshToken) {
-      const secure = process.env.NODE_ENV === 'production';
+      const secure = env.isProduction;
       response.cookies.set('accessToken', authResult.newAccessToken, { path: '/', maxAge: TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY_SECONDS, httpOnly: true, secure, sameSite: 'lax' });
       response.cookies.set('refreshToken', authResult.newRefreshToken, { path: '/', maxAge: TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS / 1000, httpOnly: true, secure, sameSite: 'lax' });
     }

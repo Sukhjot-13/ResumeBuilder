@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_ENDPOINTS, ROUTES } from '@/lib/constants';
 
 export default function OnboardingPage() {
   const [name, setName] = useState('');

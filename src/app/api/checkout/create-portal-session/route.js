@@ -1,19 +1,20 @@
-import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { verifyToken } from '@/lib/utils';
 import User from '@/models/User';
 import dbConnect from '@/lib/mongodb';
+import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import env from '@/config/env';
 
-export async function POST(req) {
+export const POST = withErrorHandler(async (req) => {
   try {
     // Verify user
     let token = req.headers.get('authorization')?.split(' ')[1];
     if (!token) {
       token = req.cookies.get('accessToken')?.value;
     }
-    
+
     if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return fail('Unauthorized', 401);
     }
     const payload = await verifyToken(token, 'access');
     const userId = payload.userId;
@@ -21,10 +22,10 @@ export async function POST(req) {
     await dbConnect();
     const user = await User.findById(userId);
     if (!user || !user.customerId) {
-      return NextResponse.json({ error: 'User or customer not found' }, { status: 404 });
+      return fail('User or customer not found', 404);
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = env.appUrl;
 
     // Create Stripe Portal Session
     const session = await stripe.billingPortal.sessions.create({
@@ -32,9 +33,9 @@ export async function POST(req) {
       return_url: `${appUrl}/profile`,
     });
 
-    return NextResponse.json({ url: session.url });
+    return ok({ url: session.url });
   } catch (error) {
     console.error('Stripe Portal Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return fail('Internal Server Error', 500);
   }
-}
+});

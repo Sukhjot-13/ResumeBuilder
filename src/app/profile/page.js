@@ -7,7 +7,7 @@ import ManualResumeForm from "@/components/profile/ManualResumeForm";
 import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
 import PermissionGate from "@/components/common/PermissionGate";
 import TemplateViewer from "@/components/preview/TemplateViewer";
-import { ROLES, PLANS, PERMISSIONS } from "@/lib/constants";
+import { ROLES, PLANS, PERMISSIONS, API_ENDPOINTS } from "@/lib/constants";
 import { checkPermission, getPermissionMetadata } from "@/lib/accessControl";
 
 export default function ProfilePage() {
