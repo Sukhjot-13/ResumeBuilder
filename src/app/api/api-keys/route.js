@@ -12,7 +12,7 @@ export const GET = withErrorHandler(async (request) => {
   const perm = await requirePermission(userId, PERMISSIONS.MANAGE_API_KEYS);
   if (isPermissionError(perm)) return perm.error;
 
-  const keys = await ApiKey.find({ userId, revokedAt: null })
+  const keys = await ApiKey.find({ userId, revokedAt: null, isActive: true })
     .select('name keyPrefix isActive lastUsedAt expiresAt createdAt')
     .sort({ createdAt: -1 });
 

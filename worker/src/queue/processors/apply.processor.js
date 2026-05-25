@@ -1,4 +1,4 @@
-import { getPendingJobListings, getSessions, getSchedulerSettings, saveApplication } from '../../db-api.js';
+import { getJobListingById, getSessions, getSchedulerSettings, saveApplication } from '../../db-api.js';
 import { createBrowserContext } from '../../automation/browser.js';
 import { randomDelay } from '../../automation/anti-detection.js';
 
@@ -321,8 +321,13 @@ export async function applyJobProcessor(job) {
   const settings = await getSchedulerSettings();
   if (!settings || !settings.enabled) return;
 
-  const listings = await getPendingJobListings();
-  const listing = listings.find(l => l._id === jobId);
+  let listing;
+  try {
+    listing = await getJobListingById(jobId);
+  } catch {
+    console.log(`[Apply] Job ${jobId} not found`);
+    return;
+  }
   if (!listing) { console.log(`[Apply] Job ${jobId} not found`); return; }
 
   const sessions = await getSessions();
@@ -360,14 +365,15 @@ export async function applyJobProcessor(job) {
 
   let browser;
   try {
-    browser = await createBrowserContext();
-    const page = await browser.newPage();
+    const ctx = await createBrowserContext();
+    browser = ctx.browser;
+    const page = await ctx.context.newPage();
     await randomDelay(settings.minDelaySeconds * 1000, settings.maxDelaySeconds * 1000);
 
     // Inject platform session cookies
     if (session.cookies) {
       const cookies = typeof session.cookies === 'string' ? JSON.parse(session.cookies) : session.cookies;
-      await browser.addCookies(
+      await ctx.context.addCookies(
         cookies.map((c) => {
           const raw = (c.sameSite || '').toLowerCase();
           const sameSite = raw === 'none' ? 'None' : raw === 'strict' ? 'Strict' : 'Lax';

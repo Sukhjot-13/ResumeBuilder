@@ -18,8 +18,6 @@ export const config = {
 
   cookieEncryptionKey: process.env.COOKIE_ENCRYPTION_KEY || '',
   resendApiKey: process.env.RESEND_API_KEY || '',
-
-  scrapeIntervalMs: 2 * 60 * 60 * 1000,
 };
 
 export function validateConfig() {

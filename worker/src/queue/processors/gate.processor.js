@@ -1,5 +1,5 @@
 import { generateQueue } from '../jobs.js';
-import { getPendingJobListings, evaluateJob, getSchedulerSettings } from '../../db-api.js';
+import { getJobListingById, evaluateJob, getSchedulerSettings } from '../../db-api.js';
 
 export async function gateJobProcessor(job) {
   const { jobId } = job.data;
@@ -8,11 +8,14 @@ export async function gateJobProcessor(job) {
   const settings = await getSchedulerSettings();
   if (!settings || !settings.enabled) return;
 
-  const listings = await getPendingJobListings();
-  const listing = listings.find(l => l._id === jobId);
-  if (!listing) { console.log(`[Gate] Job ${jobId} not found`); return; }
-
-  if (!listing.title) {
+  let listing;
+  try {
+    listing = await getJobListingById(jobId);
+  } catch {
+    console.log(`[Gate] Job ${jobId} not found`);
+    return;
+  }
+  if (!listing || !listing.title) {
     console.log(`[Gate] Skipping ${jobId} — no title`);
     return;
   }

@@ -117,14 +117,15 @@ async function main() {
 
   let browser;
   try {
-    browser = await createBrowserContext();
-    const page = await browser.newPage();
+    const ctx = await createBrowserContext();
+    browser = ctx.browser;
+    const page = await ctx.context.newPage();
     await randomDelay(2000, 4000);
 
     // Inject platform session cookies
     if (session.cookies) {
       const cookies = typeof session.cookies === 'string' ? JSON.parse(session.cookies) : session.cookies;
-      await browser.addCookies(
+      await ctx.context.addCookies(
         cookies.map((c) => {
           const raw = (c.sameSite || '').toLowerCase();
           const sameSite = raw === 'none' ? 'None' : raw === 'strict' ? 'Strict' : 'Lax';

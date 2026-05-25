@@ -4,9 +4,9 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 chromium.use(StealthPlugin());
 
 /**
- * Create a Playwright browser context with anti-detection and stealth measures.
- * Returns the context (call `context.newPage()` to get a page).
- * Note: callers should close the browser with `context.browser().close()` to avoid leaks.
+ * Create a Playwright browser + context with anti-detection and stealth measures.
+ * Returns `{ browser, context }` so callers can create pages from the context
+ * (preserving stealth settings) and close the browser with `browser.close()`.
  */
 export async function createBrowserContext() {
   const viewportWidth = 1280 + Math.floor(Math.random() * 640);
@@ -34,7 +34,7 @@ export async function createBrowserContext() {
     window.chrome = { runtime: {} };
   });
 
-  return context;
+  return { browser, context };
 }
 
 function getRandomUserAgent() {

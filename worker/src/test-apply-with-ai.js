@@ -412,13 +412,13 @@ async function main() {
 
   // 3. Launch browser
   console.log('\n[3] Launching browser...');
-  const ctx = await createBrowserContext();
-  const page = await ctx.newPage();
+  const { browser, context } = await createBrowserContext();
+  const page = await context.newPage();
 
   // Inject cookies
   if (session.cookies) {
     const cookies = typeof session.cookies === 'string' ? JSON.parse(session.cookies) : session.cookies;
-    await ctx.addCookies(
+    await context.addCookies(
       cookies.map((c) => {
         const raw = (c.sameSite || '').toLowerCase();
         const sameSite = raw === 'none' ? 'None' : raw === 'strict' ? 'Strict' : 'Lax';
@@ -709,7 +709,7 @@ async function main() {
       console.log('\n============================================');
       console.log('  ✅ APPLICATION SUBMITTED SUCCESSFULLY');
       console.log('============================================');
-      await ctx.close();
+      await browser.close();
       process.exit(0);
     }
 
@@ -852,7 +852,7 @@ async function main() {
   console.log('  ⚠ Max steps reached — form may be incomplete');
   console.log('  Check the browser window');
   console.log('============================================');
-  await ctx.close();
+  await browser.close();
   process.exit(1);
 }
 

@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
 import { checkPermission } from '@/lib/accessControl';
 import User from '@/models/User';
+import Resume from '@/models/resume';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 const INJECTION_PATTERNS = [
@@ -63,14 +64,14 @@ export const POST = withErrorHandler(async (request) => {
     return fail('Invalid JSON body', 400);
   }
 
-  const { resume, jobDescription, specialInstructions: rawSpecialInstructions } = body;
+  const { resume: bodyResume, jobDescription, specialInstructions: rawSpecialInstructions } = body;
   const cleanJobDescription = sanitizeJobDescription(jobDescription);
 
   if (!cleanJobDescription.trim()) {
     return fail('Job description is required', 400);
   }
 
-  const user = await User.findById(userId).select('role').lean();
+  const user = await User.findById(userId).populate('mainResume');
   if (!user) {
     return fail('User not found', 404);
   }
@@ -88,16 +89,33 @@ export const POST = withErrorHandler(async (request) => {
     logger.warn('User attempted to use special instructions without permission', { userId });
   }
 
+  // Use provided resume data, or fall back to the user's master resume
+  const resumeData = bodyResume || user.mainResume?.content || {};
+
   try {
     const tailoredData = await generateResume(
-      resume,
+      resumeData,
       cleanJobDescription,
       specialInstructions,
       userRole
     );
 
+    // Persist the generated resume so the worker has a resumeId
+    let resumeId = null;
+    try {
+      const resumeDoc = await Resume.create({
+        userId: user._id,
+        content: tailoredData.resume || tailoredData,
+        metadata: tailoredData.metadata || undefined,
+      });
+      resumeId = resumeDoc._id.toString();
+    } catch (saveErr) {
+      logger.error('Failed to save generated resume document', saveErr, { userId });
+      // Non-fatal — return the content anyway
+    }
+
     logger.info('Resume content generated successfully', { userId, role: userRole });
-    return ok(tailoredData);
+    return ok({ resumeId, ...tailoredData });
   } catch (error) {
     logger.error('Error generating content', error, { userId });
     return fail(error.message || 'Error generating content', 500);

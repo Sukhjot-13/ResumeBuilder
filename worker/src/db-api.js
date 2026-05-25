@@ -39,15 +39,16 @@ async function request(method, path, body) {
 
 export function getSchedulerSettings() { return request('GET', '/api/automation/scheduler'); }
 export function getPendingJobListings() { return request('GET', '/api/automation/jobs?status=pending'); }
+export function getJobListingById(id) { return request('GET', `/api/automation/jobs/${id}`); }
 export function saveJobListing(job) { return request('POST', '/api/automation/jobs', job); }
 export function evaluateJob(job) {
   return request('POST', '/api/gatekeeper/evaluate', {
-    jobTitle: job.title, company: job.company, location: job.location,
+    jobId: job._id || job.id, jobTitle: job.title, company: job.company, location: job.location,
     salary: job.salary, description: job.description, platform: job.platform, isEasyApply: job.isEasyApply,
   });
 }
-export function generateResume(jobDescription, userProfile) {
-  return request('POST', '/api/generate-content', { jobDescription, userProfile });
+export function generateResume(jobDescription) {
+  return request('POST', '/api/generate-content', { jobDescription });
 }
 export function saveApplication(app) { return request('POST', '/api/automation/applications', app); }
 export async function getSessions() {

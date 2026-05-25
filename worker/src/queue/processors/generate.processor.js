@@ -14,7 +14,7 @@ export async function generateJobProcessor(job) {
 
   try {
     const desc = listing.description || `Job title: ${listing.title}. Company: ${listing.company || 'Not specified'}. Location: ${listing.location || 'Not specified'}.`;
-    const result = await generateResume(desc, {});
+    const result = await generateResume(desc);
     console.log(`[Generate] Resume ready for ${listing.title}`);
     await applyQueue.add('apply', { jobId, resumeId: result.resumeId });
   } catch (err) {

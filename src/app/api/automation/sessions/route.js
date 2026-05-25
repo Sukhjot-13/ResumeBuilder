@@ -14,7 +14,12 @@ export const GET = withErrorHandler(async (request) => {
   const perm = await requirePermission(userId, PERMISSIONS.MANAGE_PLATFORM_SESSIONS);
   if (isPermissionError(perm)) return perm.error;
 
-  const sessions = await PlatformSession.find({ userId }).select('platform lastRefreshed isValid cookiesEncrypted createdAt');
+  // Include encrypted cookies only for API key auth (worker needs them)
+  const isWorkerCall = request.headers.get('authorization')?.startsWith('Bearer ');
+  const select = isWorkerCall
+    ? 'platform lastRefreshed isValid cookiesEncrypted createdAt'
+    : 'platform lastRefreshed isValid createdAt';
+  const sessions = await PlatformSession.find({ userId }).select(select);
   return ok(sessions);
 });
 
