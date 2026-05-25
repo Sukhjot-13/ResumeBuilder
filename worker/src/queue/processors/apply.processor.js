@@ -368,9 +368,7 @@ export async function applyJobProcessor(job) {
     const ctx = await createBrowserContext();
     browser = ctx.browser;
     const page = await ctx.context.newPage();
-    await randomDelay(settings.minDelaySeconds * 1000, settings.maxDelaySeconds * 1000);
-
-    // Inject platform session cookies
+    // Inject platform session cookies BEFORE navigating
     if (session.cookies) {
       const cookies = typeof session.cookies === 'string' ? JSON.parse(session.cookies) : session.cookies;
       await ctx.context.addCookies(
@@ -391,8 +389,15 @@ export async function applyJobProcessor(job) {
     }
 
     if (!listing.applyUrl) throw new Error('No apply URL');
+    console.log(`[Apply] Navigating to: ${listing.applyUrl}`);
+    console.log(`[Apply] Listing title: "${listing.title}", company: "${listing.company || '?'}"`);
     await page.goto(listing.applyUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    console.log(`[Apply] Navigated to ${listing.applyUrl}`);
+    await randomDelay(3000, 4000);
+    console.log(`[Apply] Current URL after load: ${page.url()}`);
+    const pageTitle = await page.title();
+    console.log(`[Apply] Page title: "${pageTitle}"`);
+    const bodyText = await page.evaluate(() => document.body?.innerText?.substring(0, 200) || 'NO BODY TEXT');
+    console.log(`[Apply] Body text: "${bodyText}"`);
 
     // ── Find and click the apply button ──
     const applySelectors = [
@@ -463,7 +468,18 @@ export async function applyJobProcessor(job) {
       console.log(`[Apply] No apply button found — page may already show the apply form`);
     }
 
-    // ── Wait for the form to load ──
+    // ── Check if redirected to an external site after clicking apply ──
+    const currentUrl = page.url();
+    const onIndeed = currentUrl.includes('indeed.com');
+    console.log(`[Apply] URL after apply click: ${currentUrl.substring(0, 100)}`);
+
+    if (!onIndeed) {
+      console.log(`[Apply] ⚠ Redirected to external site — cannot automate. Saving as external_apply.`);
+      await saveApplication({ jobId, resumeId, status: 'external_apply', platform: listing.platform });
+      return;
+    }
+
+    // ── Wait for the Indeed Easy Apply form ──
     await randomDelay(2000, 3000);
     let target = await waitForApplyFrame(page);
     if (!target) target = page;

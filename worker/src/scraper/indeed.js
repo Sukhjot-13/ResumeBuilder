@@ -28,32 +28,51 @@ export async function scrapeIndeed(criteria) {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForTimeout(3000);
 
-        const jobs = await page.$$eval('.job_seen_beacon, .result', (cards) => {
+        const jobs = await page.evaluate(() => {
+          const cards = [...document.querySelectorAll('.job_seen_beacon, .result, .cardOutline, .jobCard')];
           return cards.slice(0, 15).map((card) => {
-            const titleEl = card.querySelector('h2.jobTitle a, a.jobtitle');
-            const companyEl = card.querySelector('.companyName, .company');
-            const locationEl = card.querySelector('.companyLocation, .location');
-            const linkEl = card.querySelector('h2.jobTitle a, a.jobtitle');
+            // Title: try multiple selectors Indeed uses
+            const titleEl = card.querySelector('h2.jobTitle a, a.jobtitle, [data-jk] a, .jobTitle a');
+            const title = titleEl?.textContent?.trim() || '';
 
-            return {
-              title: titleEl?.textContent?.trim() || '',
-              company: companyEl?.textContent?.trim() || '',
-              location: locationEl?.textContent?.trim() || '',
-              applyUrl: linkEl?.getAttribute('href') || '',
-            };
+            // Company name
+            const companyEl = card.querySelector('[data-testid="company-name"], .companyName, .company, .jobCardCompany, [class*="company"]');
+            const company = companyEl?.textContent?.trim() || '';
+
+            // Location
+            const locationEl = card.querySelector('[data-testid="text-location"], .companyLocation, .location, [class*="location"]');
+            const location = locationEl?.textContent?.trim() || '';
+
+            // Description snippet
+            const descEl = card.querySelector('.job-snippet, .jobCardDescription, [class*="summary"], [class*="description"]');
+            const description = descEl?.textContent?.trim() || '';
+
+            // Link
+            const linkEl = titleEl || card.querySelector('a[data-jk], a[class*="title"]');
+            const href = linkEl?.getAttribute('href') || '';
+
+            return { title, company, location, description, applyUrl: href };
           });
         });
 
         for (const job of jobs) {
           if (!job.title) continue;
+
+          // Build the full redirect URL, then extract the jk param for a proper viewjob URL
+          const redirectUrl = job.applyUrl.startsWith('http') ? job.applyUrl : `https://ca.indeed.com${job.applyUrl}`;
+          const jkMatch = redirectUrl.match(/[?&]jk=([^&]+)/);
+          const viewUrl = jkMatch
+            ? `https://ca.indeed.com/viewjob?jk=${jkMatch[1]}`
+            : redirectUrl;
+
           results.push({
             platform: 'indeed',
-            externalId: `${job.company}-${job.title}`.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
+            externalId: `${job.company || 'unknown'}-${job.title}`.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
             title: job.title,
             company: job.company,
             location: job.location,
-            description: '',
-            applyUrl: job.applyUrl.startsWith('http') ? job.applyUrl : `https://ca.indeed.com${job.applyUrl}`,
+            description: job.description,
+            applyUrl: viewUrl,
             isEasyApply: false,
           });
         }

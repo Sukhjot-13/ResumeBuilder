@@ -1,11 +1,11 @@
 /**
  * End-to-end pipeline test.
- * Scrapes 1 job, evaluates it, and runs the apply flow using the user's master resume.
+ * Scrapes 1 job, evaluates it, and runs the production applyJobProcessor.
  *
  * Usage: node src/test-pipeline.js
  *
  * Prerequisites:
- *   - Worker .env configured with API key + Redis
+ *   - Worker .env configured with API key + Redis + DEEPSEEK_API_KEY
  *   - Next.js app running on RESUME_BUILDER_URL
  *   - Scheduler enabled at /api/automation/scheduler
  *   - Job criteria set at /api/automation/criteria
@@ -13,15 +13,10 @@
  *   - Master resume exists (uploaded at /profile)
  */
 
-import { getSchedulerSettings, getJobCriteria, saveJobListing, getPendingJobListings, evaluateJob, getSessions, saveApplication } from './db-api.js';
+import { getSchedulerSettings, getJobCriteria, saveJobListing, evaluateJob } from './db-api.js';
 import { scrapeIndeed } from './scraper/indeed.js';
 import { scrapeLinkedIn } from './scraper/linkedin.js';
-import { createBrowserContext } from './automation/browser.js';
-import { randomDelay } from './automation/anti-detection.js';
-
-async function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
+import { applyJobProcessor } from './queue/processors/apply.processor.js';
 
 async function main() {
   console.log('========================================');
@@ -77,112 +72,26 @@ async function main() {
     console.log('\n  ⚠ Gatekeeper says skip. Forcing apply for test anyway...');
   }
 
-  // 6. Get master resume (from profile API)
-  console.log('\n[6] Fetching master resume...');
-  const BASE = process.env.RESUME_BUILDER_URL || 'http://localhost:3000';
-  const HEADERS = {
-    'Authorization': `Bearer ${process.env.RESUME_BUILDER_API_KEY}`,
-    'Content-Type': 'application/json',
-  };
-  const profileRes = await fetch(`${BASE}/api/user/profile`, { method: 'GET', headers: HEADERS });
-  if (!profileRes.ok) {
-    console.error(`  ✗ Failed to get profile: ${profileRes.status}`);
-    process.exit(1);
-  }
-  const profile = await profileRes.json();
-  const masterResume = profile.mainResume;
-  if (!masterResume) {
-    console.error('  ✗ No master resume found. Upload one at /profile');
-    process.exit(1);
-  }
-  console.log('  ✓ Master resume loaded');
+  // 6. Run the production apply processor
+  console.log('\n[6] Running production applyJobProcessor...');
+  console.log('  (This uses the same DeepSeek AI loop as test-apply-with-ai.js)\n');
 
-  // 7. Check session
-  console.log('\n[7] Checking platform session...');
-  const sessions = await getSessions();
-  const session = sessions.find(s => s.platform === platform);
-  if (!session || !session.isValid) {
-    console.error(`  ✗ No valid session for ${platform}. Add cookies at /automation/settings/accounts`);
-    process.exit(1);
-  }
-  console.log(`  ✓ ${platform} session valid`);
+  // Build a mock BullMQ job object matching what the real queue would send
+  const mockJob = { data: { jobId, resumeId: null } };
 
-  // 8. Browser automation — apply
-  console.log(`\n[8] Starting browser for apply...`);
-  if (!listing.applyUrl) {
-    console.error('  ✗ No apply URL');
-    process.exit(1);
-  }
-  console.log(`  URL: ${listing.applyUrl}`);
-
-  let browser;
   try {
-    const ctx = await createBrowserContext();
-    browser = ctx.browser;
-    const page = await ctx.context.newPage();
-    await randomDelay(2000, 4000);
-
-    // Inject platform session cookies
-    if (session.cookies) {
-      const cookies = typeof session.cookies === 'string' ? JSON.parse(session.cookies) : session.cookies;
-      await ctx.context.addCookies(
-        cookies.map((c) => {
-          const raw = (c.sameSite || '').toLowerCase();
-          const sameSite = raw === 'none' ? 'None' : raw === 'strict' ? 'Strict' : 'Lax';
-          return {
-            name: c.name,
-            value: c.value,
-            domain: c.domain || `.${platform}.com`,
-            path: c.path || '/',
-            httpOnly: c.httpOnly ?? true,
-            secure: c.secure ?? true,
-            sameSite,
-          };
-        })
-      );
-      console.log('  ✓ Session cookies injected');
-    }
-
-    await page.goto(listing.applyUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    console.log('  ✓ Page loaded');
-
-    // Try to find and click a submit/apply button
-    const applyBtn = await page.$('button[type="submit"], button:has-text("Submit"), button:has-text("Apply now"), button:has-text("Apply")');
-    if (applyBtn) {
-      await randomDelay(1000, 2000);
-      await applyBtn.click();
-      await page.waitForTimeout(3000);
-      console.log('  ✓ Apply button clicked');
-    } else {
-      console.log('  ℹ No apply button found — page may need manual interaction');
-    }
-
-    // Save the application record
-    await saveApplication({
-      jobId,
-      resumeId: masterResume._id || masterResume.id,
-      status: 'submitted',
-      platform,
-    });
-    console.log('  ✓ Application saved');
-
+    await applyJobProcessor(mockJob);
     console.log('\n========================================');
     console.log('  ✅ PIPELINE TEST PASSED');
     console.log('========================================');
   } catch (err) {
-    console.error(`\n  ✗ Apply step error: ${err.message}`);
-    await saveApplication({ jobId, status: 'failed', platform, errorMessage: err.message });
+    console.error(`\n  ✗ applyJobProcessor error: ${err.message}`);
     console.log('\n========================================');
     console.log('  ❌ PIPELINE TEST FAILED');
     console.log('========================================');
-  } finally {
-    if (browser) {
-      await sleep(2000);
-      await browser.close();
-      console.log('  Browser closed');
-    }
-    process.exit(0);
   }
+
+  process.exit(0);
 }
 
 main().catch((err) => {
