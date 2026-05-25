@@ -3,19 +3,14 @@ import User from '@/models/User';
 import Resume from '@/models/resume';
 import ResumeMetadata from '@/models/resumeMetadata';
 import { checkPermission } from '@/lib/accessControl';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
-// ARCH-1: This route now follows the standard pattern — read x-user-id injected
-// by the middleware proxy. No manual cookie/token verification needed here.
-
 export const GET = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
-
-  if (!userId) {
-    return fail('Unauthorized', 401);
-  }
+  const { userId, error } = await resolveUserId(req);
+  if (error) return error;
 
   await dbConnect();
 
@@ -48,11 +43,8 @@ export const GET = withErrorHandler(async (req) => {
 });
 
 export const PUT = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
-
-  if (!userId) {
-    return fail('Unauthorized', 401);
-  }
+  const { userId, error } = await resolveUserId(req);
+  if (error) return error;
 
   await dbConnect();
 

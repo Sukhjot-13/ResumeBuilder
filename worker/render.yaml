@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: job-automation-worker
+    env: node
+    buildCommand: npm install && npx playwright install chromium --with-deps && npm run build
+    startCommand: npm start
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"

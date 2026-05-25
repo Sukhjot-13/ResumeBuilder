@@ -1,5 +1,6 @@
 import { generateResume } from '@/lib/resume-generator';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { authenticateRequest } from '@/lib/apiKeyAuth';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
@@ -26,10 +27,29 @@ function sanitizeJobDescription(text) {
   return sanitized.slice(0, 8000);
 }
 
-export const POST = withErrorHandler(async (request) => {
+/**
+ * Resolve user from API key (Worker) or x-user-id header (web UI).
+ */
+async function resolveUser(request) {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const auth = await authenticateRequest(request);
+    if (auth.error) return { error: auth.error };
+    return { userId: auth.user._id.toString(), user: auth.user };
+  }
   const userId = request.headers.get('x-user-id');
+  if (!userId) {
+    return { error: fail('Unauthorized', 401) };
+  }
+  return { userId };
+}
 
+export const POST = withErrorHandler(async (request) => {
   await dbConnect();
+
+  const resolved = await resolveUser(request);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
 
   const permResult = await requirePermission(userId, PERMISSIONS.GENERATE_RESUME);
   if (isPermissionError(permResult)) {

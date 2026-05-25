@@ -1,4 +1,5 @@
 
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { verifyAuthEdge } from '@/lib/auth-edge';
 import { ROLES, TOKEN_CONFIG } from '@/lib/constants';
@@ -18,6 +19,14 @@ export async function proxy(req) {
 
   // If the route doesn't require auth, just continue
   if (!isProtectedApiRoute && !isProtectedRoute && !isAdminRoute && !isLoginPage) {
+    return NextResponse.next();
+  }
+
+  // If request has a Bearer token (API key), let the route handler validate it.
+  // The proxy can't efficiently verify API keys (requires DB lookup), so we pass
+  // these through and the individual routes handle auth via resolveUserId().
+  const authHeader = req.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ') && isApiRoute) {
     return NextResponse.next();
   }
 

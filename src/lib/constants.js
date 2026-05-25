@@ -50,6 +50,18 @@ export const PERMISSIONS = {
   // ==========================================
   VIEW_OWN_SUBSCRIPTION: 'view_own_subscription',
   MANAGE_OWN_SUBSCRIPTION: 'manage_own_subscription', // Upgrade, cancel subscription
+
+  // ==========================================
+  // Job Automation
+  // ==========================================
+  VIEW_AUTOMATION: 'view_automation', // Access automation dashboard
+  MANAGE_SCHEDULER: 'manage_scheduler', // Configure automation schedule
+  MANAGE_PLATFORM_SESSIONS: 'manage_platform_sessions', // Add/edit LinkedIn/Indeed cookies
+  MANAGE_CRITERIA: 'manage_criteria', // Job search filters
+  MANAGE_GATEKEEPER_RULES: 'manage_gatekeeper_rules', // Configure gatekeeper AI
+  MANAGE_API_KEYS: 'manage_api_keys', // Create/revoke API keys
+  VIEW_APPLICATIONS: 'view_applications', // View application history
+  EMERGENCY_STOP: 'emergency_stop', // Pause all automation immediately
 };
 
 export const ROLE_PERMISSIONS = {
@@ -84,6 +96,15 @@ export const ROLE_PERMISSIONS = {
     // Subscription
     PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
     PERMISSIONS.MANAGE_OWN_SUBSCRIPTION,
+    // Automation
+    PERMISSIONS.VIEW_AUTOMATION,
+    PERMISSIONS.MANAGE_SCHEDULER,
+    PERMISSIONS.MANAGE_PLATFORM_SESSIONS,
+    PERMISSIONS.MANAGE_CRITERIA,
+    PERMISSIONS.MANAGE_GATEKEEPER_RULES,
+    PERMISSIONS.MANAGE_API_KEYS,
+    PERMISSIONS.VIEW_APPLICATIONS,
+    PERMISSIONS.EMERGENCY_STOP,
   ],
   [ROLES.DEVELOPER]: [
     // Developer: Admin panel access + basic user features
@@ -107,6 +128,15 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.UPLOAD_MAIN_RESUME,
     PERMISSIONS.ACCESS_AI_EDIT_PAGE,
     PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
+    // Automation
+    PERMISSIONS.VIEW_AUTOMATION,
+    PERMISSIONS.MANAGE_SCHEDULER,
+    PERMISSIONS.MANAGE_PLATFORM_SESSIONS,
+    PERMISSIONS.MANAGE_CRITERIA,
+    PERMISSIONS.MANAGE_GATEKEEPER_RULES,
+    PERMISSIONS.MANAGE_API_KEYS,
+    PERMISSIONS.VIEW_APPLICATIONS,
+    PERMISSIONS.EMERGENCY_STOP,
   ],
   [ROLES.SUBSCRIBER]: [
     // Subscriber (Pro): Full AI features + resume management
@@ -126,6 +156,15 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.ACCESS_AI_EDIT_PAGE,
     PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
     PERMISSIONS.MANAGE_OWN_SUBSCRIPTION,
+    // Automation
+    PERMISSIONS.VIEW_AUTOMATION,
+    PERMISSIONS.MANAGE_SCHEDULER,
+    PERMISSIONS.MANAGE_PLATFORM_SESSIONS,
+    PERMISSIONS.MANAGE_CRITERIA,
+    PERMISSIONS.MANAGE_GATEKEEPER_RULES,
+    PERMISSIONS.MANAGE_API_KEYS,
+    PERMISSIONS.VIEW_APPLICATIONS,
+    PERMISSIONS.EMERGENCY_STOP,
   ],
   [ROLES.USER]: [
     // Free User: Basic features only, limited AI usage
@@ -254,6 +293,11 @@ export const ROUTES = {
   RESUME_HISTORY: '/resume-history',
   AI_EDIT: '/ai-edit',
   ADMIN: '/admin',
+  AUTOMATION: '/automation',
+  AUTOMATION_JOBS: '/automation/jobs',
+  AUTOMATION_APPLICATIONS: '/automation/applications',
+  AUTOMATION_SETTINGS: '/automation/settings',
+  API_KEYS: '/api-keys',
 };
 
 // ---------------------------------------------------------------------------
@@ -287,5 +331,12 @@ export const API_ENDPOINTS = {
     USERS: '/api/admin/users',
     USER_ROLE: (id) => `/api/admin/users/${id}/role`,
     USER_RESET_USAGE: (id) => `/api/admin/users/${id}/reset-usage`,
+  },
+  AUTOMATION: {
+    GATEKEEPER: '/api/gatekeeper/evaluate',
+    TEMPLATES: '/api/resume/templates',
+    HEALTH: '/api/health',
+    API_KEYS: '/api/api-keys',
+    API_KEY_BY_ID: (id) => `/api/api-keys/${id}`,
   },
 };
