@@ -1,12 +1,16 @@
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+chromium.use(StealthPlugin());
 
 /**
- * Create a Playwright browser context with anti-detection measures.
- * Returns a context ready for automation.
+ * Create a Playwright browser context with anti-detection and stealth measures.
+ * Returns the context (call `context.newPage()` to get a page).
+ * Note: callers should close the browser with `context.browser().close()` to avoid leaks.
  */
 export async function createBrowserContext() {
-  const viewportWidth = 1280 + Math.floor(Math.random() * 640); // 1280–1920
-  const viewportHeight = 720 + Math.floor(Math.random() * 280);  // 720–1000
+  const viewportWidth = 1280 + Math.floor(Math.random() * 640);
+  const viewportHeight = 720 + Math.floor(Math.random() * 280);
 
   const browser = await chromium.launch({
     headless: false,
@@ -26,18 +30,13 @@ export async function createBrowserContext() {
     geolocation: { latitude: 43.6532, longitude: -79.3832 },
   });
 
-  // Remove webdriver detection — runs inside Playwright's browser context
   await context.addInitScript(() => {
-    navigator.webdriver = false;
     window.chrome = { runtime: {} };
   });
 
   return context;
 }
 
-/**
- * Get a random modern browser user agent.
- */
 function getRandomUserAgent() {
   const agents = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
