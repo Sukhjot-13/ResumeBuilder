@@ -1,33 +1,17 @@
-/**
- * AI-assisted apply test.
- * Opens the given Indeed URL, fetches your master resume,
- * and uses DeepSeek AI to figure out what to click and fill.
- *
- * Usage: node src/test-apply-with-ai.js <indeed-url>
- * Example: node src/test-apply-with-ai.js 'https://ca.indeed.com/viewjob?jk=...'
- *
- * Prerequisites:
- *   - Worker .env with RESUME_BUILDER_API_KEY and DEEPSEEK_API_KEY
- *   - Next.js app running on RESUME_BUILDER_URL
- *   - Master resume uploaded at /profile
- *   - Indeed session cookies saved at /automation/settings/accounts
- */
-
-import { config } from './config.js';
+import { getSessions } from './db-api.js';
 import { createBrowserContext } from './automation/browser.js';
 import { randomDelay } from './automation/anti-detection.js';
-import { getSessions } from './db-api.js';
+import { config } from './config.js';
+
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+const DEEPSEEK_MODEL = 'deepseek-chat';
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-const DEEPSEEK_MODEL = 'deepseek-chat';
-
-// ---------------------------------------------------------------------------
-// DeepSeek helper
-// ---------------------------------------------------------------------------
 async function askDeepSeek(systemPrompt, userMessages, responseFormat) {
   const body = {
     model: DEEPSEEK_MODEL,
@@ -55,18 +39,13 @@ async function askDeepSeek(systemPrompt, userMessages, responseFormat) {
     const text = await res.text();
     throw new Error(`DeepSeek API error (${res.status}): ${text}`);
   }
-
   const data = await res.json();
   return data.choices?.[0]?.message?.content || '';
 }
 
-// ---------------------------------------------------------------------------
-// Resume formatting
-// ---------------------------------------------------------------------------
 function formatResumeAsText(resumeContent) {
   if (!resumeContent) return 'No resume available.';
   const lines = [];
-
   const profile = resumeContent.profile || {};
   if (profile.full_name) lines.push(`Name: ${profile.full_name}`);
   if (profile.email) lines.push(`Email: ${profile.email}`);
@@ -75,7 +54,6 @@ function formatResumeAsText(resumeContent) {
   if (profile.headline) lines.push(`Headline: ${profile.headline}`);
   if (profile.website) lines.push(`Website: ${profile.website}`);
   if (profile.generic_summary) lines.push(`\nProfessional Summary:\n${profile.generic_summary}`);
-
   const work = resumeContent.work_experience || [];
   if (work.length > 0) {
     lines.push('\n--- Work Experience ---');
@@ -88,96 +66,37 @@ function formatResumeAsText(resumeContent) {
       for (const r of responsibilities) lines.push(`  • ${r}`);
     }
   }
-
   const education = resumeContent.education || [];
   if (education.length > 0) {
     lines.push('\n--- Education ---');
-    for (const edu of education) {
-      const parts = [edu.institution, edu.degree, edu.field_of_study].filter(Boolean);
+    for (const e of education) {
+      const parts = [e.institution, e.degree, e.field_of_study].filter(Boolean);
       if (parts.length > 0) lines.push(`\n${parts.join(' — ')}`);
-      if (edu.relevant_coursework) lines.push(`  Relevant Coursework: ${edu.relevant_coursework}`);
-      const bullets = edu.bullets || [];
+      if (e.relevant_coursework) lines.push(`  Relevant Coursework: ${e.relevant_coursework}`);
+      const bullets = e.bullets || [];
       for (const b of bullets) lines.push(`  • ${b}`);
     }
   }
-
   const skills = resumeContent.skills || [];
   if (skills.length > 0) {
+    lines.push('\n--- Skills ---');
     const byCategory = {};
     for (const s of skills) {
       const cat = s.category || 'Other';
       if (!byCategory[cat]) byCategory[cat] = [];
       byCategory[cat].push(s.skill_name);
     }
-    lines.push('\n--- Skills ---');
     for (const [cat, names] of Object.entries(byCategory)) {
       lines.push(`  ${cat}: ${names.join(', ')}`);
     }
   }
-
   const additional = resumeContent.additional_info || {};
   if (additional.languages?.length) lines.push(`\nLanguages: ${additional.languages.join(', ')}`);
   if (additional.certifications?.length) lines.push(`Certifications: ${additional.certifications.join(', ')}`);
   if (additional.awards_activities?.length) lines.push(`Awards: ${additional.awards_activities.join(', ')}`);
-
   return lines.join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// Page text extraction (visible content only)
-// ---------------------------------------------------------------------------
-async function getPageContent(page) {
-  return page.evaluate(() => {
-    // Get all visible text, inputs, buttons, selects, textareas
-    const elements = document.querySelectorAll('input, button, select, textarea, [contenteditable], label, legend, fieldset, h1, h2, h3, p, span, li, a');
-
-    const items = [];
-    for (const el of elements) {
-      // Check visibility
-      const style = window.getComputedStyle(el);
-      if (style.display === 'none' || style.visibility === 'hidden') continue;
-      const rect = el.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) continue;
-
-      const tag = el.tagName.toLowerCase();
-      const type = el.getAttribute('type') || '';
-      const name = el.getAttribute('name') || '';
-      const id = el.getAttribute('id') || '';
-      const placeholder = el.getAttribute('placeholder') || '';
-      const ariaLabel = el.getAttribute('aria-label') || '';
-      const textContent = (el.textContent || '').trim().substring(0, 200);
-      const value = (el.value || '').substring(0, 100);
-      const required = el.hasAttribute('required');
-      const className = el.className || '';
-      const disabled = el.disabled || el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true';
-      const parentText = el.closest('fieldset')?.querySelector('legend')?.textContent?.trim() || '';
-      const ariaRequired = el.getAttribute('aria-required') === 'true';
-
-      const item = { tag, type, name, id, placeholder, ariaLabel, textContent, value, required, disabled, ariaRequired, className: className.substring(0, 100), parentText };
-      items.push(item);
-    }
-
-    return items;
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Remove overlapping/noisy elements
-// ---------------------------------------------------------------------------
-function deduplicatePageItems(items) {
-  // Deduplicate by key attributes
-  const seen = new Set();
-  return items.filter(item => {
-    const key = `${item.tag}:${item.type}:${item.name}:${item.id}:${item.placeholder}:${item.ariaLabel}:${item.textContent}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-// ---------------------------------------------------------------------------
-// System prompt for DeepSeek
-// ---------------------------------------------------------------------------
 function buildSystemPrompt(resumeText) {
   return `You are an AI assistant that helps automate job applications on Indeed.
 
@@ -221,92 +140,118 @@ You must respond with a JSON object:
 - Look for text inputs, selects, or textareas that are empty but have labels suggesting they're required.`;
 }
 
-// ---------------------------------------------------------------------------
-// Execute DeepSeek's actions in the browser
-// ---------------------------------------------------------------------------
-async function executeActions(page, actions) {
+// ── Page content extraction (with shadow DOM, re-detects iframe) ────────
+
+async function getFormContent(page, target) {
+  // Re-detect target in case frame changed
+  if (page !== target) {
+    const frames = page.frames();
+    if (!frames.includes(target)) {
+      target = detectTarget(page);
+    }
+  }
+  try {
+    await target.waitForSelector('input, button, select, textarea, [contenteditable], label', { timeout: 5000 });
+  } catch { /* timeout OK */ }
+  return target.evaluate(() => {
+    function collect(root, items) {
+      const found = root.querySelectorAll('input, button, select, textarea, [contenteditable], label, legend, h1, h2, h3, p, li, span, a, [role="button"], [role="textbox"], [role="combobox"], [role="checkbox"], [role="radio"]');
+      for (const e of found) {
+        const style = window.getComputedStyle(e);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
+        const rect = e.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        items.push({
+          tag: e.tagName.toLowerCase(),
+          type: e.getAttribute('type') || '',
+          name: e.getAttribute('name') || '',
+          id: e.getAttribute('id') || '',
+          placeholder: e.getAttribute('placeholder') || '',
+          ariaLabel: e.getAttribute('aria-label') || '',
+          textContent: (e.textContent || '').trim().substring(0, 150),
+          value: (e.value || '').substring(0, 100),
+          required: e.hasAttribute('required'),
+          disabled: e.disabled || e.hasAttribute('disabled'),
+          className: (e.className || '').substring(0, 100),
+        });
+      }
+      const all = root.querySelectorAll('*');
+      for (const child of all) {
+        if (child.shadowRoot) collect(child.shadowRoot, items);
+      }
+    }
+    const items = [];
+    collect(document, items);
+    return items;
+  });
+}
+
+function deduplicate(items) {
+  const seen = new Set();
+  return items.filter(i => {
+    const key = `${i.tag}:${i.type}:${i.name}:${i.id}:${i.placeholder}:${i.ariaLabel}:${i.textContent}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// ── AI actions executor (works on both Page and Frame) ───────────────────
+
+async function executeActions(target, actions) {
   for (const act of actions) {
     const { action, selector, value, reason } = act;
-    console.log(`  [AI action] ${action}${selector ? ` "${selector}"` : ''}${value ? ` = "${value}"` : ''}${reason ? ` — ${reason}` : ''}`);
+    console.log(`  [Apply AI] ${action}${selector ? ` "${selector}"` : ''}${value ? ` = "${value}"` : ''}${reason ? ` — ${reason}` : ''}`);
 
     switch (action) {
       case 'click': {
         let clicked = false;
-
-        // text: prefix → find by visible text content (works on both Page and Frame)
         if (selector.startsWith('text:')) {
-          const searchText = selector.slice(5).trim();
-          // Exact match first
-          let loc = page.locator('button, a, [role="button"], input[type="submit"], input[type="button"], span, label')
-            .filter({ hasText: new RegExp(`^${escapeRegex(searchText)}$`, 'i') });
+          const text = selector.slice(5).trim();
+          let loc = target.locator('button, a, [role="button"], input[type="submit"], input[type="button"], span, label')
+            .filter({ hasText: new RegExp(`^${escapeRegex(text)}$`, 'i') });
           if (await loc.count() === 0) {
-            // Partial match
-            loc = page.locator('button, a, [role="button"], input[type="submit"], input[type="button"], span, label')
-              .filter({ hasText: new RegExp(escapeRegex(searchText), 'i') });
+            loc = target.locator('button, a, [role="button"], input[type="submit"], input[type="button"], span, label')
+              .filter({ hasText: new RegExp(escapeRegex(text), 'i') });
           }
           if (await loc.count() > 0) {
             const el = loc.first();
-            try {
-              await el.scrollIntoViewIfNeeded({ timeout: 2000 });
-              await randomDelay(200, 500);
-            } catch {
-              // Element might be covered or not scrollable — try clicking anyway
-            }
-            await el.click({ timeout: 5000 }).catch(() => {
-              // click failed, try force click via evaluate
-              return el.evaluate(el => el.click());
-            });
+            try { await el.scrollIntoViewIfNeeded({ timeout: 2000 }); await randomDelay(200, 500); } catch {}
+            try { await el.click({ timeout: 5000 }); } catch { await el.evaluate(el => el.click()); }
             clicked = true;
             console.log('    ✓ clicked by text');
-          } else {
-            console.log(`    ✗ could not find element with text "${searchText}"`);
           }
-          break;
-        }
-
-        // XPath
-        if (selector.startsWith('//') || selector.startsWith('./')) {
-          const els = await page.$x(selector);
+        } else if (selector.startsWith('//') || selector.startsWith('./')) {
+          const els = await target.$x(selector);
           if (els.length > 0) {
-            await els[0].scrollIntoViewIfNeeded();
+            try { await els[0].scrollIntoViewIfNeeded(); } catch {}
             await randomDelay(200, 500);
             await els[0].click();
             clicked = true;
           }
         } else {
-          // CSS selector
-          const el = await page.$(selector);
+          const el = await target.$(selector);
           if (el) {
-            await el.scrollIntoViewIfNeeded();
-            await randomDelay(200, 500);
-            await el.click();
+            try { await el.scrollIntoViewIfNeeded({ timeout: 2000 }); } catch {}
+            try { await el.click({ timeout: 5000 }); } catch { await el.evaluate(el => el.click()); }
             clicked = true;
           }
         }
-
         if (clicked) {
           console.log('    ✓ clicked');
         } else if (!selector.startsWith('text:')) {
-          // Last resort: try page.click
-          console.log('    ✗ element not found, trying page.click');
-          try {
-            await page.click(selector);
-            console.log('    ✓ clicked via page.click');
-          } catch {
-            console.log('    ✗ could not click');
-          }
+          try { await target.click(selector); console.log('    ✓ clicked via page.click'); } catch { console.log('    ✗ could not click'); }
         }
         break;
       }
       case 'fill': {
-        // Try multiple selector strategies
         let filled = false;
         const strategies = [
-          () => page.$(selector),
-          () => page.$(`input[name="${selector}"]`),
-          () => page.$(`input[placeholder*="${selector}"]`),
-          () => page.$(`textarea[name="${selector}"]`),
-          () => page.$(`[aria-label*="${selector}"]`),
+          () => target.$(selector),
+          () => target.$(`input[name="${selector}"]`),
+          () => target.$(`input[placeholder*="${selector}"]`),
+          () => target.$(`textarea[name="${selector}"]`),
+          () => target.$(`[aria-label*="${selector}"]`),
         ];
         for (const strat of strategies) {
           try {
@@ -317,32 +262,19 @@ async function executeActions(page, actions) {
               await randomDelay(100, 300);
               await el.fill(value);
               filled = true;
-              console.log('    ✓ filled');
               break;
             }
           } catch {}
         }
-        if (!filled) {
-          try {
-            await page.fill(selector, value);
-            console.log('    ✓ filled via page.fill');
-            filled = true;
-          } catch {}
-        }
-        if (!filled) console.log('    ✗ could not fill — field not found');
+        if (!filled) { try { await target.fill(selector, value); filled = true; } catch {} }
+        console.log(`    ${filled ? '✓' : '✗'} filled`);
         break;
       }
-      case 'select': {
-        try {
-          await page.selectOption(selector, value);
-          console.log('    ✓ selected');
-        } catch {
-          console.log('    ✗ could not select');
-        }
+      case 'select':
+        try { await target.selectOption(selector, value); console.log('    ✓ selected'); } catch { console.log('    ✗ select'); }
         break;
-      }
       case 'scroll':
-        await page.evaluate(() => window.scrollBy(0, 500));
+        await target.evaluate(() => window.scrollBy(0, 500));
         await randomDelay(300, 600);
         break;
       case 'wait':
@@ -352,7 +284,6 @@ async function executeActions(page, actions) {
         console.log('  ✓ Application submitted!');
         return 'done';
       case 'stop':
-        console.log('  ⚠ Cannot proceed (CAPTCHA/blocker)');
         return 'stop';
     }
     await randomDelay(500, 1000);
@@ -360,13 +291,34 @@ async function executeActions(page, actions) {
   return 'continue';
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
+// ── Frame / CAPTCHA detection ──────────────────────────────────────────────
+
+function detectTarget(page) {
+  const mainUrl = page.url();
+  if (mainUrl.includes('indeedapply') || mainUrl.includes('smartapply')) return page;
+  const frames = page.frames().filter(f =>
+    f.url() !== 'about:blank' && f.url() !== mainUrl &&
+    !f.url().includes('recaptcha') && !f.url().includes('hcaptcha')
+  );
+  return frames.find(f => f.url().includes('smartapply') || f.url().includes('indeedapply')) || frames[0] || page;
+}
+
+async function waitForApplyFrame(page) {
+  for (let i = 0; i < 20; i++) {
+    await randomDelay(1000, 1200);
+    const target = detectTarget(page);
+    if (target !== page) return target;
+    if (page.url().includes('indeedapply') || page.url().includes('smartapply')) return page;
+  }
+  return null;
+}
+
+// ── CLI test entry point ─────────────────────────────────────────────────
+
 async function main() {
   const url = process.argv[2];
   if (!url) {
-    console.error('Usage: node src/test-apply-with-ai.js <indeed-job-url>');
+    console.error('Usage: node src/test-apply-with-ai2.js <indeed-job-url>');
     process.exit(1);
   }
   if (!DEEPSEEK_API_KEY) {
@@ -375,7 +327,7 @@ async function main() {
   }
 
   console.log('============================================');
-  console.log('  AI-Assisted Apply Test');
+  console.log('  AI-Assisted Apply Test (main pipeline)');
   console.log('============================================\n');
 
   // 1. Fetch master resume
@@ -398,7 +350,6 @@ async function main() {
   }
   const resumeText = formatResumeAsText(masterResume.content || masterResume);
   console.log('  ✓ Master resume loaded');
-  console.log(`  Name: ${masterResume.content?.profile?.full_name || '?'}`);
 
   // 2. Get platform session
   console.log('\n[2] Fetching Indeed session cookies...');
@@ -441,7 +392,7 @@ async function main() {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
   console.log('  ✓ Page loaded');
 
-  // 5. Find and click the apply button on the job page
+  // 5. Find and click apply button
   console.log('\n[5] Looking for apply button on job page...');
   const applySelectors = [
     'button[indeed-apply*=""]',
@@ -490,18 +441,11 @@ async function main() {
   }
 
   if (!applyClicked) {
-    console.log('  ℹ No apply button found — page may already show the apply form');
-  }
-
-  // 6. Try the standard "Apply with Indeed" button using text matching
-  if (!applyClicked) {
-    console.log('\n[6] Looking for "Apply with Indeed" button by text...');
+    // Try specific text patterns with Playwright locators
     const applyTexts = ['Apply with Indeed', 'Apply now', 'Easy Apply', 'Apply'];
     for (const text of applyTexts) {
-      // Exact match (trimmed) first
       let btn = page.getByRole('button', { name: text, exact: true });
       if (await btn.count() === 0) {
-        // Partial match on text content
         btn = page.getByText(text, { exact: false }).first();
       }
       if (await btn.count() > 0) {
@@ -516,187 +460,84 @@ async function main() {
     }
   }
 
-  // 7. Helper: detect Indeed apply iframe (prefers smartapply/indeedapply over recaptcha)
-  let target = page;
-
-  async function detectTarget() {
-    const frames = page.frames();
-    const mainUrl = page.url();
-
-    // If main page is already on an Indeed apply form page, use it directly
-    if (mainUrl.includes('indeedapply') || mainUrl.includes('smartapply')) {
-      target = page;
-      console.log(`  ℹ Using main page (apply form URL)`);
-      return true;
-    }
-
-    const nonBlank = frames.filter(f => f.url() !== 'about:blank' && f.url() !== mainUrl);
-    // Exclude known CAPTCHA/ad frames
-    const nonCaptcha = nonBlank.filter(f =>
-      !f.url().includes('recaptcha') && !f.url().includes('hcaptcha')
-    );
-    if (nonCaptcha.length > 0) {
-      // Prefer Indeed apply frames
-      const applyFrame = nonCaptcha.find(f =>
-        f.url().includes('smartapply') || f.url().includes('indeedapply')
-      );
-      target = applyFrame || nonCaptcha[0];
-      console.log(`  ℹ Targeting frame: ${target.url().substring(0, 120)}`);
-      return true;
-    }
-    if (target !== page) {
-      const pageFrames = page.frames();
-      if (!pageFrames.includes(target)) {
-        console.log('  ℹ Frame lost — falling back to main page');
-        target = page;
-      }
-    }
-    return false;
+  if (!applyClicked) {
+    console.log('  ℹ No apply button found — page may already show the apply form');
   }
 
-  // Wait up to 15s for the Indeed apply iframe to appear
-  async function waitForApplyFrame() {
-    console.log('  Waiting for apply form iframe...');
-    for (let i = 0; i < 15; i++) {
-      await randomDelay(1000, 1200);
-      const frames = page.frames();
-      const applyFrame = frames.find(f =>
-        f.url().includes('smartapply') || f.url().includes('indeedapply')
-      );
-      if (applyFrame) {
-        target = applyFrame;
-        console.log(`  ✓ Apply iframe loaded: ${target.url().substring(0, 100)}`);
-        return true;
-      }
-    }
-    console.log('  ℹ Apply iframe not found — falling back to detectTarget');
-    return detectTarget();
-  }
+  // 6. Wait for apply iframe
+  console.log('\n[6] Waiting for apply form...');
+  await randomDelay(2000, 3000);
+  let target = await waitForApplyFrame(page);
+  if (!target) target = page;
 
-  // Wait for the preloader to finish and the actual form to render
-  async function waitForFormContent() {
-    console.log('  Waiting for form content to render...');
+  // Wait for preloader to finish and form content to render
+  if (target !== page) {
+    console.log('  Waiting for form content...');
     for (let i = 0; i < 20; i++) {
       await randomDelay(1000, 1200);
-      // Check if frame URL changed away from preload
       const frames = page.frames();
-      const applyFrame = frames.find(f =>
+      const formFrame = frames.find(f =>
         f.url().includes('smartapply') || f.url().includes('indeedapply')
       );
-      if (applyFrame && !applyFrame.url().includes('preload')) {
-        target = applyFrame;
+      if (formFrame && !formFrame.url().includes('preload')) {
+        target = formFrame;
         console.log(`  ✓ Form loaded: ${target.url().substring(0, 100)}`);
-        return;
+        break;
       }
-      // Even if still on preload, check if content appeared
-      const content = await getContent();
-      if (content.length > 5) {
-        console.log(`  ✓ ${content.length} elements detected`);
-        return;
-      }
+      const testContent = await getFormContent(page, target);
+      if (testContent.length > 5) break;
     }
-    console.log('  ℹ Form content check timed out — proceeding anyway');
   }
 
-  await waitForApplyFrame();
-  await waitForFormContent();
-
-  // Helper: get page content from the current target (re-detects iframes each call)
-  async function getContent() {
-    // Re-detect target in case an iframe opened since last check
-    if (page !== target) {
-      const frames = page.frames();
-      if (!frames.includes(target)) {
-        await detectTarget();
-      }
-    }
-    // Wait up to 5s for any content to appear in the target
-    try {
-      await target.waitForSelector('input, button, select, textarea, [contenteditable], label', { timeout: 5000 });
-    } catch {
-      // Timeout is fine — target may still have non-form content
-    }
-    return target.evaluate(() => {
-      // Traverse into shadow roots to catch web component content
-      function collect(el, items) {
-        // Query light DOM
-        const found = el.querySelectorAll('input, button, select, textarea, [contenteditable], label, legend, h1, h2, h3, p, li, span, a, [role="button"], [role="textbox"], [role="combobox"]');
-        for (const e of found) {
-          const style = window.getComputedStyle(e);
-          if (style.display === 'none' || style.visibility === 'hidden') continue;
-          const rect = e.getBoundingClientRect();
-          if (rect.width === 0 || rect.height === 0) continue;
-          items.push({
-            tag: e.tagName.toLowerCase(),
-            type: e.getAttribute('type') || '',
-            name: e.getAttribute('name') || '',
-            id: e.getAttribute('id') || '',
-            placeholder: e.getAttribute('placeholder') || '',
-            ariaLabel: e.getAttribute('aria-label') || '',
-            textContent: (e.textContent || '').trim().substring(0, 150),
-            value: (e.value || '').substring(0, 100),
-            required: e.hasAttribute('required'),
-            disabled: e.disabled || e.hasAttribute('disabled'),
-            className: (e.className || '').substring(0, 100),
-          });
-        }
-        // Recurse into shadow roots
-        const all = el.querySelectorAll('*');
-        for (const child of all) {
-          if (child.shadowRoot) collect(child.shadowRoot, items);
-        }
-      }
-      const items = [];
-      collect(document, items);
-      return items;
-    });
-  }
-
-  // 8. AI loop — ask DeepSeek what to do
-  console.log('\n[8] AI-assisted form filling (DeepSeek)...\n');
+  // 7. AI-assisted form filling loop
+  console.log('\n[7] AI-assisted form filling (DeepSeek)...\n');
   const systemPrompt = buildSystemPrompt(resumeText);
-  let maxSteps = 30;
-  let pageContent = await getContent();
+  let pageContent = await getFormContent(page, target);
   let previousActions = [];
   let stuckCount = 0;
+  let maxSteps = 30;
+  const totalSteps = 30;
 
   while (maxSteps-- > 0) {
-    const deduped = deduplicatePageItems(pageContent);
-    console.log(`  [Step ${30 - maxSteps}] Target has ${deduped.length} visible interactive elements`);
+    const deduped = deduplicate(pageContent);
+    if (deduped.length === 0) {
+      console.log('  No form elements detected, waiting...');
+      await randomDelay(2000, 3000);
+      pageContent = await getFormContent(page, target);
+      continue;
+    }
 
-    const userMessage = {
-      role: 'user',
-      content: JSON.stringify({
-        instruction: 'Analyze the current page state and tell me what to do next.',
-        pageElements: deduped.slice(0, 150),
-        previousActions: previousActions.slice(-5),
-      })
-    };
+    console.log(`  [Step ${totalSteps - maxSteps}] Target has ${deduped.length} visible interactive elements`);
 
-    const responseText = await askDeepSeek(
-      systemPrompt,
-      [userMessage.content],
-      'json'
-    );
+    const userMessage = JSON.stringify({
+      instruction: 'Analyze the current page state and tell me what to do next.',
+      pageElements: deduped.slice(0, 150),
+      previousActions: previousActions.slice(-5),
+    });
+
+    let responseText;
+    try {
+      responseText = await askDeepSeek(systemPrompt, [userMessage], 'json');
+    } catch (err) {
+      console.log(`  ✗ DeepSeek error: ${err.message}`);
+      break;
+    }
 
     let decision;
     try {
-      const jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      decision = JSON.parse(jsonStr);
+      decision = JSON.parse(responseText.replace(/```json?\n?/g, '').replace(/```\n?/g, '').trim());
     } catch {
-      console.log(`  ⚠ Could not parse DeepSeek response as JSON, raw:`);
-      console.log(`  ${responseText.substring(0, 500)}`);
-      await randomDelay(1000, 2000);
-      pageContent = await getContent();
+      console.log('  ⚠ Could not parse AI response');
+      await randomDelay(2000, 3000);
+      pageContent = await getFormContent(page, target);
       continue;
     }
 
     console.log(`  💭 ${decision.thought || 'No thought provided'}`);
 
     if (!decision.actions || decision.actions.length === 0) {
-      console.log('  ⚠ No actions returned, waiting...');
       await randomDelay(2000, 3000);
-      pageContent = await getContent();
+      pageContent = await getFormContent(page, target);
       continue;
     }
 
@@ -714,11 +555,10 @@ async function main() {
     }
 
     if (result === 'stop') {
-      // Don't panic — wait a moment, the CAPTCHA might finish loading and reveal the form
       console.log('  ⚠ Possible CAPTCHA — waiting 4s to see if more content loads...');
       await randomDelay(4000, 4500);
-      await detectTarget();
-      const afterWait = await getContent();
+      target = detectTarget(page);
+      const afterWait = await getFormContent(page, target);
       if (afterWait.length > 0) {
         const hash = JSON.stringify(afterWait.slice(0, 30).map(i => `${i.tag}:${i.textContent}`));
         if (hash !== JSON.stringify(pageContent.slice(0, 30).map(i => `${i.tag}:${i.textContent}`))) {
@@ -728,23 +568,19 @@ async function main() {
           continue;
         }
       }
-      // Still blocked — give user time to solve manually
       console.log('\n⚠ BLOCKER DETECTED (CAPTCHA or manual step needed)');
       console.log('  Waiting 5s for you to resolve it...\n');
       await randomDelay(5000, 5500);
-      // Check if the main page URL changed (e.g., redirected to homepage after CAPTCHA)
-      // But don't re-navigate if we're already on an Indeed apply form page
       const currentUrl = page.url();
       const onApplyForm = currentUrl.includes('indeedapply') || currentUrl.includes('smartapply');
       const lostJob = !currentUrl.includes(url) && !currentUrl.includes('viewjob') && !currentUrl.includes('indeed.com/jobs');
       if (lostJob && !onApplyForm) {
-        console.log(`  URL changed to ${currentUrl.substring(0, 80)} — re-navigating to job...`);
+        console.log('  URL changed — re-navigating to job...');
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await randomDelay(2000, 3000);
       }
-      // Re-check: maybe the blocker was resolved
-      await detectTarget();
-      const recheck = await getContent();
+      target = detectTarget(page);
+      const recheck = await getFormContent(page, target);
       if (recheck.length > 0) {
         stuckCount = 0;
         pageContent = recheck;
@@ -756,21 +592,21 @@ async function main() {
       const currentUrl2 = page.url();
       const lostJob2 = !currentUrl2.includes(url) && !currentUrl2.includes('viewjob') && !currentUrl2.includes('indeed.com/jobs');
       if (lostJob2 && !currentUrl2.includes('indeedapply') && !currentUrl2.includes('smartapply')) {
-        console.log(`  URL still wrong — re-navigating...`);
+        console.log('  URL still wrong — re-navigating...');
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await randomDelay(2000, 3000);
       }
-      await detectTarget();
-      pageContent = await getContent();
+      target = detectTarget(page);
+      pageContent = await getFormContent(page, target);
       stuckCount = 0;
       continue;
     }
 
-    // Re-detect iframe target and get updated content
-    await detectTarget();
-    const newContent = await getContent();
+    // Re-detect target and get fresh content
+    target = detectTarget(page);
+    const newContent = await getFormContent(page, target);
 
-    // Loop detection: check if the page actually changed
+    // Loop detection
     const newHash = JSON.stringify(newContent.slice(0, 30).map(i => `${i.tag}:${i.textContent}`));
     const oldHash = JSON.stringify(pageContent.slice(0, 30).map(i => `${i.tag}:${i.textContent}`));
 
@@ -849,8 +685,7 @@ async function main() {
   }
 
   console.log('\n============================================');
-  console.log('  ⚠ Max steps reached — form may be incomplete');
-  console.log('  Check the browser window');
+  console.log('  ⚠ Max steps reached or stuck — form may be incomplete');
   console.log('============================================');
   await ctx.close();
   process.exit(1);
