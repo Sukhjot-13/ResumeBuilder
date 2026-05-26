@@ -12,10 +12,6 @@ export default function GatekeeperPage() {
     excludeCompanies: "",
     excludeKeywords: "",
     requiredKeywords: "",
-    minSalary: "",
-    allowRemote: true,
-    allowHybrid: true,
-    allowOnSite: false,
     seniorityLevels: "",
     excludeSeniorityLevels: "",
     customInstructions: "",
@@ -40,10 +36,6 @@ export default function GatekeeperPage() {
             excludeCompanies: (data.excludeCompanies || []).join("\n"),
             excludeKeywords: (data.excludeKeywords || []).join("\n"),
             requiredKeywords: (data.requiredKeywords || []).join("\n"),
-            minSalary: data.minSalary || "",
-            allowRemote: data.allowRemote ?? true,
-            allowHybrid: data.allowHybrid ?? true,
-            allowOnSite: data.allowOnSite ?? false,
             seniorityLevels: (data.seniorityLevels || []).join("\n"),
             excludeSeniorityLevels: (data.excludeSeniorityLevels || []).join("\n"),
             customInstructions: data.customInstructions || "",
@@ -67,10 +59,6 @@ export default function GatekeeperPage() {
         excludeCompanies: form.excludeCompanies.split("\n").map((s) => s.trim()).filter(Boolean),
         excludeKeywords: form.excludeKeywords.split("\n").map((s) => s.trim()).filter(Boolean),
         requiredKeywords: form.requiredKeywords.split("\n").map((s) => s.trim()).filter(Boolean),
-        minSalary: form.minSalary ? Number(form.minSalary) : undefined,
-        allowRemote: form.allowRemote,
-        allowHybrid: form.allowHybrid,
-        allowOnSite: form.allowOnSite,
         seniorityLevels: form.seniorityLevels.split("\n").map((s) => s.trim()).filter(Boolean),
         excludeSeniorityLevels: form.excludeSeniorityLevels.split("\n").map((s) => s.trim()).filter(Boolean),
         customInstructions: form.customInstructions,
@@ -191,7 +179,7 @@ export default function GatekeeperPage() {
           />
         </div>
 
-        {/* Salary & Seniority */}
+        {/* Seniority */}
         <div className="glass-card p-6 rounded-2xl border border-white/5 space-y-4">
           <h3 className="text-sm font-medium text-slate-200 flex items-center gap-2">
             <span className="w-6 h-6 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400">
@@ -199,21 +187,12 @@ export default function GatekeeperPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
             </span>
-            Filters
+            Seniority Levels
           </h3>
+          <p className="text-xs text-slate-500">Salary and work-mode filters are now set in <a href="/automation/settings/criteria" className="text-blue-400 hover:text-blue-300">Job Search Criteria</a>.</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">Minimum Salary</label>
-              <input
-                type="number"
-                value={form.minSalary}
-                onChange={(e) => setForm({ ...form, minSalary: e.target.value })}
-                className="w-full bg-slate-800 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500"
-                placeholder="e.g. 70000"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1.5">Seniority Levels (one per line)</label>
+              <label className="block text-xs text-slate-500 mb-1.5">Target Levels (one per line)</label>
               <textarea
                 value={form.seniorityLevels}
                 onChange={(e) => setForm({ ...form, seniorityLevels: e.target.value })}
@@ -222,31 +201,16 @@ export default function GatekeeperPage() {
                 placeholder="junior&#10;mid"
               />
             </div>
-          </div>
-        </div>
-
-        {/* Work Modes */}
-        <div className="glass-card p-6 rounded-2xl border border-white/5 space-y-3">
-          <h3 className="text-sm font-medium text-slate-200">Allow Work Modes</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { key: "allowRemote", label: "Remote" },
-              { key: "allowHybrid", label: "Hybrid" },
-              { key: "allowOnSite", label: "On-site" },
-            ].map((mode) => (
-              <button
-                key={mode.key}
-                type="button"
-                onClick={() => setForm({ ...form, [mode.key]: !form[mode.key] })}
-                className={`px-4 py-2.5 rounded-lg text-sm font-medium border transition-all ${
-                  form[mode.key]
-                    ? "bg-blue-500/20 border-blue-500/40 text-blue-400"
-                    : "bg-slate-800 border-white/10 text-slate-400 hover:border-white/20"
-                }`}
-              >
-                {mode.label}
-              </button>
-            ))}
+            <div>
+              <label className="block text-xs text-slate-500 mb-1.5">Exclude Levels (one per line)</label>
+              <textarea
+                value={form.excludeSeniorityLevels}
+                onChange={(e) => setForm({ ...form, excludeSeniorityLevels: e.target.value })}
+                rows={2}
+                className="w-full bg-slate-800 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500"
+                placeholder="senior&#10;lead"
+              />
+            </div>
           </div>
         </div>
 

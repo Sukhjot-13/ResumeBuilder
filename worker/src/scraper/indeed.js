@@ -65,13 +65,33 @@ export async function scrapeIndeed(criteria) {
             ? `https://ca.indeed.com/viewjob?jk=${jkMatch[1]}`
             : redirectUrl;
 
+          const extLoc = (job.location || 'unknown').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+
+          // Navigate to job detail page for full description
+          let fullDescription = job.description;
+          if (jkMatch) {
+            try {
+              await page.goto(viewUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+              await page.waitForTimeout(1000);
+              const fullDesc = await page.evaluate(() => {
+                const descEl = document.querySelector('#jobDescriptionText, .jobsearch-jobDescriptionText, [class*="description"]');
+                return descEl?.textContent?.trim() || '';
+              });
+              if (fullDesc) {
+                fullDescription = fullDesc;
+              }
+            } catch (navErr) {
+              console.log(`[Indeed] Could not load detail page for ${viewUrl}, using snippet`);
+            }
+          }
+
           results.push({
             platform: 'indeed',
-            externalId: `${job.company || 'unknown'}-${job.title}`.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
+            externalId: `${job.company || 'unknown'}-${job.title}-${extLoc}`.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
             title: job.title,
             company: job.company,
             location: job.location,
-            description: job.description,
+            description: fullDescription,
             applyUrl: viewUrl,
             isEasyApply: false,
           });

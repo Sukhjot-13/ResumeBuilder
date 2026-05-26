@@ -1,7 +1,8 @@
 import { callAI } from '@/lib/ai/client';
 import dbConnect from '@/lib/mongodb';
-import { authenticateRequest } from '@/lib/apiKeyAuth';
+import { authenticateRequest, checkRateLimit } from '@/lib/apiKeyAuth';
 import GatekeeperRules from '@/models/GatekeeperRules';
+import JobCriteria from '@/models/JobCriteria';
 import GatekeeperDecision from '@/models/GatekeeperDecision';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
@@ -32,6 +33,10 @@ export const POST = withErrorHandler(async (request) => {
   if (auth.error) return auth.error;
   const { user } = auth;
 
+  // Rate limiting: 100 API-key calls per day
+  const rateLimitError = await checkRateLimit(user._id.toString());
+  if (rateLimitError) return rateLimitError.error;
+
   let body;
   try {
     body = await request.json();
@@ -46,9 +51,25 @@ export const POST = withErrorHandler(async (request) => {
 
   await dbConnect();
   const rules = await GatekeeperRules.findOne({ userId: user._id });
+  const criteria = await JobCriteria.findOne({ userId: user._id });
 
-  const rulesBlock = rules
-    ? JSON.stringify(rules.toObject(), null, 2)
+  // Merge GatekeeperRules (filtering rules) with JobCriteria (salary/work-mode)
+  const mergedRules = {
+    targetTitles: rules?.targetTitles || [],
+    excludeCompanies: rules?.excludeCompanies || [],
+    excludeKeywords: rules?.excludeKeywords || [],
+    requiredKeywords: rules?.requiredKeywords || [],
+    seniorityLevels: rules?.seniorityLevels || [],
+    excludeSeniorityLevels: rules?.excludeSeniorityLevels || [],
+    customInstructions: rules?.customInstructions || '',
+    minSalary: criteria?.minSalary,
+    allowRemote: criteria?.remote ?? true,
+    allowHybrid: criteria?.hybrid ?? true,
+    allowOnSite: criteria?.onSite ?? false,
+  };
+
+  const rulesBlock = rules || criteria
+    ? JSON.stringify(mergedRules, null, 2)
     : 'No user-defined rules — evaluate based on general best practices.';
 
   const userPrompt = `

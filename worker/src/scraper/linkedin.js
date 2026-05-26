@@ -48,9 +48,10 @@ export async function scrapeLinkedIn(criteria) {
 
         for (const job of jobs) {
           if (!job.title) continue;
+          const extLoc = (job.location || 'unknown').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
           results.push({
             platform: 'linkedin',
-            externalId: `${job.company}-${job.title}`.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
+            externalId: `${job.company}-${job.title}-${extLoc}`.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase(),
             title: job.title,
             company: job.company,
             location: job.location,

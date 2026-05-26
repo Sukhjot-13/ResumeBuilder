@@ -1,6 +1,6 @@
 import { generateResume } from '@/lib/resume-generator';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
-import { authenticateRequest } from '@/lib/apiKeyAuth';
+import { authenticateRequest, checkRateLimit } from '@/lib/apiKeyAuth';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
@@ -36,6 +36,9 @@ async function resolveUser(request) {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const auth = await authenticateRequest(request);
     if (auth.error) return { error: auth.error };
+    // Apply rate limiting for API-key-authenticated calls
+    const rateLimitError = await checkRateLimit(auth.user._id.toString());
+    if (rateLimitError) return { error: rateLimitError.error };
     return { userId: auth.user._id.toString(), user: auth.user };
   }
   const userId = request.headers.get('x-user-id');

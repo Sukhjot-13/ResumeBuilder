@@ -33,6 +33,7 @@ const env = {
 
   // Automation
   cookieEncryptionKey: process.env.COOKIE_ENCRYPTION_KEY,
+  workerUrl: process.env.WORKER_URL || 'http://localhost:3001',
 };
 
 export default env;

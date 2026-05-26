@@ -468,38 +468,55 @@ export async function applyJobProcessor(job) {
       console.log(`[Apply] No apply button found — page may already show the apply form`);
     }
 
-    // ── Check if redirected to an external site after clicking apply ──
-    const currentUrl = page.url();
-    const onIndeed = currentUrl.includes('indeed.com');
-    console.log(`[Apply] URL after apply click: ${currentUrl.substring(0, 100)}`);
+    // ── Wait briefly for any navigation after click, then re-check URL ──
+    await randomDelay(3000, 4000);
+    const urlAfter = page.url();
+    console.log(`[Apply] URL after apply click: ${urlAfter.substring(0, 100)}`);
 
-    if (!onIndeed) {
+    // If redirected off Indeed → external apply
+    if (!urlAfter.includes('indeed.com')) {
       console.log(`[Apply] ⚠ Redirected to external site — cannot automate. Saving as external_apply.`);
       await saveApplication({ jobId, resumeId, status: 'external_apply', platform: listing.platform });
       return;
     }
 
-    // ── Wait for the Indeed Easy Apply form ──
-    await randomDelay(2000, 3000);
+    // Still on Indeed viewjob page after click → the apply button didn't work; save as external
+    if (urlAfter.includes('viewjob')) {
+      console.log(`[Apply] Still on viewjob page — no Easy Apply flow available. Saving as external_apply.`);
+      await saveApplication({ jobId, resumeId, status: 'external_apply', platform: listing.platform });
+      return;
+    }
+
+    // ── Wait for Indeed Easy Apply iframe (short timeout) ──
     let target = await waitForApplyFrame(page);
     if (!target) target = page;
 
-    // Wait for preloader to finish and form content to render
+    // Check the target for actual form content — don't wait forever
     if (target !== page) {
-      console.log(`[Apply] Waiting for form content...`);
-      for (let i = 0; i < 20; i++) {
+      console.log(`[Apply] Frame detected, waiting for form content...`);
+      for (let i = 0; i < 10; i++) {
         await randomDelay(1000, 1200);
-        const frames = page.frames();
-        const formFrame = frames.find(f =>
-          f.url().includes('smartapply') || f.url().includes('indeedapply')
-        );
-        if (formFrame && !formFrame.url().includes('preload')) {
-          target = formFrame;
-          console.log(`[Apply] Form loaded: ${target.url().substring(0, 100)}`);
+        const content = await getFormContent(page, target);
+        if (content.length > 3) {
+          console.log(`[Apply] Form has ${content.length} elements — ready`);
           break;
         }
-        const testContent = await getFormContent(page, target);
-        if (testContent.length > 5) break;
+      }
+    }
+
+    // Check if ANY form content exists on the page or in the frame
+    let pageContent = await getFormContent(page, target);
+    if (pageContent.length < 3) {
+      // Try the main page directly — sometimes forms render on the page, not in an iframe
+      console.log(`[Apply] No form content in frame, checking main page...`);
+      pageContent = await getFormContent(page, page);
+      if (pageContent.length >= 3) {
+        console.log(`[Apply] Found ${pageContent.length} elements on main page`);
+        target = page;
+      } else {
+        console.log(`[Apply] No form content found anywhere — saving as external_apply`);
+        await saveApplication({ jobId, resumeId, status: 'external_apply', platform: listing.platform });
+        return;
       }
     }
 

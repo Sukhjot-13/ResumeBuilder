@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import dbConnect from '@/lib/mongodb';
 import ApiKey from '@/models/ApiKey';
 import User from '@/models/User';
+import DailyCount from '@/models/DailyCount';
 
 /**
  * Validates an API key from the Authorization header.
@@ -70,6 +71,35 @@ export async function resolveUserId(request) {
  * Returns { plainKey, hashedKey, keyPrefix }.
  * Store the hashed key in DB, return the plain key to the user (shown once).
  */
+/**
+ * Rate limiting for API key routes.
+ * Checks DailyCount model for per-key usage and returns error if exceeded.
+ *
+ * @param {string} userId - The user's ID
+ * @param {number} limit - Maximum requests per day (default 100)
+ * @returns {object|null} - { error: NextResponse } if rate limited, or null if allowed
+ */
+export async function checkRateLimit(userId, limit = 100) {
+  await dbConnect();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const record = await DailyCount.findOne({ userId, date: today });
+  const count = record?.count || 0;
+
+  if (count >= limit) {
+    return { error: NextResponse.json({ error: 'Rate limit exceeded', code: 'RATE_LIMITED' }, { status: 429 }) };
+  }
+
+  // Increment counter
+  await DailyCount.findOneAndUpdate(
+    { userId, date: today },
+    { $inc: { count: 1 } },
+    { upsert: true }
+  );
+
+  return null;
+}
+
 export function generateApiKey() {
   const plainKey = 'rb_' + crypto.randomBytes(32).toString('hex');
   const hashed = crypto.createHash('sha256').update(plainKey).digest('hex');
