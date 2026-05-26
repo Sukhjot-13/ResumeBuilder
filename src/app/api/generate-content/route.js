@@ -7,6 +7,7 @@ import dbConnect from '@/lib/mongodb';
 import { checkPermission } from '@/lib/accessControl';
 import User from '@/models/User';
 import Resume from '@/models/resume';
+import SchedulerSettings from '@/models/SchedulerSettings';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 const INJECTION_PATTERNS = [
@@ -36,8 +37,10 @@ async function resolveUser(request) {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const auth = await authenticateRequest(request);
     if (auth.error) return { error: auth.error };
-    // Apply rate limiting for API-key-authenticated calls
-    const rateLimitError = await checkRateLimit(auth.user._id.toString());
+    // Apply rate limiting for API-key-authenticated calls (configurable from scheduler settings)
+    const sched = await SchedulerSettings.findOne({ userId: auth.user._id });
+    const rateLimit = sched?.dailyRateLimit ?? 100;
+    const rateLimitError = await checkRateLimit(auth.user._id.toString(), rateLimit);
     if (rateLimitError) return { error: rateLimitError.error };
     return { userId: auth.user._id.toString(), user: auth.user };
   }

@@ -33,7 +33,12 @@ export async function scrapeJobProcessor(job) {
     }
   }
 
-  // Enqueue gate evaluation for all pending jobs
+  // Enqueue gate evaluation unless in scrape_only mode
+  if (settings.pipelineMode === 'scrape_only') {
+    console.log(`[Scrape] pipelineMode=scrape_only — skipping gate evaluation`);
+    return;
+  }
+
   try {
     const pending = await getPendingJobListings();
     console.log(`[Scrape] Enqueuing ${pending.length} jobs for gate evaluation`);

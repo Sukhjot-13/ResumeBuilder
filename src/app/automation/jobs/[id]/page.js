@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useApiClient } from "@/hooks/useApiClient";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function JobDetailPage() {
   const { user } = useAuth();
   const apiClient = useApiClient();
   const params = useParams();
+  const router = useRouter();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
@@ -60,6 +61,7 @@ export default function JobDetailPage() {
       applied: "bg-blue-500/20 text-blue-400 border-blue-500/30",
       failed: "bg-red-500/20 text-red-400 border-red-500/30",
       review: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+      external_apply: "bg-orange-500/20 text-orange-400 border-orange-500/30",
     };
     return colors[status] || "bg-slate-500/20 text-slate-400 border-slate-500/30";
   };
@@ -85,9 +87,28 @@ export default function JobDetailPage() {
 
   return (
     <div>
-      <Link href="/automation/jobs" className="text-blue-400 hover:text-blue-300 text-sm mb-6 inline-block">
-        &larr; Back to Jobs
-      </Link>
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/automation/jobs" className="text-blue-400 hover:text-blue-300 text-sm">
+          &larr; Back to Jobs
+        </Link>
+        <button
+          onClick={async () => {
+            if (!confirm(`Delete "${job.title}"?`)) return;
+            try {
+              const res = await apiClient(`/api/automation/jobs/${params.id}`, { method: "DELETE" });
+              if (res.ok) router.push("/automation/jobs");
+            } catch (err) {
+              console.error("Failed to delete job", err);
+            }
+          }}
+          className="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Delete
+        </button>
+      </div>
 
       <div className="glass-card p-6 rounded-2xl border border-white/5 mb-6">
         <div className="flex items-start justify-between mb-4">
@@ -103,7 +124,7 @@ export default function JobDetailPage() {
             <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${statusBadge(job.status)}`}>
               {job.status}
             </span>
-            {job.status !== "applied" && (
+            {job.status !== "applied" && job.status !== "external_apply" && job.status !== "failed" && (
               <button
                 onClick={handleApplyNow}
                 disabled={applying}
@@ -173,6 +194,43 @@ export default function JobDetailPage() {
           >
             {job.applyUrl}
           </a>
+        </div>
+      )}
+
+      {job.application && job.application.status === "external_apply" && (
+        <div className="glass-card p-6 rounded-2xl border border-orange-500/20 mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <svg className="w-5 h-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            <h2 className="text-lg font-semibold text-orange-400">External Apply</h2>
+          </div>
+          <p className="text-sm text-slate-400">
+            This job redirected to an external application site — the automation worker cannot fill forms there.
+            Open the job link above to apply manually.
+          </p>
+          {job.application.submittedAt && (
+            <p className="text-xs text-slate-500 mt-2">
+              Attempted: {new Date(job.application.submittedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
+
+      {job.application && job.application.status === "submitted" && (
+        <div className="glass-card p-6 rounded-2xl border border-emerald-500/20 mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h2 className="text-lg font-semibold text-emerald-400">Applied Successfully</h2>
+          </div>
+          <p className="text-sm text-slate-400">The AI successfully submitted an application for this job.</p>
+          {job.application.submittedAt && (
+            <p className="text-xs text-slate-500 mt-2">
+              Submitted: {new Date(job.application.submittedAt).toLocaleString()}
+            </p>
+          )}
         </div>
       )}
 

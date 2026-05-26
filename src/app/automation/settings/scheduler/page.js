@@ -11,6 +11,7 @@ export default function SchedulerPage() {
   const apiClient = useApiClient();
   const [form, setForm] = useState({
     enabled: false,
+    pipelineMode: "scrape_only",
     startHour: 9,
     endHour: 18,
     timezone: "America/Toronto",
@@ -24,6 +25,7 @@ export default function SchedulerPage() {
     reviewQueueThreshold: 40,
     pauseOnError: true,
     pauseOnSessionExpiry: true,
+    dailyRateLimit: 100,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,6 +44,7 @@ export default function SchedulerPage() {
         setForm((prev) => ({
           ...prev,
           enabled: data.enabled ?? false,
+          pipelineMode: data.pipelineMode || "scrape_only",
           startHour: data.startHour ?? 9,
           endHour: data.endHour ?? 18,
           timezone: data.timezone || "America/Toronto",
@@ -55,6 +58,7 @@ export default function SchedulerPage() {
           reviewQueueThreshold: data.reviewQueueThreshold ?? 40,
           pauseOnError: data.pauseOnError ?? true,
           pauseOnSessionExpiry: data.pauseOnSessionExpiry ?? true,
+          dailyRateLimit: data.dailyRateLimit ?? 100,
         }));
       }
     } catch (err) {
@@ -138,6 +142,35 @@ export default function SchedulerPage() {
           </div>
         </div>
 
+        {/* Pipeline Mode */}
+        <div className="glass-card p-6 rounded-2xl border border-white/5">
+          <h3 className="text-sm font-medium text-slate-200 mb-3">Pipeline Mode</h3>
+          <p className="text-xs text-slate-500 mb-4">Control what the automation pipeline does when it runs.</p>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { value: "scrape_only", label: "Scrape Only", desc: "Find jobs but don't evaluate or apply" },
+              { value: "scrape_gate", label: "Scrape & Review", desc: "Find and evaluate jobs, review results manually" },
+              { value: "full", label: "Full Pipeline", desc: "Scrape, evaluate, and auto-apply to matching jobs" },
+            ].map((mode) => (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() => setForm({ ...form, pipelineMode: mode.value })}
+                className={`p-4 rounded-xl border text-left transition-all ${
+                  form.pipelineMode === mode.value
+                    ? "border-blue-500/50 bg-blue-500/10"
+                    : "border-white/5 bg-transparent hover:border-white/20"
+                }`}
+              >
+                <p className={`text-sm font-medium mb-1 ${
+                  form.pipelineMode === mode.value ? "text-blue-400" : "text-slate-200"
+                }`}>{mode.label}</p>
+                <p className="text-xs text-slate-500">{mode.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Time Window */}
         <div className="glass-card p-6 rounded-2xl border border-white/5 space-y-4">
           <h3 className="text-sm font-medium text-slate-200 flex items-center gap-2">
@@ -214,7 +247,7 @@ export default function SchedulerPage() {
             </span>
             Application Limits
           </h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Per Day</label>
               <input
@@ -242,6 +275,16 @@ export default function SchedulerPage() {
                 min={1}
                 value={form.maxPerRun}
                 onChange={(e) => setForm({ ...form, maxPerRun: Number(e.target.value) })}
+                className="w-full bg-slate-800 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Daily API Limit</label>
+              <input
+                type="number"
+                min={1}
+                value={form.dailyRateLimit}
+                onChange={(e) => setForm({ ...form, dailyRateLimit: Number(e.target.value) })}
                 className="w-full bg-slate-800 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

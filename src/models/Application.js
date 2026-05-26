@@ -6,7 +6,7 @@ const ApplicationSchema = new mongoose.Schema({
   resumeId: { type: String },
   resumeUrl: { type: String },
   submittedAt: { type: Date, default: Date.now },
-  status: { type: String, enum: ['submitted', 'failed', 'pending'], default: 'pending' },
+  status: { type: String, enum: ['submitted', 'failed', 'pending', 'external_apply'], default: 'pending' },
   errorMessage: { type: String },
   platform: { type: String },
 });

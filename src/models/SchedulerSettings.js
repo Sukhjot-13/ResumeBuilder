@@ -22,6 +22,8 @@ const SchedulerSettingsSchema = new mongoose.Schema({
   maxDelaySeconds: { type: Number, default: 180 },
   gatekeeperThreshold: { type: Number, default: 75 },
   reviewQueueThreshold: { type: Number, default: 40 },
+  pipelineMode: { type: String, enum: ['scrape_only', 'scrape_gate', 'full'], default: 'scrape_only' },
+  dailyRateLimit: { type: Number, default: 100 },
   pauseOnError: { type: Boolean, default: true },
   pauseOnSessionExpiry: { type: Boolean, default: true },
   updatedAt: { type: Date, default: Date.now },

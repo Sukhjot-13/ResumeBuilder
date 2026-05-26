@@ -1,16 +1,53 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useApiClient } from "@/hooks/useApiClient";
 import Link from "next/link";
 
 const QUICK_LINKS = [
   { href: "/automation/settings", label: "Configure Settings", desc: "Set up job search criteria, gatekeeper rules, and schedule" },
   { href: "/automation/settings/accounts", label: "Connect Accounts", desc: "Add LinkedIn and Indeed session cookies" },
   { href: "/api-keys", label: "Manage API Keys", desc: "Create API keys for the Automation Worker" },
+  { href: "/automation/jobs", label: "View Jobs", desc: "Browse scraped jobs and their application status" },
 ];
+
+const PIPELINE_LABELS = {
+  scrape_only: { label: "Scraping Only", desc: "Finds jobs, no evaluation or applying", color: "text-yellow-400" },
+  scrape_gate: { label: "Scrape & Review", desc: "Finds + evaluates jobs, review before applying", color: "text-blue-400" },
+  full: { label: "Full Pipeline", desc: "Scrapes, evaluates, and auto-applies", color: "text-emerald-400" },
+};
 
 export default function AutomationDashboard() {
   const { user } = useAuth();
+  const apiClient = useApiClient();
+  const [scraping, setScraping] = useState(false);
+  const [scrapeMsg, setScrapeMsg] = useState({ type: "", text: "" });
+  const [pipelineMode, setPipelineMode] = useState(null);
+
+  useEffect(() => {
+    apiClient("/api/automation/scheduler").then(res => {
+      if (res.ok) res.json().then(data => setPipelineMode(data.pipelineMode || "scrape_only"));
+    }).catch(() => {});
+  }, []);
+
+  const triggerScrape = async () => {
+    setScraping(true);
+    setScrapeMsg({ type: "", text: "" });
+    try {
+      const res = await apiClient("/api/automation/trigger-scrape", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setScrapeMsg({ type: "success", text: "Scrape job enqueued! Check the jobs page." });
+      } else {
+        setScrapeMsg({ type: "error", text: data.error || "Failed to trigger scrape" });
+      }
+    } catch (err) {
+      setScrapeMsg({ type: "error", text: `Failed to reach worker: ${err.message}` });
+    } finally {
+      setScraping(false);
+    }
+  };
 
   return (
     <div>
@@ -45,6 +82,52 @@ export default function AutomationDashboard() {
           <p className="text-lg font-semibold text-slate-400 mt-1">Offline</p>
           <p className="text-xs text-slate-500 mt-1">not deployed</p>
         </div>
+      </div>
+
+      {/* Scrape Controls */}
+      <div className="glass-card p-5 rounded-2xl border border-white/5 mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-medium text-slate-200 mb-1">Manual Scrape</h3>
+            <p className="text-sm text-slate-400">Trigger the scraper to find new jobs based on your criteria.</p>
+            {pipelineMode && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs text-slate-500">Pipeline:</span>
+                <span className={`text-xs font-medium ${PIPELINE_LABELS[pipelineMode].color}`}>
+                  {PIPELINE_LABELS[pipelineMode].label}
+                </span>
+                <span className="text-xs text-slate-600">— {PIPELINE_LABELS[pipelineMode].desc}</span>
+                <Link href="/automation/settings/scheduler" className="text-xs text-blue-500 hover:text-blue-400 underline ml-1">
+                  Change
+                </Link>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={triggerScrape}
+            disabled={scraping}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold px-5 py-2 rounded-lg text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {scraping ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Scraping...
+              </span>
+            ) : "Scrape Jobs Now"}
+          </button>
+        </div>
+        {scrapeMsg.text && (
+          <div className={`mt-3 text-sm rounded-lg p-3 ${
+            scrapeMsg.type === "success"
+              ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+              : "bg-red-500/15 border border-red-500/30 text-red-400"
+          }`}>
+            {scrapeMsg.text}
+          </div>
+        )}
       </div>
 
       {/* Quick Links */}

@@ -13,7 +13,7 @@ const JobListingSchema = new mongoose.Schema({
   isEasyApply: { type: Boolean, default: false },
   postedDate: { type: Date },
   scrapedAt: { type: Date, default: Date.now },
-  status: { type: String, enum: ['pending', 'approved', 'skipped', 'applied', 'failed', 'review'], default: 'pending' },
+  status: { type: String, enum: ['pending', 'approved', 'skipped', 'applied', 'failed', 'review', 'external_apply'], default: 'pending' },
 });
 
 JobListingSchema.index({ userId: 1, status: 1 });

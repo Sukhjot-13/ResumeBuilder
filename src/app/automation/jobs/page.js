@@ -42,6 +42,7 @@ export default function JobsPage() {
       applied: "bg-blue-500/20 text-blue-400 border-blue-500/30",
       failed: "bg-red-500/20 text-red-400 border-red-500/30",
       review: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+      external_apply: "bg-orange-500/20 text-orange-400 border-orange-500/30",
     };
     return colors[status] || "bg-slate-500/20 text-slate-400 border-slate-500/30";
   };
@@ -69,6 +70,7 @@ export default function JobsPage() {
           <option value="applied">Applied</option>
           <option value="failed">Failed</option>
           <option value="review">Review</option>
+          <option value="external_apply">External Apply</option>
         </select>
         <select
           value={filters.platform}
@@ -121,9 +123,28 @@ export default function JobsPage() {
                     {job.salary ? ` · ${job.salary}` : ""}
                   </p>
                 </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${statusBadge(job.status)} shrink-0 ml-3`}>
-                  {job.status}
-                </span>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${statusBadge(job.status)}`}>
+                    {job.status}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Delete "${job.title || "this job"}"?`)) return;
+                      try {
+                        const res = await apiClient(`/api/automation/jobs/${job._id}`, { method: "DELETE" });
+                        if (res.ok) fetchJobs();
+                      } catch (err) {
+                        console.error("Failed to delete job", err);
+                      }
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300 transition-colors p-1"
+                    title="Delete job"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           ))}

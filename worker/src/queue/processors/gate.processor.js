@@ -27,6 +27,11 @@ export async function gateJobProcessor(job) {
     });
     console.log(`[Gate] ${listing.title}: apply=${decision.apply}, confidence=${decision.confidence}`);
 
+    if (settings.pipelineMode === 'scrape_gate') {
+      console.log(`[Gate] pipelineMode=scrape_gate — skipping auto-apply`);
+      return;
+    }
+
     if (decision.apply && decision.confidence >= settings.gatekeeperThreshold) {
       await generateQueue.add('generate', { jobId });
     } else {

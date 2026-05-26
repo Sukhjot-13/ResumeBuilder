@@ -8,6 +8,7 @@ const SETTINGS_CARDS = [
   { href: "/automation/settings/gatekeeper", title: "Gatekeeper Rules", desc: "Configure which jobs the AI should apply to, skip, or flag for review." },
   { href: "/automation/settings/scheduler", title: "Scheduler", desc: "Set automation schedule: time windows, daily caps, and delays between applications." },
   { href: "/automation/settings/api-keys", title: "API Keys", desc: "Generate API keys for the Automation Worker to call this app's API." },
+  { href: "/automation/settings/apply-instructions", title: "Apply Instructions", desc: "Write plain-English instructions for the AI to follow when filling forms." },
   { href: "/automation/settings/notifications", title: "Notifications", desc: "Configure which events trigger email notifications." },
 ];
 

@@ -4,6 +4,7 @@ import { authenticateRequest, checkRateLimit } from '@/lib/apiKeyAuth';
 import GatekeeperRules from '@/models/GatekeeperRules';
 import JobCriteria from '@/models/JobCriteria';
 import GatekeeperDecision from '@/models/GatekeeperDecision';
+import SchedulerSettings from '@/models/SchedulerSettings';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 const GATEKEEPER_SYSTEM_PROMPT = `
@@ -33,8 +34,12 @@ export const POST = withErrorHandler(async (request) => {
   if (auth.error) return auth.error;
   const { user } = auth;
 
-  // Rate limiting: 100 API-key calls per day
-  const rateLimitError = await checkRateLimit(user._id.toString());
+  await dbConnect();
+
+  // Rate limiting — use user's configured daily limit from scheduler settings
+  const scheduler = await SchedulerSettings.findOne({ userId: user._id });
+  const rateLimit = scheduler?.dailyRateLimit ?? 100;
+  const rateLimitError = await checkRateLimit(user._id.toString(), rateLimit);
   if (rateLimitError) return rateLimitError.error;
 
   let body;
@@ -49,7 +54,6 @@ export const POST = withErrorHandler(async (request) => {
     return fail('jobTitle and description are required', 400);
   }
 
-  await dbConnect();
   const rules = await GatekeeperRules.findOne({ userId: user._id });
   const criteria = await JobCriteria.findOne({ userId: user._id });
 
@@ -90,7 +94,20 @@ ${description}
 Evaluate and return JSON.
 `;
 
-  const result = await callAI('GATEKEEPER', GATEKEEPER_SYSTEM_PROMPT + '\n\n' + userPrompt, { parseJson: true });
+  // Retry once if AI parse fails (Gemini sometimes returns non-JSON)
+  let result;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      result = await callAI('GATEKEEPER', GATEKEEPER_SYSTEM_PROMPT + '\n\n' + userPrompt, { parseJson: true });
+      break;
+    } catch (aiErr) {
+      if (attempt === 0) {
+        console.log(`[Gatekeeper] AI error (attempt 1): ${aiErr.message} — retrying...`);
+        continue;
+      }
+      throw aiErr;
+    }
+  }
 
   // Persist the decision for audit trail
   if (jobId) {

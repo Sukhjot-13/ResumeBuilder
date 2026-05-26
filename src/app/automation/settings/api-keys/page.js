@@ -13,6 +13,7 @@ export default function AutomationApiKeysPage() {
   const [keyName, setKeyName] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const fetchKeys = useCallback(async () => {
     setLoading(true);
@@ -61,15 +62,19 @@ export default function AutomationApiKeysPage() {
 
   const handleRevoke = async (keyId) => {
     if (!confirm("Revoke this API key? This cannot be undone.")) return;
+    setDeleteError("");
     try {
       const res = await apiClient(`/api/api-keys/${keyId}`, {
         method: "DELETE",
       });
       if (res.ok) {
         fetchKeys();
+      } else {
+        const data = await res.json();
+        setDeleteError(data.error || "Failed to revoke key");
       }
     } catch (err) {
-      console.error("Failed to revoke key", err);
+      setDeleteError("Failed to revoke key: " + err.message);
     }
   };
 
@@ -134,6 +139,11 @@ export default function AutomationApiKeysPage() {
       {error && (
         <div className="text-sm bg-red-500/15 border border-red-500/30 text-red-400 rounded-lg p-3">
           {error}
+        </div>
+      )}
+      {deleteError && (
+        <div className="text-sm bg-red-500/15 border border-red-500/30 text-red-400 rounded-lg p-3">
+          {deleteError}
         </div>
       )}
 

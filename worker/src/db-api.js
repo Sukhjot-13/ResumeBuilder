@@ -62,3 +62,4 @@ export async function getSessions() {
 export function getDailyCount() { return request('GET', '/api/automation/daily-count'); }
 export function incrementDailyCount() { return request('POST', '/api/automation/daily-count'); }
 export function getJobCriteria() { return request('GET', '/api/automation/criteria'); }
+export function getApplyInstructions() { return request('GET', '/api/automation/apply-instructions'); }

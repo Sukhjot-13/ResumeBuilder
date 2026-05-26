@@ -1,4 +1,4 @@
-import { getJobListingById, getSessions, getSchedulerSettings, saveApplication } from '../../db-api.js';
+import { getJobListingById, getSessions, getSchedulerSettings, saveApplication, getApplyInstructions } from '../../db-api.js';
 import { createBrowserContext } from '../../automation/browser.js';
 import { randomDelay } from '../../automation/anti-detection.js';
 
@@ -96,7 +96,10 @@ function formatResumeAsText(resumeContent) {
   return lines.join('\n');
 }
 
-function buildSystemPrompt(resumeText) {
+function buildSystemPrompt(resumeText, instructions) {
+  const instructionsBlock = instructions
+    ? `\n\nUSER'S CUSTOM INSTRUCTIONS:\n${instructions}`
+    : '';
   return `You are an AI assistant that helps automate job applications on Indeed.
 
 You have the user's resume data below. Your job is to look at the current page state and decide what to do next.
@@ -136,7 +139,7 @@ You must respond with a JSON object:
 - CRITICAL: Check if buttons are disabled before clicking them. Look at the page elements — if a "Continue" button exists but is disabled, look for error messages, validation warnings, or missing required fields on the page. Fill in what's missing BEFORE clicking Continue.
 - After clicking Continue, check if the page changed. If it didn't, there may be a validation error or required question you missed.
 - If there are radio buttons or checkboxes, fill/select them before clicking Continue.
-- Look for text inputs, selects, or textareas that are empty but have labels suggesting they're required.`;
+- Look for text inputs, selects, or textareas that are empty but have labels suggesting they're required.${instructionsBlock}`;
 }
 
 // ── Page content extraction (with shadow DOM, re-detects iframe) ────────
@@ -363,6 +366,18 @@ export async function applyJobProcessor(job) {
     console.log(`[Apply] Could not fetch resume: ${err.message} — will try without AI`);
   }
 
+  // Fetch custom apply instructions
+  let instructions = '';
+  try {
+    const instrData = await getApplyInstructions();
+    if (instrData?.instructions) {
+      instructions = instrData.instructions;
+      console.log(`[Apply] Custom instructions loaded (${instructions.length} chars)`);
+    }
+  } catch (err) {
+    console.log(`[Apply] Could not fetch apply instructions: ${err.message} — continuing without`);
+  }
+
   let browser;
   try {
     const ctx = await createBrowserContext();
@@ -398,6 +413,14 @@ export async function applyJobProcessor(job) {
     console.log(`[Apply] Page title: "${pageTitle}"`);
     const bodyText = await page.evaluate(() => document.body?.innerText?.substring(0, 200) || 'NO BODY TEXT');
     console.log(`[Apply] Body text: "${bodyText}"`);
+
+    // ── Check if already applied ──
+    const alreadyApplied = await page.evaluate(() => /\bapplied\b/i.test(document.body?.innerText || ''));
+    if (alreadyApplied) {
+      console.log(`[Apply] Job already applied — marking as submitted`);
+      await saveApplication({ jobId, resumeId, status: 'submitted', platform: listing.platform });
+      return;
+    }
 
     // ── Find and click the apply button ──
     const applySelectors = [
@@ -480,8 +503,15 @@ export async function applyJobProcessor(job) {
       return;
     }
 
-    // Still on Indeed viewjob page after click → the apply button didn't work; save as external
+    // Still on Indeed viewjob page after click
     if (urlAfter.includes('viewjob')) {
+      // Re-check if job is already applied (click may have shown the Applied badge)
+      const stillApplied = await page.evaluate(() => /\bapplied\b/i.test(document.body?.innerText || ''));
+      if (stillApplied) {
+        console.log(`[Apply] Job was already applied — marking as submitted`);
+        await saveApplication({ jobId, resumeId, status: 'submitted', platform: listing.platform });
+        return;
+      }
       console.log(`[Apply] Still on viewjob page — no Easy Apply flow available. Saving as external_apply.`);
       await saveApplication({ jobId, resumeId, status: 'external_apply', platform: listing.platform });
       return;
@@ -522,7 +552,7 @@ export async function applyJobProcessor(job) {
 
     // ── AI-assisted form filling loop ──
     if (resumeText) {
-      const systemPrompt = buildSystemPrompt(resumeText);
+      const systemPrompt = buildSystemPrompt(resumeText, instructions);
       let pageContent = await getFormContent(page, target);
       let previousActions = [];
       let stuckCount = 0;
