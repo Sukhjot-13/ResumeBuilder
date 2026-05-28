@@ -9,11 +9,16 @@
 
 import { getEffectiveConfig } from './config';
 import { callGemini, parseGeminiJson } from './runners/gemini';
+import { callDeepSeek, parseDeepSeekJson } from './runners/deepseek';
 
 const RUNNERS = {
   gemini: {
     run: callGemini,
     parseJson: parseGeminiJson,
+  },
+  deepseek: {
+    run: callDeepSeek,
+    parseJson: parseDeepSeekJson,
   },
 };
 

@@ -13,7 +13,7 @@ export const AI_TASKS = {
   COVER_LETTER_GENERATION: { provider: 'gemini', model: 'gemini-flash-latest' },
   AI_EDIT:                { provider: 'gemini', model: 'gemini-flash-latest' },
   RESUME_PARSING:         { provider: 'gemini', model: 'gemini-flash-latest' },
-  GATEKEEPER:             { provider: 'gemini', model: 'gemini-flash-latest' },
+  GATEKEEPER:             { provider: 'deepseek', model: 'deepseek-chat' },
 };
 
 /**
