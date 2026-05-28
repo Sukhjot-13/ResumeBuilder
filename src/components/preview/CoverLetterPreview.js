@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import CoverLetterDisplayView from "./CoverLetterDisplayView";
+import DownloadCoverLetterPdfButton from "./DownloadCoverLetterPdfButton";
 import dynamic from "next/dynamic";
 
 const CoverLetterPdfView = dynamic(() => import("./CoverLetterPdfView"), {
@@ -18,6 +19,7 @@ export default function CoverLetterPreview({ coverLetterData }) {
     <div className="glass-card p-6 rounded-2xl border border-white/5 h-full">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-white">Cover Letter Preview</h2>
+        <DownloadCoverLetterPdfButton coverLetterData={coverLetterData} />
       </div>
       <div className="flex mb-4">
         <button
