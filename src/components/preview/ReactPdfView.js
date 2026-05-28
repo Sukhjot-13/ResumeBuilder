@@ -17,10 +17,10 @@ export default function ReactPdfView({ resumeData, template }) {
   const [pdfUrl, setPdfUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [numPages, setNumPages] = useState(null);
-  const [scale, setScale] = useState(0.5);
+  const [zoomLevel, setZoomLevel] = useState(1.0);
   const [error, setError] = useState(null);
   const pdfUrlRef = useRef(null);
-  const { width } = useWindowWidth();
+  const { width: screenWidth } = useWindowWidth();
 
   useEffect(() => {
     if (!resumeData) return;
@@ -73,11 +73,11 @@ export default function ReactPdfView({ resumeData, template }) {
   }
 
   function zoomIn() {
-    setScale((prevScale) => prevScale + 0.1);
+    setZoomLevel((prev) => prev + 0.25);
   }
 
   function zoomOut() {
-    setScale((prevScale) => Math.max(prevScale - 0.1, 0.5));
+    setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
   }
 
   return (
@@ -105,7 +105,7 @@ export default function ReactPdfView({ resumeData, template }) {
             <button onClick={zoomOut} className="p-1 bg-gray-300 rounded">
               <MagnifyingGlassMinusIcon className="h-5 w-5" />
             </button>
-            <span className="text-white">{(scale * 100).toFixed(0)}%</span>
+            <span className="text-white">{(zoomLevel * 100).toFixed(0)}%</span>
             <button onClick={zoomIn} className="p-1 bg-gray-300 rounded">
               <MagnifyingGlassPlusIcon className="h-5 w-5" />
             </button>
@@ -123,7 +123,7 @@ export default function ReactPdfView({ resumeData, template }) {
               overflow: "auto",
               display: "flex",
               flexDirection: "column",
-              alignItems: "center",
+              alignItems: "flex-start",
             }}
           >
             <Document
@@ -146,8 +146,7 @@ export default function ReactPdfView({ resumeData, template }) {
                 >
                   <Page
                     pageNumber={index + 1}
-                    scale={scale}
-                    width={Math.min(1200, width ? width - 20 : 1180)}
+                    width={Math.max(400, Math.floor((screenWidth || 1000) * zoomLevel) - 20)}
                     renderAnnotationLayer={false}
                     renderTextLayer={true}
                   />
