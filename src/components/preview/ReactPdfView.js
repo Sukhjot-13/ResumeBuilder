@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -14,43 +14,56 @@ import {
 pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
 
 export default function ReactPdfView({ resumeData, template }) {
-  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfUrl, setPdfUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [numPages, setNumPages] = useState(null);
-  const [scale, setScale] = useState(0.5); // Default zoom to 50%
+  const [scale, setScale] = useState(0.5);
+  const [error, setError] = useState(null);
+  const pdfUrlRef = useRef(null);
   const { width } = useWindowWidth();
 
   useEffect(() => {
+    if (!resumeData) return;
+    let cancelled = false;
+
     const fetchPdf = async () => {
       setLoading(true);
+      setError(null);
+
       try {
         const response = await fetch("/api/render-pdf-react", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            resumeData: resumeData,
-            template: template,
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resumeData, template }),
         });
+
+        if (!response.ok) {
+          setError("Failed to generate PDF");
+          return;
+        }
+
         const blob = await response.blob();
+        if (cancelled) return;
+
+        if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
         const url = URL.createObjectURL(blob);
+        pdfUrlRef.current = url;
         setPdfUrl(url);
       } catch (error) {
         console.error("Error fetching PDF:", error);
+        setError("Error loading PDF");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    if (resumeData) {
-      fetchPdf();
-    }
+    fetchPdf();
 
     return () => {
-      if (pdfUrl) {
-        URL.revokeObjectURL(pdfUrl);
+      cancelled = true;
+      if (pdfUrlRef.current) {
+        URL.revokeObjectURL(pdfUrlRef.current);
+        pdfUrlRef.current = null;
       }
     };
   }, [resumeData, template]);
@@ -77,8 +90,13 @@ export default function ReactPdfView({ resumeData, template }) {
       }}
     >
       {loading && (
-        <div className="flex justify-center items-center h-full">
-          Loading PDF…
+        <div className="flex justify-center items-center h-full text-white">
+          Loading PDF...
+        </div>
+      )}
+      {error && (
+        <div className="flex flex-col items-center justify-center h-full text-slate-400">
+          <p>{error}</p>
         </div>
       )}
       {pdfUrl && !loading && (
@@ -87,7 +105,7 @@ export default function ReactPdfView({ resumeData, template }) {
             <button onClick={zoomOut} className="p-1 bg-gray-300 rounded">
               <MagnifyingGlassMinusIcon className="h-5 w-5" />
             </button>
-            <span>{(scale * 100).toFixed(0)}%</span>
+            <span className="text-white">{(scale * 100).toFixed(0)}%</span>
             <button onClick={zoomIn} className="p-1 bg-gray-300 rounded">
               <MagnifyingGlassPlusIcon className="h-5 w-5" />
             </button>
@@ -110,11 +128,13 @@ export default function ReactPdfView({ resumeData, template }) {
           >
             <Document
               file={pdfUrl}
+              key={pdfUrl}
               onLoadSuccess={onLoadSuccess}
-              loading={<div>Loading PDF document...</div>}
-              onLoadError={(error) =>
-                console.error("Error loading PDF:", error)
-              }
+              loading={<div className="text-white">Loading PDF document...</div>}
+              onLoadError={(error) => {
+                console.error("Error loading PDF:", error);
+                setError("Failed to render PDF");
+              }}
             >
               {Array.from(new Array(numPages), (el, index) => (
                 <div

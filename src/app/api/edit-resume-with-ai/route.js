@@ -1,11 +1,13 @@
 import dbConnect from '@/lib/mongodb';
 import { editResumeWithAI } from '@/services/aiResumeEditorService';
+import { editCoverLetterWithAI } from '@/services/aiCoverLetterEditorService';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { UserService } from '@/services/userService';
 import { ResumeService } from '@/services/resumeService';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
+import CoverLetter from '@/models/CoverLetter';
 import { logger } from '@/lib/logger';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
@@ -16,14 +18,14 @@ export const POST = withErrorHandler(async (req) => {
   try {
     body = await req.json();
   } catch (e) {
-    logger.warn("Invalid JSON in POST /api/edit-resume-with-ai", { userId });
+    logger.warn('Invalid JSON in POST /api/edit-resume-with-ai', { userId });
     return fail('Invalid JSON', 400);
   }
 
-  const { resume, query, createNewResume } = body;
+  const { resume, query, createNewResume, type, coverLetterContent, coverLetterId } = body;
 
-  if (!resume || !query) {
-    return fail('Resume and query are required', 400);
+  if (!query) {
+    return fail('Query is required', 400);
   }
 
   await dbConnect();
@@ -37,8 +39,36 @@ export const POST = withErrorHandler(async (req) => {
   const hasCredits = await SubscriptionService.hasCredits(userId, 1);
 
   if (!hasCredits) {
-    logger.info("User attempted to edit resume without credits", { userId });
+    logger.info('User attempted to edit without credits', { userId });
     return fail('Insufficient credits. Please upgrade your plan.', 403);
+  }
+
+  // ── Cover Letter Editing ─────────────────────────────────────────────────
+  if (type === 'cover-letter') {
+    if (!coverLetterContent) {
+      return fail('Cover letter content is required', 400);
+    }
+
+    const editedContent = await editCoverLetterWithAI(coverLetterContent, query);
+
+    const tracked = await SubscriptionService.trackUsage(userId, 1);
+    if (!tracked) {
+      logger.warn('Credit deduction failed after cover letter edit', { userId });
+    }
+
+    // Save the edited cover letter
+    if (coverLetterId) {
+      await CoverLetter.findByIdAndUpdate(coverLetterId, {
+        $set: { content: editedContent },
+      });
+    }
+
+    return ok(editedContent);
+  }
+
+  // ── Resume Editing (existing behavior) ──────────────────────────────────
+  if (!resume) {
+    return fail('Resume is required', 400);
   }
 
   if (createNewResume) {

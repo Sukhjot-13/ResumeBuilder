@@ -2,15 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PERMISSIONS, API_ENDPOINTS, ROUTES } from '@/lib/constants';
+import { PERMISSIONS } from '@/lib/constants';
 import { checkPermission, getPermissionMetadata } from '@/lib/accessControl';
 import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
 import TemplateViewer from "@/components/preview/TemplateViewer";
+import CoverLetterPreview from "@/components/preview/CoverLetterPreview";
 
 export default function AIEditPage() {
   const router = useRouter();
+  const [editType, setEditType] = useState('resume'); // 'resume' | 'cover-letter'
+
+  // Resume state
   const [resumes, setResumes] = useState([]);
   const [selectedResumeId, setSelectedResumeId] = useState('');
+
+  // Cover letter state
+  const [coverLetters, setCoverLetters] = useState([]);
+  const [selectedCoverLetterId, setSelectedCoverLetterId] = useState('');
+
+  // Common state
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,13 +34,10 @@ export default function AIEditPage() {
   }, []);
 
   useEffect(() => {
-    if (userProfile) {
-      fetchResumes();
-      if (userProfile.mainResume?._id) {
-        setSelectedResumeId(userProfile.mainResume._id.toString());
-      }
-    }
-  }, [userProfile]);
+    if (!userProfile) return;
+    if (editType === 'resume') fetchResumes();
+    if (editType === 'cover-letter') fetchCoverLetters();
+  }, [userProfile, editType]);
 
   const checkAccess = async () => {
     try {
@@ -38,6 +45,9 @@ export default function AIEditPage() {
       if (res.ok) {
         const data = await res.json();
         setUserProfile(data);
+        if (data.mainResume?._id) {
+          setSelectedResumeId(data.mainResume._id.toString());
+        }
       } else {
         router.push('/login');
       }
@@ -61,50 +71,31 @@ export default function AIEditPage() {
     }
   };
 
+  const fetchCoverLetters = async () => {
+    try {
+      const res = await fetch('/api/cover-letters');
+      if (res.ok) {
+        const data = await res.json();
+        setCoverLetters(Array.isArray(data) ? data : []);
+        if (data.length > 0) {
+          setSelectedCoverLetterId(data[0]._id);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching cover letters:', err);
+    }
+  };
+
+  // Resume helpers
   const masterResumeId = userProfile?.mainResume?._id?.toString();
   const allResumes = [
     ...(userProfile?.mainResume ? [{ ...userProfile.mainResume, _isMaster: true }] : []),
     ...resumes.filter(r => r._id?.toString() !== masterResumeId),
   ];
-
   const selectedResume = allResumes.find(r => r._id?.toString() === selectedResumeId);
 
-  const handleEdit = async () => {
-    if (!selectedResumeId || !query) {
-      setError('Please select a resume and enter instructions');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const res = await fetch('/api/edit-resume-with-ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resume: selectedResume.content,
-          query,
-          createNewResume: createNew,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to edit resume');
-      }
-
-      setSuccess('Resume edited successfully!');
-      setQuery('');
-      fetchResumes();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Cover letter helpers
+  const selectedCoverLetter = coverLetters.find(cl => cl._id === selectedCoverLetterId);
 
   const getResumeLabel = (resume) => {
     const name =
@@ -117,6 +108,74 @@ export default function AIEditPage() {
       : '';
     const tag = resume._isMaster ? '⭐ Master — ' : '';
     return `${tag}${name}${date ? ` (${date})` : ''}`;
+  };
+
+  const getCoverLetterLabel = (cl) => {
+    const name = cl.metadata?.coverLetterName || cl.metadata?.companyName || 'Untitled Cover Letter';
+    const date = new Date(cl.createdAt).toLocaleDateString();
+    return `${name} (${date})`;
+  };
+
+  const handleEdit = async () => {
+    if (!query) {
+      setError('Please enter instructions');
+      return;
+    }
+
+    if (editType === 'resume' && !selectedResumeId) {
+      setError('Please select a resume');
+      return;
+    }
+
+    if (editType === 'cover-letter' && !selectedCoverLetter) {
+      setError('Please select a cover letter');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const body = editType === 'resume'
+        ? {
+            resume: selectedResume.content,
+            query,
+            createNewResume: createNew,
+          }
+        : {
+            type: 'cover-letter',
+            coverLetterContent: selectedCoverLetter.content,
+            coverLetterId: selectedCoverLetter._id,
+            query,
+          };
+
+      const res = await fetch('/api/edit-resume-with-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to edit');
+      }
+
+      const label = editType === 'resume' ? 'Resume' : 'Cover letter';
+      setSuccess(`${label} edited successfully!`);
+      setQuery('');
+
+      if (editType === 'resume') {
+        fetchResumes();
+      } else {
+        fetchCoverLetters();
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (isCheckingAccess) {
@@ -161,49 +220,109 @@ export default function AIEditPage() {
           <>
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-                AI Resume Editor
+                AI Editor
               </h1>
               <p className="mt-2 text-slate-400">
-                Enhance your resume with AI-powered edits and optimizations.
+                Enhance your resume or cover letter with AI-powered edits.
               </p>
+            </div>
+
+            {/* Type Toggle */}
+            <div className="flex justify-center mb-8">
+              <div className="inline-flex bg-slate-800/50 rounded-xl p-1 border border-slate-700/50">
+                <button
+                  onClick={() => setEditType('resume')}
+                  className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${
+                    editType === 'resume'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Resume
+                </button>
+                <button
+                  onClick={() => setEditType('cover-letter')}
+                  className={`px-6 py-2 rounded-lg text-sm font-medium transition-all ${
+                    editType === 'cover-letter'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Cover Letter
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Left: Editor Form */}
               <div className="glass-card rounded-2xl p-8 animate-float">
                 <div className="space-y-6">
-                  {/* Resume Selection */}
-                  <div>
-                    <label htmlFor="resume" className="block text-sm font-medium text-slate-300 mb-2">
-                      Select Resume
-                    </label>
-                    <div className="relative">
-                      <select
-                        id="resume"
-                        className="block w-full rounded-xl bg-slate-800/50 border border-slate-700 text-slate-200 py-3 pl-4 pr-10 focus:border-blue-500 focus:ring-blue-500 sm:text-sm appearance-none cursor-pointer transition-colors hover:bg-slate-800/80"
-                        value={selectedResumeId}
-                        onChange={(e) => setSelectedResumeId(e.target.value)}
-                      >
-                        <option value="" className="bg-slate-900">Select a resume...</option>
-                        {allResumes.map((resume) => (
-                          <option key={resume._id} value={resume._id?.toString()} className="bg-slate-900">
-                            {getResumeLabel(resume)}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+                  {/* Selection */}
+                  {editType === 'resume' ? (
+                    <div>
+                      <label htmlFor="resume" className="block text-sm font-medium text-slate-300 mb-2">
+                        Select Resume
+                      </label>
+                      <div className="relative">
+                        <select
+                          id="resume"
+                          className="block w-full rounded-xl bg-slate-800/50 border border-slate-700 text-slate-200 py-3 pl-4 pr-10 focus:border-blue-500 focus:ring-blue-500 sm:text-sm appearance-none cursor-pointer transition-colors hover:bg-slate-800/80"
+                          value={selectedResumeId}
+                          onChange={(e) => setSelectedResumeId(e.target.value)}
+                        >
+                          <option value="" className="bg-slate-900">Select a resume...</option>
+                          {allResumes.map((resume) => (
+                            <option key={resume._id} value={resume._id?.toString()} className="bg-slate-900">
+                              {getResumeLabel(resume)}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
                       </div>
+                      {allResumes.length === 0 && (
+                        <p className="mt-2 text-sm text-yellow-500 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                          No resumes found. Upload one in your Profile first.
+                        </p>
+                      )}
                     </div>
-                    {allResumes.length === 0 && (
-                      <p className="mt-2 text-sm text-yellow-500 flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                        No resumes found. Please upload a resume in your Profile first.
-                      </p>
-                    )}
-                  </div>
+                  ) : (
+                    <div>
+                      <label htmlFor="cover-letter" className="block text-sm font-medium text-slate-300 mb-2">
+                        Select Cover Letter
+                      </label>
+                      <div className="relative">
+                        <select
+                          id="cover-letter"
+                          className="block w-full rounded-xl bg-slate-800/50 border border-slate-700 text-slate-200 py-3 pl-4 pr-10 focus:border-blue-500 focus:ring-blue-500 sm:text-sm appearance-none cursor-pointer transition-colors hover:bg-slate-800/80"
+                          value={selectedCoverLetterId}
+                          onChange={(e) => setSelectedCoverLetterId(e.target.value)}
+                        >
+                          <option value="" className="bg-slate-900">Select a cover letter...</option>
+                          {coverLetters.map((cl) => (
+                            <option key={cl._id} value={cl._id} className="bg-slate-900">
+                              {getCoverLetterLabel(cl)}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
+                      {coverLetters.length === 0 && (
+                        <p className="mt-2 text-sm text-yellow-500 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                          No cover letters found. Generate one first.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Instructions */}
                   <div>
@@ -215,15 +334,19 @@ export default function AIEditPage() {
                         id="instructions"
                         rows={6}
                         className="block w-full rounded-xl bg-slate-800/50 border border-slate-700 text-slate-200 p-4 focus:border-blue-500 focus:ring-blue-500 sm:text-sm placeholder-slate-500 transition-colors hover:bg-slate-800/80 resize-none"
-                        placeholder="e.g., Rewrite the professional summary to highlight my leadership experience and use stronger action verbs..."
+                        placeholder={
+                          editType === 'resume'
+                            ? "e.g., Rewrite the professional summary to highlight my leadership experience..."
+                            : "e.g., Make the tone more enthusiastic and mention my project management skills..."
+                        }
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                       />
                     </div>
                   </div>
 
-                  {/* Options */}
-                  {canCreateNew && (
+                  {/* Save as new (resume only) */}
+                  {editType === 'resume' && canCreateNew && (
                     <div className="flex items-center p-4 bg-slate-800/30 rounded-xl border border-slate-700/50">
                       <input
                         id="createNew"
@@ -261,9 +384,9 @@ export default function AIEditPage() {
                   <button
                     type="button"
                     onClick={handleEdit}
-                    disabled={loading || !selectedResumeId || !query}
+                    disabled={loading || !query}
                     className={`w-full group relative flex justify-center py-3 px-4 border border-transparent rounded-xl text-sm font-medium text-white transition-all duration-200 ${
-                      loading || !selectedResumeId || !query
+                      loading || !query
                         ? 'bg-slate-700 cursor-not-allowed opacity-50'
                         : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 hover:shadow-lg hover:shadow-blue-500/25 active:scale-[0.99]'
                     }`}
@@ -283,7 +406,7 @@ export default function AIEditPage() {
                 </div>
               </div>
 
-              {/* Right: Resume Preview */}
+              {/* Right: Preview */}
               <div className="glass-card rounded-2xl p-6 animate-float">
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -292,14 +415,17 @@ export default function AIEditPage() {
                   </svg>
                   Preview
                 </h2>
-                {selectedResume?.content ? (
+
+                {editType === 'resume' && selectedResume?.content ? (
                   <TemplateViewer resume={selectedResume.content} user={userProfile} />
+                ) : editType === 'cover-letter' && selectedCoverLetter?.content ? (
+                  <CoverLetterPreview coverLetterData={selectedCoverLetter.content} />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-[400px] text-slate-500 border-2 border-dashed border-slate-700 rounded-xl">
                     <svg className="w-16 h-16 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p>Select a resume to preview</p>
+                    <p>Select a {editType === 'resume' ? 'resume' : 'cover letter'} to preview</p>
                   </div>
                 )}
               </div>
