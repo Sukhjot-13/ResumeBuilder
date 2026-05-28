@@ -1,109 +1,80 @@
-# Plan: Cover Letter System + Nav Fixes
+# Plan: Nav Bar Restructure + Dashboard Hub
 
-## Overview
+## Goal
 
-Three workstreams:
-1. **Cover letter system** — editor, preview, PDF generation (mirrors resume pattern)
-2. **Dashboard checkbox** — option to save/discard resume when generating with a job description
-3. **Nav bar updates** — add Automation + Cover Letters links
+Restructure navigation to mirror automation's sub-nav pattern. The main navbar gets simplified; a secondary nav bar handles section-level navigation for resumes, cover letters, and AI edit. The dashboard becomes a hub page.
 
----
-
-## Workstream 1: Cover Letter System
-
-### New files needed
-
-| File | Purpose |
-|------|---------|
-| `src/lib/coverLetterFields.js` | Cover letter data schema — `recipient`, `companyName`, `jobTitle`, `body`, `salutation`, `closing` |
-| `src/models/CoverLetter.js` | Mongoose model — `userId`, `content` (CL fields), `metadata`, `createdAt` |
-| `src/lib/coverLetter-generator.js` | AI generation — builds prompt using master resume + job description, calls `callAI()` |
-| `src/app/api/generate-cover-letter/route.js` | POST — auth + rate-limit + call generator + save to DB |
-| `src/app/api/cover-letters/route.js` | GET (list user's cover letters), POST (save manual) |
-| `src/app/api/cover-letters/[id]/route.js` | GET/DELETE/PATCH single cover letter |
-| `src/components/preview/CoverLetterDisplayView.js` | HTML text preview of cover letter |
-| `src/components/preview/CoverLetterPreview.js` | Tabbed preview: Text View / PDF View (mirrors `ResumePreview.js`) |
-| `src/components/cover-letter/CoverLetterTemplate.js` | `@react-pdf/renderer` PDF template for cover letter |
-| `src/app/cover-letters/page.js` | Cover letter list + "New Cover Letter" button |
-| `src/app/cover-letters/[id]/page.js` | Cover letter editor (view, regenerate, delete) |
-
-### Modified files
-
-| File | Change |
-|------|--------|
-| `src/lib/constants.js` | Add `GENERATE_COVER_LETTER`, `VIEW_COVER_LETTERS`, `DELETE_COVER_LETTER` permissions + routes/endpoints |
-| `src/lib/pdf-generator.js` | Add support for `CoverLetterTemplate` alongside resume templates |
-| `src/app/api/render-pdf-react/route.js` | Accept `type: "cover-letter"` param to route to the correct template |
-| `src/components/layout/Navbar.js` | Add "Cover Letters" link (gated by `VIEW_COVER_LETTERS`) |
-
-### How it mirrors the resume pattern
-
-The resume flow is: **dashboard page (JD input)** → **POST /api/generate-content** → **AI generates** → **saves to Resume model** → **TemplateViewer shows preview** → **PDF via @react-pdf/renderer**
-
-The cover letter flow will be: **dedicated page (JD + recipient)** → **POST /api/generate-cover-letter** → **AI generates** → **saves to CoverLetter model** → **CoverLetterPreview shows text view** → **PDF via same @react-pdf/renderer pipeline**
-
-### Cover Letter PDF
-
-Single template (not 5 like resumes) — letter format: sender info, date, recipient info, salutation, body paragraphs, closing, signature. Uses `@react-pdf/renderer` same as resume templates.
-
-### Permissions to add
+## URL Structure
 
 ```
-GENERATE_COVER_LETTER: 'generate_cover_letter',
-VIEW_COVER_LETTERS: 'view_cover_letters',
-DELETE_COVER_LETTER: 'delete_cover_letter',
+/resumes/dashboard     ← Hub page (stats, recent resumes, recent cover letters)
+/resumes               ← Resume builder (current /dashboard content)
+/cover-letters          ← Cover letter list (unchanged URL)
+/cover-letters/[id]     ← Cover letter detail (unchanged URL)
+/ai-edit                ← AI edit page (unchanged URL)
 ```
 
-Assign to ADMIN, DEVELOPER, SUBSCRIBER roles. Free users get `GENERATE_COVER_LETTER` (same treatment as resume generation — limited by credits).
+## What Changes
 
----
+### 1. Simplify Main Navbar (`src/components/layout/Navbar.js`)
 
-## Workstream 2: Dashboard Save Toggle
+Remove section-level links: Dashboard, Cover Letters, AI Edit.
+Keep only: Logo, Automation, Admin, Profile, Credits, Logout.
+These section links are handled by the sub-nav now.
 
-### Modified: `src/app/dashboard/page.js`
+### 2. Create Route Group `app/(app)/layout.js` — Sub-Nav Bar
 
-**What:** Add a toggle checkbox below the SpecialInstructionsInput: **"Save this resume"** (default: checked).
+Same pattern as `automation/layout.js`:
+- Slim bar below the main header with a section label and nav items
+- Active link highlighted based on current pathname
 
-**Behavior:**
-- **Checked (default)**: Existing behavior — `createResume()` runs after generation, resume appears in the history list below.
-- **Unchecked**: Skip `createResume()` call. Resume preview still shows, but it's not persisted.
+Sub-nav items:
 
-**Why:** Users sometimes want to try generating against a JD without cluttering their resume history.
+| Label | Href | Permission |
+|-------|------|------------|
+| Dashboard | `/resumes/dashboard` | VIEW_OWN_RESUMES |
+| Resumes | `/resumes` | VIEW_OWN_RESUMES |
+| Cover Letters | `/cover-letters` | VIEW_COVER_LETTERS |
+| AI Edit | `/ai-edit` | ACCESS_AI_EDIT_PAGE |
 
-### Modified: `src/app/api/generate-content/route.js`
+### 3. New / Hub Pages
 
-Accept a `{ save: false }` flag in the body. When false, generate and return but don't persist to DB.
+**`app/(app)/resumes/dashboard/page.js`** — Hub page:
+- Stats row: total resumes count, total cover letters count, credits remaining
+- Recent resumes (last 5, clickable cards)
+- Recent cover letters (last 5, clickable cards)
+- Quick action buttons: "New Resume" → `/resumes`, "New Cover Letter" → `/cover-letters/new`
 
----
+**`app/(app)/resumes/page.js`** — Current dashboard content moved here:
+- Job description input
+- Special instructions input
+- Template preview
+- Resume list (existing ResumeList component)
 
-## Workstream 3: Nav Bar Updates
+### 4. Move Existing Pages into Route Group
 
-### Modified: `src/components/layout/Navbar.js`
+| Current Path | New Path |
+|---|---|
+| `app/dashboard/page.js` | `app/(app)/resumes/page.js` (with content) |
+| `app/cover-letters/page.js` | `app/(app)/cover-letters/page.js` |
+| `app/cover-letters/[id]/page.js` | `app/(app)/cover-letters/[id]/page.js` |
+| `app/ai-edit/page.js` | `app/(app)/ai-edit/page.js` |
 
-Add two new links in the authenticated desktop nav (between "AI Edit" and "Admin"):
+Old files deleted after moving.
 
-```
-{user && checkPermission(user, PERMISSIONS.VIEW_AUTOMATION) && (
-  <Link href="/automation">Automation</Link>
-)}
+### 5. Update Navbar Links
 
-{user && checkPermission(user, PERMISSIONS.VIEW_COVER_LETTERS) && (
-  <Link href="/cover-letters">Cover Letters</Link>
-)}
-```
+- Main Navbar: "Dashboard" link → `/resumes/dashboard`
+- Hub page "New Resume" button → `/resumes`
+- Cover letter "New" → `/cover-letters/new`
 
-Same in the mobile menu.
+## Implementation Order
 
----
-
-## Order of implementation
-
-1. Constants (permissions, routes, endpoints)
-2. Cover letter schema + model (`coverLetterFields.js`, `CoverLetter.js`)
-3. Cover letter AI generator (`coverLetter-generator.js`)
-4. API routes (`generate-cover-letter`, `cover-letters`, `cover-letters/[id]`)
-5. Cover letter components (display, preview, PDF template)
-6. PDF generator update (support cover letter type)
-7. Cover letter pages (`/cover-letters`, `/cover-letters/[id]`)
-8. Dashboard save toggle
-9. Nav bar links
+1. Create `app/(app)/layout.js` (sub-nav)
+2. Create `app/(app)/resumes/dashboard/page.js` (hub)
+3. Move `app/dashboard/page.js` → `app/(app)/resumes/page.js` (update imports)
+4. Move `app/cover-letters/` → `app/(app)/cover-letters/`
+5. Move `app/ai-edit/page.js` → `app/(app)/ai-edit/page.js`
+6. Delete old files
+7. Simplify `Navbar.js`
+8. Update any cross-references (links in dashboard, cover-letters, ai-edit pages)
