@@ -17,6 +17,5 @@ const ApiKeySchema = new mongoose.Schema({
 });
 
 ApiKeySchema.index({ userId: 1 });
-ApiKeySchema.index({ key: 1 });
 
 export default (mongoose.models && mongoose.models.ApiKey) || mongoose.model('ApiKey', ApiKeySchema);

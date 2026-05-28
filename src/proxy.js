@@ -59,28 +59,33 @@ export async function proxy(req) {
     }
   }
 
-  // Check for expired subscriptions (only for authenticated users)
+  // Check for expired subscriptions periodically (not on every request)
+  let subscriptionChecked = false;
   if (authResult.ok) {
-    try {
-      const protocol = req.headers.get('x-forwarded-proto') || 'http';
-      const host = req.headers.get('host');
-      const checkRes = await fetch(`${protocol}://${host}/api/auth/check-subscription`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-id': authResult.userId,
-        },
-      });
-      
-      if (checkRes.ok) {
-        const data = await checkRes.json();
-        // Update role if subscription was downgraded
-        if (data.role !== undefined) {
-          authResult.role = data.role;
+    const lastCheck = req.cookies.get('subCheckedAt')?.value;
+    const fiveMin = 5 * 60 * 1000;
+    if (!lastCheck || Date.now() - Number(lastCheck) > fiveMin) {
+      try {
+        const protocol = req.headers.get('x-forwarded-proto') || 'http';
+        const host = req.headers.get('host');
+        const checkRes = await fetch(`${protocol}://${host}/api/auth/check-subscription`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': authResult.userId,
+          },
+        });
+
+        if (checkRes.ok) {
+          const data = await checkRes.json();
+          if (data.role !== undefined) {
+            authResult.role = data.role;
+          }
         }
+        subscriptionChecked = true;
+      } catch (error) {
+        console.error('Subscription check failed in proxy:', error);
       }
-    } catch (error) {
-      console.error('Subscription check failed in proxy:', error);
     }
   }
 
@@ -102,6 +107,11 @@ export async function proxy(req) {
     } else {
       // For protected routes, just continue
       response = NextResponse.next();
+    }
+
+    // Set subscription check timestamp
+    if (subscriptionChecked) {
+      response.cookies.set('subCheckedAt', String(Date.now()), { path: '/', maxAge: 600, httpOnly: false, secure: false, sameSite: 'lax' });
     }
 
     // Set new cookies if rotation happened
