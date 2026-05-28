@@ -27,3 +27,19 @@ export async function generatePdf(resumeData, template) {
   const blob = await pdf(doc).toBlob();
   return Buffer.from(await blob.arrayBuffer());
 }
+
+/**
+ * Generate a PDF blob from cover letter data.
+ *
+ * @param {object} coverLetterData - The cover letter content object
+ * @returns {Promise<Buffer>}      - PDF as Buffer
+ */
+export async function generateCoverLetterPdf(coverLetterData) {
+  const CoverLetterTemplate = (await import(
+    '@/components/cover-letter/CoverLetterTemplate'
+  )).default;
+
+  const doc = <CoverLetterTemplate coverLetterData={coverLetterData} />;
+  const blob = await pdf(doc).toBlob();
+  return Buffer.from(await blob.arrayBuffer());
+}

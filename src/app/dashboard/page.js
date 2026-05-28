@@ -18,6 +18,7 @@ function DashboardContent() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState('');
   const [tailoredResume, setTailoredResume] = useState(null);
+  const [saveResume, setSaveResume] = useState(true);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -73,13 +74,16 @@ function DashboardContent() {
           resume: profile.mainResume.content,
           jobDescription,
           specialInstructions, // server enforces the permission
+          save: saveResume,
         }),
       });
 
       if (res.ok) {
-        const { resume, metadata } = await res.json();
+        const { resume, metadata, resumeId } = await res.json();
         setTailoredResume(resume);
-        await createResume(resume, metadata);
+        if (saveResume && !resumeId) {
+          await createResume(resume, metadata);
+        }
       } else {
         const errData = await res.json().catch(() => ({}));
         setGenerateError(errData.message || errData.error || 'Failed to generate resume.');
@@ -130,6 +134,15 @@ function DashboardContent() {
                   profile={profile}
                   loading={loading}
                 />
+                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={saveResume}
+                    onChange={(e) => setSaveResume(e.target.checked)}
+                    className="w-4 h-4 rounded border-white/10 bg-slate-800 text-blue-600 focus:ring-blue-500"
+                  />
+                  Save this resume
+                </label>
                 {generateError && (
                   <p className="text-sm text-red-400 flex items-center gap-1.5">
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

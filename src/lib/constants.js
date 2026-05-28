@@ -38,6 +38,13 @@ export const PERMISSIONS = {
   DOWNLOAD_PDF: 'download_pdf', // Export resume as PDF
   
   // ==========================================
+  // Cover Letter
+  // ==========================================
+  GENERATE_COVER_LETTER: 'generate_cover_letter', // Generate cover letter from job description
+  VIEW_COVER_LETTERS: 'view_cover_letters', // View own cover letters list
+  DELETE_COVER_LETTER: 'delete_cover_letter', // Delete own cover letters
+
+  // ==========================================
   // Profile & Account Management
   // ==========================================
   VIEW_OWN_PROFILE: 'view_own_profile',
@@ -82,6 +89,9 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT,
     PERMISSIONS.USE_SPECIAL_INSTRUCTIONS,
     PERMISSIONS.PARSE_RESUME,
+    PERMISSIONS.GENERATE_COVER_LETTER,
+    PERMISSIONS.VIEW_COVER_LETTERS,
+    PERMISSIONS.DELETE_COVER_LETTER,
     // Resume Management
     PERMISSIONS.CREATE_RESUME,
     PERMISSIONS.VIEW_OWN_RESUMES,
@@ -292,6 +302,8 @@ export const ROUTES = {
   CHECKOUT: '/checkout',
   RESUME_HISTORY: '/resume-history',
   AI_EDIT: '/ai-edit',
+  COVER_LETTERS: '/cover-letters',
+  COVER_LETTER: (id) => `/cover-letters/${id}`,
   ADMIN: '/admin',
   AUTOMATION: '/automation',
   AUTOMATION_JOBS: '/automation/jobs',
@@ -320,6 +332,11 @@ export const API_ENDPOINTS = {
     BY_ID: (id) => `/api/resumes/${id}`,
   },
   GENERATE: '/api/generate-content',
+  GENERATE_COVER_LETTER: '/api/generate-cover-letter',
+  COVER_LETTERS: {
+    LIST: '/api/cover-letters',
+    BY_ID: (id) => `/api/cover-letters/${id}`,
+  },
   EDIT_WITH_AI: '/api/edit-resume-with-ai',
   PARSE_RESUME: '/api/parse-resume',
   CHECKOUT: {

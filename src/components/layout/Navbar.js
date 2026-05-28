@@ -71,7 +71,26 @@ export default function Navbar() {
                 </svg>
                 Dashboard
               </Link>
-              
+
+              {user && checkPermission(user, PERMISSIONS.VIEW_AUTOMATION) && (
+                <Link href="/automation" className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white glass rounded-lg transition-colors hover:bg-white/5 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Automation
+                </Link>
+              )}
+
+              {user && checkPermission(user, PERMISSIONS.VIEW_COVER_LETTERS) && (
+                <Link href="/cover-letters" className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white glass rounded-lg transition-colors hover:bg-white/5 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Cover Letters
+                </Link>
+              )}
+
               {user && checkPermission(user, PERMISSIONS.ACCESS_AI_EDIT_PAGE) && (
                 <Link href="/ai-edit" className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white glass rounded-lg transition-colors hover:bg-white/5 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -125,6 +144,12 @@ export default function Navbar() {
             <div className="md:hidden glass border-t border-white/10 p-4 absolute w-full">
               <nav className="flex flex-col gap-4 text-sm font-medium text-slate-300">
                 <Link href="/dashboard" className="hover:text-white transition-colors" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
+                {user && checkPermission(user, PERMISSIONS.VIEW_AUTOMATION) && (
+                  <Link href="/automation" className="hover:text-white transition-colors" onClick={() => setIsMenuOpen(false)}>Automation</Link>
+                )}
+                {user && checkPermission(user, PERMISSIONS.VIEW_COVER_LETTERS) && (
+                  <Link href="/cover-letters" className="hover:text-white transition-colors" onClick={() => setIsMenuOpen(false)}>Cover Letters</Link>
+                )}
                 {user && checkPermission(user, PERMISSIONS.ACCESS_AI_EDIT_PAGE) && (
                    <Link href="/ai-edit" className="hover:text-white transition-colors" onClick={() => setIsMenuOpen(false)}>AI Edit</Link>
                 )}

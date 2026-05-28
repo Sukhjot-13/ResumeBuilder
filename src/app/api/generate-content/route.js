@@ -70,7 +70,7 @@ export const POST = withErrorHandler(async (request) => {
     return fail('Invalid JSON body', 400);
   }
 
-  const { resume: bodyResume, jobDescription, specialInstructions: rawSpecialInstructions } = body;
+  const { resume: bodyResume, jobDescription, specialInstructions: rawSpecialInstructions, save: shouldSave = true } = body;
   const cleanJobDescription = sanitizeJobDescription(jobDescription);
 
   if (!cleanJobDescription.trim()) {
@@ -106,18 +106,20 @@ export const POST = withErrorHandler(async (request) => {
       userRole
     );
 
-    // Persist the generated resume so the worker has a resumeId
+    // Persist the generated resume (skipped if save:false)
     let resumeId = null;
-    try {
-      const resumeDoc = await Resume.create({
-        userId: user._id,
-        content: tailoredData.resume || tailoredData,
-        metadata: tailoredData.metadata || undefined,
-      });
-      resumeId = resumeDoc._id.toString();
-    } catch (saveErr) {
-      logger.error('Failed to save generated resume document', saveErr, { userId });
-      // Non-fatal — return the content anyway
+    if (shouldSave) {
+      try {
+        const resumeDoc = await Resume.create({
+          userId: user._id,
+          content: tailoredData.resume || tailoredData,
+          metadata: tailoredData.metadata || undefined,
+        });
+        resumeId = resumeDoc._id.toString();
+      } catch (saveErr) {
+        logger.error('Failed to save generated resume document', saveErr, { userId });
+        // Non-fatal — return the content anyway
+      }
     }
 
     logger.info('Resume content generated successfully', { userId, role: userRole });
