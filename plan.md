@@ -1,80 +1,54 @@
-# Plan: Nav Bar Restructure + Dashboard Hub
+# Plan: Tools & Automation Nav Restructure
 
-## Goal
+## Concept
 
-Restructure navigation to mirror automation's sub-nav pattern. The main navbar gets simplified; a secondary nav bar handles section-level navigation for resumes, cover letters, and AI edit. The dashboard becomes a hub page.
+Main navbar has two section links: **Tools** and **Automation**. Each section has its own sub-navigation bar.
 
-## URL Structure
+## Main Navbar
+
+`Dashboard` → renamed/linked to `/tools`
+`Cover Letters` → removed (handled by Tools sub-nav)
+`AI Edit` → removed (handled by Tools sub-nav)
+Keep: Logo → `/tools`, Automation, Admin, Profile, Credits, Logout
+
+## Tools Sub-Nav
+
+New layout at `app/(tools)/layout.js` — bar below main header:
 
 ```
-/resumes/dashboard     ← Hub page (stats, recent resumes, recent cover letters)
-/resumes               ← Resume builder (current /dashboard content)
-/cover-letters          ← Cover letter list (unchanged URL)
-/cover-letters/[id]     ← Cover letter detail (unchanged URL)
-/ai-edit                ← AI edit page (unchanged URL)
+Tools  |  Dashboard  |  Resumes  |  Cover Letters  |  AI Edit
 ```
 
-## What Changes
+URLs:
+- `/tools` — hub page (stats, resumes, cover letters)
+- `/resumes` — resume builder (current dashboard content)
+- `/cover-letters` — cover letter list
+- `/cover-letters/[id]` — cover letter detail
+- `/ai-edit` — AI edit page
 
-### 1. Simplify Main Navbar (`src/components/layout/Navbar.js`)
+## Files to Create
 
-Remove section-level links: Dashboard, Cover Letters, AI Edit.
-Keep only: Logo, Automation, Admin, Profile, Credits, Logout.
-These section links are handled by the sub-nav now.
+| File | Purpose |
+|------|---------|
+| `app/(tools)/layout.js` | Tools sub-nav bar |
+| `app/(tools)/page.js` | Hub page at `/tools` |
 
-### 2. Create Route Group `app/(app)/layout.js` — Sub-Nav Bar
+## Files to Move
 
-Same pattern as `automation/layout.js`:
-- Slim bar below the main header with a section label and nav items
-- Active link highlighted based on current pathname
+| From | To |
+|------|-----|
+| `app/dashboard/page.js` | `app/(tools)/resumes/page.js` |
+| `app/cover-letters/page.js` | `app/(tools)/cover-letters/page.js` |
+| `app/cover-letters/[id]/page.js` | `app/(tools)/cover-letters/[id]/page.js` |
+| `app/ai-edit/page.js` | `app/(tools)/ai-edit/page.js` |
 
-Sub-nav items:
+## Files to Modify
 
-| Label | Href | Permission |
-|-------|------|------------|
-| Dashboard | `/resumes/dashboard` | VIEW_OWN_RESUMES |
-| Resumes | `/resumes` | VIEW_OWN_RESUMES |
-| Cover Letters | `/cover-letters` | VIEW_COVER_LETTERS |
-| AI Edit | `/ai-edit` | ACCESS_AI_EDIT_PAGE |
+| File | Change |
+|------|--------|
+| `Navbar.js` | Replace Dashboard/CoverLetters/AIEdit links with single Tools link |
+| Moved pages | Update internal link references |
 
-### 3. New / Hub Pages
+## Hub Page (`/tools`)
 
-**`app/(app)/resumes/dashboard/page.js`** — Hub page:
-- Stats row: total resumes count, total cover letters count, credits remaining
-- Recent resumes (last 5, clickable cards)
-- Recent cover letters (last 5, clickable cards)
-- Quick action buttons: "New Resume" → `/resumes`, "New Cover Letter" → `/cover-letters/new`
-
-**`app/(app)/resumes/page.js`** — Current dashboard content moved here:
-- Job description input
-- Special instructions input
-- Template preview
-- Resume list (existing ResumeList component)
-
-### 4. Move Existing Pages into Route Group
-
-| Current Path | New Path |
-|---|---|
-| `app/dashboard/page.js` | `app/(app)/resumes/page.js` (with content) |
-| `app/cover-letters/page.js` | `app/(app)/cover-letters/page.js` |
-| `app/cover-letters/[id]/page.js` | `app/(app)/cover-letters/[id]/page.js` |
-| `app/ai-edit/page.js` | `app/(app)/ai-edit/page.js` |
-
-Old files deleted after moving.
-
-### 5. Update Navbar Links
-
-- Main Navbar: "Dashboard" link → `/resumes/dashboard`
-- Hub page "New Resume" button → `/resumes`
-- Cover letter "New" → `/cover-letters/new`
-
-## Implementation Order
-
-1. Create `app/(app)/layout.js` (sub-nav)
-2. Create `app/(app)/resumes/dashboard/page.js` (hub)
-3. Move `app/dashboard/page.js` → `app/(app)/resumes/page.js` (update imports)
-4. Move `app/cover-letters/` → `app/(app)/cover-letters/`
-5. Move `app/ai-edit/page.js` → `app/(app)/ai-edit/page.js`
-6. Delete old files
-7. Simplify `Navbar.js`
-8. Update any cross-references (links in dashboard, cover-letters, ai-edit pages)
+Dashboard-style overview: stats row (resume count, cover letter count, credits), recent resumes list, recent cover letters list, quick action buttons.
