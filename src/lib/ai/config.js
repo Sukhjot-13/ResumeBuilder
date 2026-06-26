@@ -9,10 +9,10 @@
  */
 
 export const AI_TASKS = {
-  RESUME_GENERATION:      { provider: 'gemini', model: 'gemini-flash-latest' },
-  COVER_LETTER_GENERATION: { provider: 'gemini', model: 'gemini-flash-latest' },
-  AI_EDIT:                { provider: 'gemini', model: 'gemini-flash-latest' },
-  RESUME_PARSING:         { provider: 'gemini', model: 'gemini-flash-latest' },
+  RESUME_GENERATION:      { provider: 'deepseek', model: 'deepseek-chat' },
+  COVER_LETTER_GENERATION: { provider: 'deepseek', model: 'deepseek-chat' },
+  AI_EDIT:                { provider: 'deepseek', model: 'deepseek-chat' },
+  RESUME_PARSING:         { provider: 'deepseek', model: 'deepseek-chat' },
   GATEKEEPER:             { provider: 'deepseek', model: 'deepseek-chat' },
 };
 
