@@ -31,6 +31,14 @@ export default function CoverLetterDisplayView({ coverLetterData }) {
 
       {/* Recipient Info */}
       <div className="mt-6">
+        {recipientName && <p className="font-medium">{recipientName}</p>}
+        {recipientTitle && recipientTitle !== recipientName && (
+          <p className="text-sm text-gray-600">{recipientTitle}</p>
+        )}
+        {companyName && <p className="text-sm text-gray-600">{companyName}</p>}
+      </div>
+
+      <div className="mt-4">
         <p>{salutation || `Dear ${recipientName || 'Hiring Manager'},`}</p>
       </div>
 

@@ -5,7 +5,7 @@ import { callAI } from '@/lib/ai/client';
 
 const COVER_LETTER_OUTPUT_SCHEMA = `{
   "recipientName": "string (the hiring manager name or 'Hiring Manager')",
-  "recipientTitle": "string (optional, their title)",
+  "recipientTitle": "string (optional — a JOB TITLE like 'VP of Engineering' or 'HR Lead'. Leave empty/null if you only have a name, never repeat the recipientName here)",
   "companyName": "string",
   "jobTitle": "string",
   "salutation": "string (e.g. 'Dear Hiring Manager,')",
@@ -60,7 +60,8 @@ export async function generateCoverLetter(resume, jobDescription, opts = {}) {
 - Sender name: ${userName || 'the user'}
 - Sender email: ${userEmail || ''}
 - Use today's date as the letter date.
-- Format bodyParagraphs as an array of strings, one paragraph per element.`;
+- Format bodyParagraphs as an array of strings, one paragraph per element.
+- IMPORTANT: Only set recipientTitle if you have a specific job title (like "VP of Engineering" or "HR Manager"). Never repeat recipientName in recipientTitle — leave it empty/null if there is no distinct title.`;
 
   return callAI('COVER_LETTER_GENERATION', prompt, { parseJson: true });
 }

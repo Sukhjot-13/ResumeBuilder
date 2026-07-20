@@ -79,7 +79,7 @@ export default function CoverLetterTemplate({ coverLetterData }) {
         {recipientName && (
           <Text style={styles.recipientLine}>{recipientName}</Text>
         )}
-        {recipientTitle && (
+        {recipientTitle && recipientTitle !== recipientName && (
           <Text style={styles.recipientLine}>{recipientTitle}</Text>
         )}
         {companyName && (
