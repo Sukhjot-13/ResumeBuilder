@@ -313,9 +313,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Accepts a sessionId, retrieves the Stripe session and confirms payment_status is 'paid', verifies the session's userId matches the requesting user, then updates the user to SUBSCRIBER role with subscription details. Creates a Transaction record if one does not already exist for the payment intent.
 
-### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID. Uses CoverLetterService for all database operations, resolveUserId() for dual auth (JWT/API key), and returns enveloped responses via `success()`.
+### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID. Uses CoverLetterService for all database operations, resolveUserId() for dual auth (JWT/API key). Uses `ok()` for GET (unwrapped response) and `success()` for DELETE/PATCH (enveloped).
 
-- `GET` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.getCoverLetterById() to find a cover letter by ID and userId, returns it or a 404.
+- `GET` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.getCoverLetterById() to find a cover letter by ID and userId, returns it via `ok()` (unwrapped, consistent with listing endpoint), or a 404.
 - `DELETE` — Requires DELETE_COVER_LETTER permission. Uses resolveUserId() for auth, then CoverLetterService.deleteCoverLetter() to remove a cover letter by ID and userId.
 - `PATCH` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.updateCoverLetter() to update the content and/or metadata fields on a cover letter by ID and userId.
 

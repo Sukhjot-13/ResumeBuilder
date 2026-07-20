@@ -3,7 +3,7 @@ import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { CoverLetterService } from '@/services/coverLetterService';
-import { success, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, success, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (request, context) => {
   const resolved = await resolveUserId(request);
@@ -20,7 +20,7 @@ export const GET = withErrorHandler(async (request, context) => {
   const letter = await CoverLetterService.getCoverLetterById(id, userId);
   if (!letter) return fail('Cover letter not found', 404);
 
-  return success(letter);
+  return ok(letter);
 });
 
 export const DELETE = withErrorHandler(async (request, context) => {
