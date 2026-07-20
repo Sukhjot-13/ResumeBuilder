@@ -1,3 +1,4 @@
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { stripe } from '@/lib/stripe';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
@@ -6,7 +7,9 @@ import { ROLES, PLANS } from '@/lib/constants';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
+  const { userId, error } = await resolveUserId(req);
+  if (error) return error;
+
   if (!userId) {
     return fail('Unauthorized', 401);
   }

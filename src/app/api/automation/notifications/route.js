@@ -1,11 +1,13 @@
 import dbConnect from '@/lib/mongodb';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import NotificationPrefs from '@/models/NotificationPrefs';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (request) => {
-  const userId = request.headers.get('x-user-id');
+  const { userId, error } = await resolveUserId(request);
+  if (error) return error;
   await dbConnect();
   const perm = await requirePermission(userId, PERMISSIONS.VIEW_AUTOMATION);
   if (isPermissionError(perm)) return perm.error;
@@ -24,7 +26,8 @@ export const GET = withErrorHandler(async (request) => {
 });
 
 export const PUT = withErrorHandler(async (request) => {
-  const userId = request.headers.get('x-user-id');
+  const { userId, error } = await resolveUserId(request);
+  if (error) return error;
   await dbConnect();
   const perm = await requirePermission(userId, PERMISSIONS.VIEW_AUTOMATION);
   if (isPermissionError(perm)) return perm.error;

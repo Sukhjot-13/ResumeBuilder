@@ -57,7 +57,7 @@ export const PATCH = withErrorHandler(async (request, context) => {
 
   await dbConnect();
 
-  const permResult = await requirePermission(userId, PERMISSIONS.VIEW_COVER_LETTERS);
+  const permResult = await requirePermission(userId, PERMISSIONS.EDIT_COVER_LETTER);
   if (isPermissionError(permResult)) return permResult.error;
 
   const letter = await CoverLetterService.updateCoverLetter(id, userId, {

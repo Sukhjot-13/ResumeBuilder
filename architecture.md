@@ -162,9 +162,13 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `getUserResumes` — Get all resumes for the authenticated user
 - `setAsMainResume` — Set a resume as the main resume, archiving the previous main resume
 
-### `src/app/admin/dashboard/page.js` — Admin dashboard page component displaying a user table with role management, reset usage, and delete actions.
+### `src/app/admin/dashboard/page.js` — Admin dashboard page component displaying a user table with role management, reset usage, and delete actions. Updated with navigation tabs linking to Users and Permissions pages.
 
-- `AdminDashboard` — Default export — renders admin UI with user list table, role change dropdowns, reset usage and delete buttons
+- `AdminDashboard` — Default export — renders admin UI with user list table, role change dropdowns, reset usage and delete buttons, and navigation tabs for Users / Permissions
+
+### `src/app/admin/permissions/page.js` — Permission management page for the admin dashboard where admins can view and toggle permissions per role.
+
+- `AdminPermissionsPage` — Default export — fetches roles and permissions from API, renders permission grid grouped by category with toggle buttons per role. Gated behind MANAGE_ROLES permission via PermissionGate. Admin role is displayed as immutable (uses ALL wildcard).
 
 ### `src/app/ai-edit/page.js` — AI Editor page that lets users select a resume or cover letter, enter AI instructions, and generate AI-powered edits with a live preview.
 
@@ -175,6 +179,15 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/api-keys/page.js` — API keys management page for creating, viewing, and revoking API keys used by the Automation Worker.
 
 - `ApiKeysPage` — Default export — renders API key management UI with key creation form, key list, and revoke functionality
+
+### `src/app/api/admin/permissions/route.js` — API route to list all available permissions from the database (seeded from constants). Requires MANAGE_ROLES permission.
+
+- `GET` — Returns all Permission documents sorted by group and key. Requires MANAGE_ROLES.
+
+### `src/app/api/admin/roles/route.js` — API routes to list and update role permissions in the database. Both require MANAGE_ROLES permission.
+
+- `GET` — Returns all Role documents sorted by value. Requires MANAGE_ROLES.
+- `PUT` — Updates a role's permissions array. Body: { roleValue (number), permissions (string[]) }. Validates input. Requires MANAGE_ROLES.
 
 ### `src/app/api/admin/transactions/route.js` — API route to list all transactions with optional user/status filtering and pagination.
 
@@ -608,10 +621,12 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ## lib
 
-### `src/lib/accessControl.js` — Permission checking utilities. Centralized access control using role-based permission lists with 'ALL' wildcard support for admin.
+### `src/lib/accessControl.js` — Permission checking utilities. Centralized access control using role-based permission lists with 'ALL' wildcard support for admin. Supports both synchronous (constants-only) and async DB-first checking paths.
 
-- `hasPermission` — Checks if a numeric userRole has a specific permission string against ROLE_PERMISSIONS mapping. Supports 'ALL' wildcard (ADMIN role returns true for any permission check). Returns false for unknown roles.
-- `checkPermission` — Checks if a user object (containing role) has a specific permission -- primary method for app-level checks. Validates user object exists and has a role.
+- `hasPermission` — SYNC: Checks if a numeric userRole has a specific permission string against ROLE_PERMISSIONS mapping. Supports 'ALL' wildcard (ADMIN role returns true for any permission check). Returns false for unknown roles. Fallback when DB is unavailable.
+- `hasPermissionDB` — ASYNC: Checks if a numeric userRole has a permission, trying the database first (with 60-second in-memory cache) and falling back to hasPermission(). Server-side code should use this for real-time permission changes from admin UI.
+- `checkPermission` — SYNC: Checks if a user object (containing role) has a specific permission using constants-only. Safe for client components.
+- `checkPermissionDB` — ASYNC: Server-side variant of checkPermission that tries DB first. Use in API routes and server actions.
 - `getPermissionMetadata` — Retrieves metadata (name, description, requiredPlan) for a given permission key from PERMISSION_METADATA
 
 ### `src/lib/ai/client.js` — Unified AI client that routes AI calls to the configured provider (Gemini or DeepSeek) for any task, with optional JSON parsing.
@@ -640,9 +655,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `checkRateLimit` — Checks and increments daily API call count for a user against a configurable limit (default 100), returns 429 error if exceeded
 - `generateApiKey` — Generates a new API key with 'rb_' prefix, random 32-byte hex, and returns { plainKey, hashedKey, keyPrefix }
 
-### `src/lib/apiPermissionGuard.js` — Route-level permission guard that retrieves a user by ID and checks if they have a required permission before allowing access.
+### `src/lib/apiPermissionGuard.js` — Route-level permission guard that retrieves a user by ID and checks if they have a required permission before allowing access. Now uses DB-backed checkPermissionDB with fallback to constants.
 
-- `requirePermission` — Fetches a user by ID, checks the required permission via checkPermission, and returns the user object or an error response
+- `requirePermission` — Fetches a user by ID, checks the required permission via async checkPermissionDB (DB-first, falls back to constants), and returns the user object or an error response
 - `isPermissionError` — Helper that returns true if a requirePermission result contains an error
 
 ### `src/lib/apiResponse.js` — Standardized API response helpers for Next.js route handlers, providing success/error responses, enveloped success, custom error classes, and error wrapping.
@@ -674,7 +689,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/lib/constants.js` — Application-wide constants including role/permission enums, plan definitions, token config, routes, and API endpoints.
 
 - `ROLES` — Enum mapping role names (ADMIN: 0, DEVELOPER: 70, SUBSCRIBER: 99, USER: 100) to numeric levels
-- `PERMISSIONS` — Enum of all permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, subscription/billing, and job automation features
+- `PERMISSIONS` — Enum of 36 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, subscription/billing, and job automation features. Includes EDIT_COVER_LETTER (cover letter editing) and MANAGE_ROLES (admin permission management) — both PRO-tier permissions.
 - `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN uses 'ALL' wildcard (any permission check passes), DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base permissions only. No more duplicated arrays.
 - `PERMISSION_METADATA` — Maps all 34 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
 - `PLANS` — Defines Free (2 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
@@ -810,6 +825,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `NotificationPrefs (default export)` — Mongoose model with fields: userId (unique), emailOnApply, emailOnError, emailOnCaptcha, emailOnSchedulerStop, lastUpdated.
 
+### `src/models/Permission.js` — Mongoose model for permission metadata stored in the database, seeded from constants.js with upsert support.
+
+- `Permission (default export)` — Mongoose model with fields: key (unique), name, description, group (Admin/AI/Resume etc.), requiredPlan (FREE/PRO/DEVELOPER/ADMIN), timestamps. Used by the admin permission management UI and seed script.
+
 ### `src/models/plan.js` — Mongoose model for subscription plans defining name, price, credits, billing interval, and Stripe price ID.
 
 - `default export (Plan model)` — Reuses existing Mongoose model or creates a new 'Plan' model with fields: name, price, currency, credits, interval, stripePriceId.
@@ -829,6 +848,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/models/resumeMetadata.js` — Mongoose model for lightweight resume metadata (job title, company name, resume name) linked to a User and Resume.
 
 - `default export (ResumeMetadata model)` — Reuses existing Mongoose model or creates a new 'ResumeMetadata' model with fields: userId, resumeId, jobTitle, companyName, resumeName, createdAt.
+
+### `src/models/Role.js` — Mongoose model for role documents with embedded permissions array, seeded from constants.js.
+
+- `Role (default export)` — Mongoose model with fields: name (unique, USER/SUBSCRIBER/DEVELOPER/ADMIN), value (unique, 100/99/70/0), permissions (array of strings), isAdmin (boolean, true -> ALL wildcard), description, timestamps. Used by DB-backed permission checking and admin management UI.
 
 ### `src/models/SchedulerSettings.js` — Mongoose model for per-user job application scheduler configuration, including time windows, daily/weekly limits, delay ranges, gatekeeper thresholds, pipeline mode, and pause-on-error settings.
 
@@ -909,4 +932,8 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `UserService.updateUser(userId, updateData, options)` — Generic update for any user fields with configurable returnNew and runValidators options.
 - `UserService.addGeneratedResume(userId, resumeId)` — Pushes a resume ID into the user's generatedResumes array.
 - `UserService.removeGeneratedResume(userId, resumeId)` — Pulls a resume ID from the user's generatedResumes array.
+
+### `src/scripts/seedPermissions.js` — Seed script that populates Permission and Role collections in the database from constants.js definitions.
+
+- `seed` — Main async function: connects to DB, upserts all permissions from PERMISSION_METADATA with derived group labels, then upserts all 4 roles from ROLE_PERMISSIONS with their permission arrays. Idempotent (safe to re-run). Usage: `node src/scripts/seedPermissions.js`.
 - `UserService.setMainResume(userId, resumeId)` — Sets the user's mainResume reference to the given resume ID.

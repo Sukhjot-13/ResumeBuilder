@@ -1,4 +1,5 @@
 import dbConnect from '@/lib/mongodb';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import JobListing from '@/models/JobListing';
@@ -7,8 +8,8 @@ import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (request, { params }) => {
   const { id } = await params;
-  const userId = request.headers.get('x-user-id');
-  if (!userId) return fail('Unauthorized', 401);
+  const { userId, error } = await resolveUserId(request);
+  if (error) return error;
 
   await dbConnect();
   const perm = await requirePermission(userId, PERMISSIONS.VIEW_AUTOMATION);

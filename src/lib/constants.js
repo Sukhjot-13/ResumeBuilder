@@ -18,6 +18,7 @@ export const PERMISSIONS = {
   VIEW_ANALYTICS: 'view_analytics',
   ACCESS_ADMIN_PANEL: 'access_admin_panel',
   DELETE_USER: 'delete_user', // Permanently delete user accounts
+  MANAGE_ROLES: 'manage_roles', // Create, edit, delete roles and their permissions
   
   // ==========================================
   // AI & Content Generation Features
@@ -42,6 +43,7 @@ export const PERMISSIONS = {
   // ==========================================
   GENERATE_COVER_LETTER: 'generate_cover_letter', // Generate cover letter from job description
   VIEW_COVER_LETTERS: 'view_cover_letters', // View own cover letters list
+  EDIT_COVER_LETTER: 'edit_cover_letter', // Edit/save existing cover letters
   DELETE_COVER_LETTER: 'delete_cover_letter', // Delete own cover letters
 
   // ==========================================
@@ -92,6 +94,7 @@ const PRO_PERMISSIONS = [
   PERMISSIONS.PARSE_RESUME,
   PERMISSIONS.GENERATE_COVER_LETTER,
   PERMISSIONS.VIEW_COVER_LETTERS,
+  PERMISSIONS.EDIT_COVER_LETTER,
   PERMISSIONS.DELETE_COVER_LETTER,
   PERMISSIONS.VIEW_OWN_RESUMES,
   PERMISSIONS.EDIT_RESUME_METADATA,
@@ -113,6 +116,7 @@ const DEVELOPER_PERMISSIONS = [
   PERMISSIONS.VIEW_ANALYTICS,
   PERMISSIONS.ACCESS_ADMIN_PANEL,
   PERMISSIONS.VIEW_ALL_SUBSCRIPTIONS,
+  PERMISSIONS.MANAGE_ROLES,
 ];
 
 export const ROLE_PERMISSIONS = {
@@ -211,6 +215,11 @@ export const PERMISSION_METADATA = {
   [PERMISSIONS.VIEW_COVER_LETTERS]: {
     name: "View Cover Letters",
     description: "Access your library of generated and saved cover letters.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.EDIT_COVER_LETTER]: {
+    name: "Edit Cover Letter",
+    description: "Edit and update existing cover letters.",
     requiredPlan: "PRO"
   },
   [PERMISSIONS.DELETE_COVER_LETTER]: {
@@ -322,6 +331,11 @@ export const PERMISSION_METADATA = {
     name: "Delete Users",
     description: "Permanently delete user accounts from the system.",
     requiredPlan: "ADMIN"
+  },
+  [PERMISSIONS.MANAGE_ROLES]: {
+    name: "Manage Roles",
+    description: "Create, edit, and delete user roles and their permission assignments from the admin dashboard.",
+    requiredPlan: "DEVELOPER"
   },
 };
 

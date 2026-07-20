@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ROLES, PERMISSIONS, PLANS, API_ENDPOINTS, ROUTES } from '@/lib/constants';
 
 export default function AdminDashboard() {
@@ -97,16 +98,32 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-white p-8">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
-              Admin Dashboard
-            </h1>
-            <p className="text-slate-400 mt-2">Manage users, roles, and subscriptions</p>
+        <header className="mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
+                Admin Dashboard
+              </h1>
+              <p className="text-slate-400 mt-2">Manage users, roles, and subscriptions</p>
+            </div>
+            <button onClick={fetchUsers} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
+              Refresh Data
+            </button>
           </div>
-          <button onClick={fetchUsers} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
-            Refresh Data
-          </button>
+          <nav className="flex gap-4 mt-6 border-b border-white/10 pb-3">
+            <Link
+              href="/admin/dashboard"
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20"
+            >
+              Users
+            </Link>
+            <Link
+              href="/admin/permissions"
+              className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent transition-colors"
+            >
+              Permissions
+            </Link>
+          </nav>
         </header>
 
         <div className="glass rounded-xl overflow-hidden border border-white/10">

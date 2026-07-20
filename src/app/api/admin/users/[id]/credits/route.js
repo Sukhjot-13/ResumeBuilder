@@ -1,10 +1,12 @@
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { PERMISSIONS } from '@/lib/constants';
 import User from '@/models/User';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (req, { params }) => {
-  const userId = req.headers.get('x-user-id');
+  const { userId, error } = await resolveUserId(req);
+  if (error) return error;
   const { id } = await params;
   const { amount } = await req.json();
 

@@ -11,6 +11,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import Resume from '@/models/resume';
 import { logger } from '@/lib/logger';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { RESUME_FIELD_SCHEMA } from '@/lib/resumeFields';
@@ -47,7 +48,8 @@ function validateContent(content) {
 // PUT — create or update master resume
 // ---------------------------------------------------------------------------
 export const PUT = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
+  const { userId, error } = await resolveUserId(req);
+  if (error) return error;
 
   await dbConnect();
   const permResult = await requirePermission(userId, PERMISSIONS.UPLOAD_MAIN_RESUME);
@@ -102,7 +104,8 @@ export const PUT = withErrorHandler(async (req) => {
 // DELETE — remove master resume
 // ---------------------------------------------------------------------------
 export const DELETE = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
+  const { userId, error } = await resolveUserId(req);
+  if (error) return error;
 
   await dbConnect();
   const permResult = await requirePermission(userId, PERMISSIONS.DELETE_OWN_RESUME);

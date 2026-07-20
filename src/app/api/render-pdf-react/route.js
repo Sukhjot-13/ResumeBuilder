@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { generatePdf, generateCoverLetterPdf } from '@/lib/pdf-generator';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import dbConnect from '@/lib/mongodb';
 
 export async function POST(request) {
-  const userId = request.headers.get('x-user-id');
+  const { userId, error } = await resolveUserId(request);
+  if (error) return error;
 
   await dbConnect();
 

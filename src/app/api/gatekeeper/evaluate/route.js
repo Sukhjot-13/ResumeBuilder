@@ -1,6 +1,8 @@
 import { callAI } from '@/lib/ai/client';
 import dbConnect from '@/lib/mongodb';
 import { authenticateRequest, checkRateLimit } from '@/lib/apiKeyAuth';
+import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { PERMISSIONS } from '@/lib/constants';
 import GatekeeperRules from '@/models/GatekeeperRules';
 import JobCriteria from '@/models/JobCriteria';
 import GatekeeperDecision from '@/models/GatekeeperDecision';
@@ -33,6 +35,10 @@ export const POST = withErrorHandler(async (request) => {
   const auth = await authenticateRequest(request);
   if (auth.error) return auth.error;
   const { user } = auth;
+
+  // Verify user has automation permission
+  const permResult = await requirePermission(user._id.toString(), PERMISSIONS.VIEW_AUTOMATION);
+  if (isPermissionError(permResult)) return permResult.error;
 
   await dbConnect();
 

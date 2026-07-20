@@ -28,10 +28,10 @@
 
 ### Permissions & Admin Controls
 
-- [ ] **Store permissions in the database** — Currently hardcoded in `constants.js`. Admin dashboard should manage permissions per role.
-- [ ] **Permission check on every action** — No feature should be accessible without a permission check. Admin can override all checks.
-- [ ] **Permission-checking itself should be a permission** — Assignable/revocable per role from admin dashboard.
-- [ ] **Store configurable settings in DB (prompts, limits, templates)** — Move hardcoded values from `constants.js` to MongoDB. Editable from admin dashboard.
+- [x] **Store permissions in the database** — Created Role and Permission Mongoose models (src/models/Role.js, src/models/Permission.js). Seed script (src/scripts/seedPermissions.js) populates from constants. accessControl.js has DB-aware async checkPermissionDB() with cache. Server-side requirePermission() uses DB with fallback to constants.
+- [x] **Permission check on every action** — Fixed 14+ routes to use resolveUserId(). Added permission check to trigger-scrape (was wide open), gatekeeper/evaluate, and check-subscription. Fixed auth inconsistencies across all checkout routes and admin routes. All server actions were already properly gated.
+- [x] **Permission-checking itself should be a permission** — Added MANAGE_ROLES permission. Admin permission management UI at /admin/permissions checks it. API routes (GET/PUT /api/admin/roles, GET /api/admin/permissions) are gated behind it.
+- [ ] **Store configurable settings in DB (prompts, limits, templates)** — Move hardcoded values from constants.js to MongoDB. Editable from admin dashboard.
 
 ### Resume / Cover Letter
 

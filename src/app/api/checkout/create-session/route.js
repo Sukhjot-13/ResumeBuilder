@@ -3,19 +3,13 @@ import User from '@/models/User';
 import { PLANS } from '@/lib/constants';
 import dbConnect from '@/lib/mongodb';
 import { logger } from '@/lib/logger';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 import env from '@/config/env';
 
-// ARCH-2: Removed manual token extraction and verification.
-// The middleware proxy already authenticates the request and injects x-user-id.
-// This route now follows the same pattern as all other protected API routes.
-
 export const POST = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
-
-  if (!userId) {
-    return fail('Unauthorized', 401);
-  }
+  const { userId, error } = await resolveUserId(req);
+  if (error) return error;
 
   try {
     const { planName } = await req.json(); // e.g., 'PRO'

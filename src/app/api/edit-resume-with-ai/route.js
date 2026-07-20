@@ -9,10 +9,12 @@ import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import CoverLetter from '@/models/CoverLetter';
 import { logger } from '@/lib/logger';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
+  const { userId, error } = await resolveUserId(req);
+  if (error) return error;
 
   let body;
   try {
