@@ -1,5 +1,4 @@
 
-import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { verifyAuthEdge } from '@/lib/auth-edge';
 import { ROLES, TOKEN_CONFIG } from '@/lib/constants';
@@ -10,7 +9,8 @@ export async function proxy(req) {
 
   // Define routes that need authentication
   const isApiRoute = pathname.startsWith('/api/');
-  const isPublicApiRoute = pathname.startsWith('/api/auth') || pathname.startsWith('/api/webhooks');
+  const PUBLIC_API_ROUTES = ['/api/auth', '/api/webhooks'];
+  const isPublicApiRoute = PUBLIC_API_ROUTES.some(prefix => pathname.startsWith(prefix));
   const isProtectedApiRoute = isApiRoute && !isPublicApiRoute;
 
   const isProtectedRoute = ['/dashboard', '/profile', '/onboarding', '/resume-history', '/checkout'].some(p => pathname.startsWith(p));

@@ -352,9 +352,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Requires DOWNLOAD_PDF permission. For type='cover-letter', generates a cover letter PDF via generateCoverLetterPdf(). Otherwise generates a resume PDF via generatePdf() using the provided resumeData and template. Returns the PDF buffer as an attachment response.
 
-### `src/app/api/resume/templates/route.js` — Returns the list of available resume PDF templates.
+### `src/app/api/resume/templates/route.js` — Returns the list of available resume PDF templates, with a 1-hour in-memory cache so the mapped result is reused across requests.
 
-- `GET` — Returns an array of { id, name } objects for each available template: Professional, Modern, Classic, Classic 2, Creative, Simple.
+- `GET` — Returns an array of { id, name } objects for each available template: Professional, Modern, Classic, Classic 2, Creative, Simple. Results are cached in-memory for 1 hour (CACHE_TTL_MS) and recomputed on first request or cache expiry.
 
 ### `src/app/api/resumes/[id]/route.js` — Fetch, delete, or update metadata for a single resume by ID. Uses resolveUserId() for dual auth (JWT/API key).
 

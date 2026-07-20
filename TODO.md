@@ -2,19 +2,6 @@
 
 # Master TODO
 
-## ✅ COMPLETED
-
-- [x] **Permission system overhaul** — Complete backend rewrite with DB-backed permission checking, fallback to constants, admin permission management UI with role-to-permission grid.
-- [x] **Permission metadata** — Every permission has name, description, and requiredPlan. Displayed in admin UI.
-- [x] **Seed script** — `scripts/seed.mjs` populates Permission and Role collections in DB. Idempotent, standalone (no Next.js deps). Documented in architecture.md.
-- [x] **Fixed blank admin permissions page** — Removed PermissionGate wrapper that was missing `user` prop, causing the page to render nothing.
-- [x] **Cover letter rendering** — Fixed `success()` vs `ok()` response mismatch that caused cover letters to not display.
-- [x] **Cover letter phone number** — Now pulls from resume profile instead of being empty.
-- [x] **CoverLetterService refactor** — Centralized all cover letter DB operations into CoverLetterService.
-- [x] **Multi-device login** — Fixed auth to work across multiple devices/sessions.
-- [x] **Resume naming** — Fixed resume display names.
-- [x] **AI model consolidated** — All AI calls now use DeepSeek via `callAI()`.
-
 ## 🔴 CRITICAL — Security & Integrity
 
 - [ ] **Fix `x-user-id` Header Spoofing** (`src/proxy.js`) — Always overwrite client-supplied `x-user-id` header with the authenticated value. Currently trusts the incoming header.
@@ -47,17 +34,13 @@
 ### Features & UX
 
 - [ ] **Filter job description for special instructions** — Make sure JD sanitization strips premium feature prompts.
-- [ ] **Loading spinner during access checks** — Show spinner until everything is loaded on AI edit page.
 - [ ] **Add `tax_behavior` to checkout session** (`src/app/api/checkout/create-session/route.js`)
 - [ ] **Add promo code support** (optional) to checkout.
 - [ ] **Add monitoring/alerts for webhook failures** (`src/app/api/webhooks/stripe/route.js`)
 
 ### Infrastructure
 
-- [ ] **Remove unused import** (`src/proxy.js`) — `import crypto from 'crypto'` is unused.
-- [ ] **Cache template list** (`src/app/api/resume/templates/route.js`) — 1-hour in-memory TTL.
 - [ ] **Add file size limit for uploads** (`src/app/api/parse-resume/route.js`) — Reject files > 5MB.
-- [ ] **Use configuration array for public API routes** (`src/proxy.js`) — Replace hardcoded strings with a configurable prefix list.
 - [ ] **Use `req.nextUrl.origin` for internal fetch** (`src/proxy.js`) — Cleaner than constructing from headers.
 - [ ] **Refactor/remove legacy `Plan` model** (`src/models/plan.js`)
 

@@ -28,6 +28,7 @@ export default function AIEditPage() {
   const [createNew, setCreateNew] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
   useEffect(() => {
     checkAccess();
@@ -40,10 +41,12 @@ export default function AIEditPage() {
   }, [userProfile, editType]);
 
   const checkAccess = async () => {
+    let profile = null;
     try {
       const res = await fetch('/api/user/profile');
       if (res.ok) {
         const data = await res.json();
+        profile = data;
         setUserProfile(data);
         if (data.mainResume?._id) {
           setSelectedResumeId(data.mainResume._id.toString());
@@ -56,6 +59,11 @@ export default function AIEditPage() {
       router.push('/dashboard');
     } finally {
       setIsCheckingAccess(false);
+      // Only mark data as loaded if we never got a profile (error/redirect).
+      // Otherwise, fetchResumes/fetchCoverLetters will mark it when they finish.
+      if (!profile) {
+        setInitialDataLoaded(true);
+      }
     }
   };
 
@@ -68,6 +76,8 @@ export default function AIEditPage() {
       }
     } catch (err) {
       console.error('Error fetching resumes:', err);
+    } finally {
+      setInitialDataLoaded(true);
     }
   };
 
@@ -83,6 +93,8 @@ export default function AIEditPage() {
       }
     } catch (err) {
       console.error('Error fetching cover letters:', err);
+    } finally {
+      setInitialDataLoaded(true);
     }
   };
 
@@ -185,7 +197,7 @@ export default function AIEditPage() {
     }
   };
 
-  if (isCheckingAccess) {
+  if (isCheckingAccess || !initialDataLoaded) {
     return (
       <div className="min-h-screen bg-slate-900">
         <div className="flex items-center justify-center min-h-[60vh]">

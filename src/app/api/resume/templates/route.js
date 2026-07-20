@@ -9,6 +9,16 @@ const TEMPLATES = [
   { id: 'simple', name: 'Simple', component: 'Simple' },
 ];
 
+// In-memory cache: recompute only once per hour
+let cachedResult = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
 export const GET = withErrorHandler(async () => {
-  return ok(TEMPLATES.map(({ id, name }) => ({ id, name })));
+  const now = Date.now();
+  if (!cachedResult || now - cacheTimestamp > CACHE_TTL_MS) {
+    cachedResult = TEMPLATES.map(({ id, name }) => ({ id, name }));
+    cacheTimestamp = now;
+  }
+  return ok(cachedResult);
 });
