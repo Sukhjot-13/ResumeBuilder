@@ -662,9 +662,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/apiResponse.js` — Standardized API response helpers for Next.js route handlers, providing success/error responses, enveloped success, custom error classes, and error wrapping.
 
-- `ok` — Returns a success NextResponse.json with the given data and status (default 200), data is returned unwrapped for chaining
-- `success` — Returns a success NextResponse.json with a standard envelope (`{ success: true, data, message? }`) for consistent API contracts
-- `fail` — Returns an error NextResponse.json with { success: false, error: message } and given status (default 400)
+- `ok(data, status=200)` — Returns a success NextResponse.json with raw data (unwrapped) and optional status. **Signature: `(data, status)` — second arg is an HTTP status number, NOT a message string.** For responses with both a message and a custom status, use `success()` instead.
+- `success(data, message?, status=200)` — Returns a success NextResponse.json with a standard envelope (`{ success: true, data, message? }`) for consistent API contracts. Unlike `ok()`, the second arg is a string message and the third is the status code.
+- `fail(message, status=400)` — Returns an error NextResponse.json with { success: false, error: message } and given status (default 400)
 - `AppError` — Base error class with a `status` property for use with withErrorHandler
 - `NotFoundError` — AppError subclass defaulting to 404
 - `ValidationError` — AppError subclass defaulting to 400
