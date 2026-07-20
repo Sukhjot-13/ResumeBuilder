@@ -937,6 +937,12 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 Populates the database with all 38 permissions and 4 roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) using data from constants.js. **Must be run when switching to a fresh database** — without it, the admin permissions page shows nothing.
 
+**⚠️ Dual source of truth:** Permissions live in two places — `constants.js` (compile-time fallback used by `accessControl.js`) and the MongoDB `permissions`/`roles` collections (runtime source read by the admin UI). When adding/modifying a permission:
+  1. Edit `src/lib/constants.js` (add to `PERMISSIONS`, `PERMISSION_METADATA`, and the relevant `ROLE_PERMISSIONS` array)
+  2. Re-run the seed script to sync the DB
+
+Without both, the permission check might pass from constants but the admin UI grid won't show it (and vice versa).
+
 - Idempotent (uses upsert — safe to re-run).
 - Connects directly to MongoDB (no Next.js dependencies).
 - Automatically reads `MONGODB_URI` from `.env.local` or the environment variable.
