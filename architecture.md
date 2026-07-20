@@ -168,7 +168,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/admin/permissions/page.js` — Permission management page for the admin dashboard where admins can view and toggle permissions per role.
 
-- `AdminPermissionsPage` — Default export — fetches roles and permissions from API, renders permission grid grouped by category with toggle buttons per role. Gated behind MANAGE_ROLES permission via PermissionGate. Admin role is displayed as immutable (uses ALL wildcard).
+- `AdminPermissionsPage` — Default export — fetches roles and permissions from API, renders permission grid grouped by category with toggle buttons per role. Gated server-side: API routes enforce MANAGE_ROLES permission; page handles 403 responses by redirecting to /dashboard. Admin role displayed as immutable (uses ALL wildcard).
 
 ### `src/app/ai-edit/page.js` — AI Editor page that lets users select a resume or cover letter, enter AI instructions, and generate AI-powered edits with a live preview.
 
