@@ -22,11 +22,14 @@ async function verifyAccessToken(accessToken) {
 
 /**
  * Handles the logic when a token is not found or stolen.
- * @param {string} userId 
+ * Instead of wiping ALL sessions (which logs out every device),
+ * we only reject this specific token and let other devices continue.
+ * @param {string} userId
  */
 async function handleStolenToken(userId) {
-  logger.warn("Potential token theft detected. Deleting all refresh tokens for user.", { userId });
-  await RefreshToken.deleteMany({ userId });
+  logger.warn("Potential refresh token reuse detected.", { userId });
+  // Do NOT delete all tokens — that would log out every device.
+  // Just let this device's rotation fail. Other sessions stay valid.
   throw new Error("Invalid refresh token");
 }
 

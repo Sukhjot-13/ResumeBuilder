@@ -103,27 +103,41 @@ export const POST = withErrorHandler(async (req) => {
   }
 
   if (createNewResume) {
-    if (user.mainResume && !user.generatedResumes.includes(user.mainResume)) {
-      await UserService.addGeneratedResume(userId, user.mainResume);
-    }
+    // Determine which resume we're copying from — use the selected resumeId
+    const sourceResumeId = resumeId || user.mainResume;
+    let originalName = 'AI Edited Resume';
 
-    let originalJobTitle = 'AI Edited Resume';
-
-    if (user.mainResume) {
-      const currentResume = await ResumeService.getResumeWithMetadata(user.mainResume, false);
+    if (sourceResumeId) {
+      const currentResume = await ResumeService.getResumeWithMetadata(sourceResumeId, false);
 
       if (currentResume && currentResume.metadata) {
-        originalJobTitle = currentResume.metadata.jobTitle || originalJobTitle;
+        // Use resumeName if set, otherwise fall back to jobTitle
+        originalName = currentResume.metadata.resumeName || currentResume.metadata.jobTitle || originalName;
+
+        // Add the source resume to generatedResumes list if not already there
+        if (!user.generatedResumes.includes(sourceResumeId)) {
+          await UserService.addGeneratedResume(userId, sourceResumeId);
+        }
+
+        // Increment number on the old resume's name (e.g. "Software Engineer" → "Software Engineer 1")
+        const incrementSuffix = (name) => {
+          const match = name.match(/^(.*?)\s*(\d+)$/);
+          if (match) {
+            return `${match[1]} ${parseInt(match[2], 10) + 1}`;
+          }
+          return `${name} 1`;
+        };
 
         await ResumeService.updateResumeMetadata(currentResume.metadata._id, {
-          jobTitle: `${originalJobTitle} 1`
+          resumeName: incrementSuffix(originalName),
         });
       }
     }
 
     const metadata = {
-      jobTitle: originalJobTitle,
+      jobTitle: originalName,
       companyName: 'AI Generated',
+      resumeName: originalName,
     };
 
     const newResume = await ResumeService.createResume(
@@ -133,7 +147,10 @@ export const POST = withErrorHandler(async (req) => {
       { returnPopulated: true }
     );
 
-    await UserService.setMainResume(userId, newResume._id);
+    // Only set as main if we were editing the master
+    if (!resumeId || resumeId === user.mainResume?.toString()) {
+      await UserService.setMainResume(userId, newResume._id);
+    }
 
     logger.info("New resume created via AI edit", { userId, resumeId: newResume._id });
 

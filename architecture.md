@@ -169,6 +169,8 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/ai-edit/page.js` — AI Editor page that lets users select a resume or cover letter, enter AI instructions, and generate AI-powered edits with a live preview.
 
 - `AIEditPage` — Default export — renders AI editor with resume/cover letter toggle, selection dropdowns, instruction textarea, save-as-new checkbox, and preview panel
+- `getResumeLabel` — Formats resume display names with priority: `resumeName` > `jobTitle` > `profile.headline` > `profile.name` > fallback, plus master badge and date
+- `getCoverLetterLabel` — Formats cover letter display names from `coverLetterName` or `companyName` with date
 
 ### `src/app/api-keys/page.js` — API keys management page for creating, viewing, and revoking API keys used by the Automation Worker.
 
@@ -309,9 +311,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `GET` — Requires VIEW_COVER_LETTERS permission. Returns the user's cover letters sorted by createdAt descending, limited to 50.
 - `POST` — Requires GENERATE_COVER_LETTER permission. Accepts content and optional metadata, creates a new CoverLetter document for the user, returns it with a 201 status.
 
-### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking and plan-gated features.
+### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking, plan-gated features, proper resume naming with incrementing suffixes ("Name" → "Name 1"), and multi-resume support.
 
-- `POST` — Requires EDIT_RESUME_WITH_AI permission and checks credit availability. For type='cover-letter', edits the cover letter content via AI, deducts a credit, optionally saves to CoverLetter model. For resume editing, edits via AI, deducts a credit, and either creates a new resume (if createNewResume is true, gated by CREATE_NEW_RESUME_ON_EDIT permission) or updates the existing one. Sanitizes Mongo _id fields from the AI output before saving.
+- `POST` — Requires EDIT_RESUME_WITH_AI permission and checks credit availability. For type='cover-letter', edits the cover letter content via AI and optionally saves to CoverLetter model. For resume editing: accepts `resumeId` for multi-resume support, edits via AI, deducts a credit. If `createNewResume`, names the source resume with an incrementing suffix ("Name" → "Name 1", "Name 1" → "Name 2") using `resumeName` metadata, gives the new resume the original name, and only sets it as main if editing the master. Sanitizes Mongo _id fields from the AI output before saving.
 
 ### `src/app/api/gatekeeper/evaluate/route.js` — Evaluates a job listing against user-defined gatekeeper rules using AI, deciding whether to apply.
 
@@ -657,9 +659,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `verifyTokenEdge` — Verifies a JWT token (access or refresh) using jose and the appropriate secret key, returns the decoded payload
 - `verifyAuthEdge` — Verifies authentication from access/refresh token cookies at the edge; returns { ok, userId, role } on success, or { ok: false } if invalid (cannot rotate at edge)
 
-### `src/lib/auth.js` — Server-side authentication with JWT access/refresh token verification and secure refresh token rotation (detects stolen tokens).
+### `src/lib/auth.js` — Server-side authentication with JWT access/refresh token verification and secure refresh token rotation (supports multi-device — no longer wipes all sessions on single token miss).
 
-- `rotateRefreshToken` — Verifies a refresh token, checks for theft (deletes all user tokens if reused), validates expiry, deletes the used token, generates new access + refresh tokens, stores the new refresh token, and returns them
+- `rotateRefreshToken` — Verifies a refresh token, checks for expiry, rotates it (deletes old, creates new pair), supports multi-device by only failing the rotating device if its token is missing rather than wiping all sessions
 - `verifyAuth` — Main auth verification function: tries the access token first; if invalid/expired, attempts refresh token rotation; returns auth result with optional new tokens or cookie-clear signal
 
 ### `src/lib/constants.js` — Application-wide constants including role/permission enums, plan definitions, token config, routes, and API endpoints.

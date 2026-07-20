@@ -17,7 +17,7 @@
 
 ### Auth & Access
 
-- [ ] **Multiple device login** — Currently logging in from a new device logs out the other one. Allow concurrent sessions.
+- [x] **Multiple device login** — Logging in from a new device no longer logs out other devices. Fixed by scoping `handleStolenToken` to single-session failure instead of wiping all refresh tokens.
 - [ ] **Stripe webhook uses `console.*` instead of `logger`** (`src/app/api/webhooks/stripe/route.js`) — Replace 15+ `console.log/warn/error` with `logger.info/warn/error`.
 - [ ] **Add handler for `invoice.payment_failed`** — Set subscription status to `past_due`, send alert.
 - [ ] **Add handler for `invoice.payment_action_required`** — Notify user about payment action needed.
@@ -35,8 +35,8 @@
 
 ### Resume / Cover Letter
 
-- [ ] **Fix resume naming on "Save as new"** — When saving as new, the old resume should get `" 1"` (or increment) appended, and the new one keeps the original name.
-- [ ] **Fix resume name display in AI edit list** — The name shown in the select dropdown is not correct for some resumes.
+- [x] **Fix resume naming on "Save as new"** — Now uses the selected resume (not hardcoded master), properly increments numbers ("Name" → "Name 1", "Name 1" → "Name 2"), sets `resumeName` metadata, and only reassigns main resume if editing the master.
+- [x] **Fix resume name display in AI edit list** — `getResumeLabel` now falls back through `resumeName` > `jobTitle` > `profile.headline` > `profile.name` > fallback.
 
 ## 🟡 MEDIUM PRIORITY
 
@@ -66,9 +66,6 @@
 - [ ] **Implement structured logging** — Use correlation IDs (X-Request-ID) with centralized log system.
 - [ ] **Write integration tests** — Auth (OTP, token rotation), resume generation (credit deduction, AI, save), Stripe webhook, automation API.
 - [ ] **Add graceful shutdown** — Close DB connections on `SIGTERM`.
-- [ ] **Add Audit Log model** — Log admin actions (role changes, credit adjustments, user deletions).
-- [ ] **Update `.env.example`** — Document all required environment variables.
-- [ ] **Multiple device login** — Currently rejects concurrent sessions.
 
 ## ⬜ PENDING — DEPLOY / FUTURE
 

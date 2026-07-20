@@ -98,11 +98,17 @@ export default function AIEditPage() {
   const selectedCoverLetter = coverLetters.find(cl => cl._id === selectedCoverLetterId);
 
   const getResumeLabel = (resume) => {
+    const metadata = resume.metadata || {};
+    const content = resume.content || {};
+
+    // Priority: resumeName > jobTitle > profile headline > profile name > fallback
     const name =
-      resume.metadata?.resumeName ||
-      resume.metadata?.jobTitle ||
-      resume.content?.profile?.headline ||
+      metadata.resumeName ||
+      metadata.jobTitle ||
+      content?.profile?.headline ||
+      content?.profile?.name ||
       'Untitled Resume';
+
     const date = resume.updatedAt
       ? new Date(resume.updatedAt).toLocaleDateString()
       : '';
