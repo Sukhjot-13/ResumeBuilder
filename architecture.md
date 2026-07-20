@@ -933,7 +933,17 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `UserService.addGeneratedResume(userId, resumeId)` — Pushes a resume ID into the user's generatedResumes array.
 - `UserService.removeGeneratedResume(userId, resumeId)` — Pulls a resume ID from the user's generatedResumes array.
 
-### `src/scripts/seedPermissions.js` — Seed script that populates Permission and Role collections in the database from constants.js definitions.
+### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections.
 
-- `seed` — Main async function: connects to DB, upserts all permissions from PERMISSION_METADATA with derived group labels, then upserts all 4 roles from ROLE_PERMISSIONS with their permission arrays. Idempotent (safe to re-run). Usage: `node src/scripts/seedPermissions.js`.
-- `UserService.setMainResume(userId, resumeId)` — Sets the user's mainResume reference to the given resume ID.
+Populates the database with all 38 permissions and 4 roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) using data from constants.js. **Must be run when switching to a fresh database** — without it, the admin permissions page shows nothing.
+
+- Idempotent (uses upsert — safe to re-run).
+- Connects directly to MongoDB (no Next.js dependencies).
+- Automatically reads `MONGODB_URI` from `.env.local` or the environment variable.
+
+**Usage when switching databases:**
+```bash
+node scripts/seed.mjs
+```
+
+> Note: `src/scripts/seedPermissions.js` is the original version but can't run standalone due to the `@/config` path alias. Use `scripts/seed.mjs` instead.
