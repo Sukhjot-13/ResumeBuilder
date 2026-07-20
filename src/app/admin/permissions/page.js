@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import PermissionGate from '@/components/common/PermissionGate';
 import { PERMISSIONS } from '@/lib/constants';
 
 export default function AdminPermissionsPage() {
@@ -81,7 +80,6 @@ export default function AdminPermissionsPage() {
   const nonAdminRoles = roles.filter(r => !r.isAdmin);
 
   return (
-    <PermissionGate permission={PERMISSIONS.MANAGE_ROLES} fallback="simple">
       <div className="min-h-screen bg-slate-950 text-white p-8">
         <div className="max-w-7xl mx-auto">
           <header className="mb-8">
@@ -189,6 +187,5 @@ export default function AdminPermissionsPage() {
           </div>
         </div>
       </div>
-    </PermissionGate>
   );
 }
