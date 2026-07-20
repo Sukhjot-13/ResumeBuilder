@@ -1,5 +1,6 @@
 import { generateCoverLetter } from '@/lib/coverLetter-generator';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { sanitizeJobDescription } from '@/lib/sanitize';
 import { PERMISSIONS } from '@/lib/constants';
 import { SubscriptionService } from '@/services/subscriptionService';
@@ -12,10 +13,9 @@ import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 export const POST = withErrorHandler(async (request) => {
   await dbConnect();
 
-  const userId = request.headers.get('x-user-id');
-  if (!userId) {
-    return fail('Unauthorized', 401);
-  }
+  const resolved = await resolveUserId(request);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
 
   const permResult = await requirePermission(userId, PERMISSIONS.GENERATE_COVER_LETTER);
   if (isPermissionError(permResult)) {

@@ -4,12 +4,15 @@ import { ResumeService } from '@/services/resumeService';
 import { UserService } from '@/services/userService';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { logger } from '@/lib/logger';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
+  const resolved = await resolveUserId(req);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
 
   await dbConnect();
 
@@ -34,7 +37,9 @@ export const GET = withErrorHandler(async (req) => {
 });
 
 export const POST = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
+  const resolved = await resolveUserId(req);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
 
   let body;
   try {

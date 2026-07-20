@@ -2,12 +2,15 @@ import dbConnect from '@/lib/mongodb';
 import Resume from '@/models/resume';
 import User from '@/models/User';
 import ResumeMetadata from '@/models/resumeMetadata';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (req, context) => {
-  const userId = req.headers.get('x-user-id');
+  const resolved = await resolveUserId(req);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
   const { id } = await context.params;
 
   await dbConnect();
@@ -27,7 +30,9 @@ export const GET = withErrorHandler(async (req, context) => {
 });
 
 export const DELETE = withErrorHandler(async (req, context) => {
-  const userId = req.headers.get('x-user-id');
+  const resolved = await resolveUserId(req);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
   const { id } = await context.params;
 
   await dbConnect();
@@ -53,7 +58,9 @@ export const DELETE = withErrorHandler(async (req, context) => {
 });
 
 export const PATCH = withErrorHandler(async (req, context) => {
-  const userId = req.headers.get('x-user-id');
+  const resolved = await resolveUserId(req);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
   const { id } = await context.params;
   const { jobTitle, companyName, resumeName } = await req.json();
 

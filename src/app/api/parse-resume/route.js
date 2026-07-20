@@ -1,14 +1,18 @@
 import { parseResume } from '../../../services/resumeParsingService';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
+import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 import dbConnect from '@/lib/mongodb';
 
-// Disable Next.js body parser for this route
+// Disable Next.js body parser for this route (handles multipart form data)
 export const bodyParser = false;
 
-export async function POST(request) {
-  const userId = request.headers.get('x-user-id');
+export const POST = withErrorHandler(async (request) => {
+  const resolved = await resolveUserId(request);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
 
   await dbConnect();
 
@@ -18,20 +22,14 @@ export async function POST(request) {
     return permResult.error;
   }
 
-  try {
-    const formData = await request.formData();
-    const file = formData.get('resumeFile');
+  const formData = await request.formData();
+  const file = formData.get('resumeFile');
 
-    if (!file) {
-      return new Response("No file uploaded", { status: 400 });
-    }
-
-    const parsedData = await parseResume(file);
-    logger.info("Resume parsed successfully", { userId });
-    return new Response(JSON.stringify(parsedData), { status: 200 });
-
-  } catch (error) {
-    logger.error('Error in POST /api/parse-resume', error, { userId });
-    return new Response(error.message || 'Internal Server Error', { status: 500 });
+  if (!file) {
+    return fail('No file uploaded', 400);
   }
-}
+
+  const parsedData = await parseResume(file);
+  logger.info("Resume parsed successfully", { userId });
+  return ok(parsedData);
+});

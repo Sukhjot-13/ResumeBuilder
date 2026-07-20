@@ -1,12 +1,14 @@
 import dbConnect from '@/lib/mongodb';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { CoverLetterService } from '@/services/coverLetterService';
 import { ok, success, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (request) => {
-  const userId = request.headers.get('x-user-id');
-  if (!userId) return fail('Unauthorized', 401);
+  const resolved = await resolveUserId(request);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
 
   await dbConnect();
 
@@ -18,8 +20,9 @@ export const GET = withErrorHandler(async (request) => {
 });
 
 export const POST = withErrorHandler(async (request) => {
-  const userId = request.headers.get('x-user-id');
-  if (!userId) return fail('Unauthorized', 401);
+  const resolved = await resolveUserId(request);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
 
   let body;
   try {

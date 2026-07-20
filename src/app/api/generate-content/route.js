@@ -1,6 +1,6 @@
 import { generateResume } from '@/lib/resume-generator';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
-import { authenticateRequest, checkRateLimit } from '@/lib/apiKeyAuth';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { sanitizeJobDescription } from '@/lib/sanitize';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { PERMISSIONS } from '@/lib/constants';
@@ -9,35 +9,12 @@ import dbConnect from '@/lib/mongodb';
 import { checkPermission } from '@/lib/accessControl';
 import User from '@/models/User';
 import Resume from '@/models/resume';
-import SchedulerSettings from '@/models/SchedulerSettings';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
-
-/**
- * Resolve user from API key (Worker) or x-user-id header (web UI).
- */
-async function resolveUser(request) {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const auth = await authenticateRequest(request);
-    if (auth.error) return { error: auth.error };
-    // Apply rate limiting for API-key-authenticated calls (configurable from scheduler settings)
-    const sched = await SchedulerSettings.findOne({ userId: auth.user._id });
-    const rateLimit = sched?.dailyRateLimit ?? 100;
-    const rateLimitError = await checkRateLimit(auth.user._id.toString(), rateLimit);
-    if (rateLimitError) return { error: rateLimitError.error };
-    return { userId: auth.user._id.toString(), user: auth.user };
-  }
-  const userId = request.headers.get('x-user-id');
-  if (!userId) {
-    return { error: fail('Unauthorized', 401) };
-  }
-  return { userId };
-}
 
 export const POST = withErrorHandler(async (request) => {
   await dbConnect();
 
-  const resolved = await resolveUser(request);
+  const resolved = await resolveUserId(request);
   if (resolved.error) return resolved.error;
   const { userId } = resolved;
 

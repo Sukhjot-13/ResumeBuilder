@@ -1,11 +1,14 @@
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
+import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (req) => {
-  const userId = req.headers.get('x-user-id');
+  const resolved = await resolveUserId(req);
+  if (resolved.error) return resolved.error;
+  const { userId } = resolved;
 
   await dbConnect();
 

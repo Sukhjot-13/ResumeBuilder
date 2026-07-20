@@ -50,13 +50,23 @@ export async function authenticateRequest(request) {
 /**
  * Resolves userId from either x-user-id header (JWT proxy) or API key (Worker).
  * Use this in routes that need to support BOTH auth methods.
+ *
+ * @param {Request} request - The incoming request
+ * @param {object} [options] - Optional config
+ * @param {number} [options.rateLimit] - Daily rate limit for API-key-authenticated calls
+ * @returns {Promise<{userId?: string, error?: NextResponse}>}
  */
-export async function resolveUserId(request) {
+export async function resolveUserId(request, options = {}) {
   // Check API key first
   const authHeader = request.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const auth = await authenticateRequest(request);
     if (auth.error) return { error: auth.error };
+    // Apply rate limiting for API-key-authenticated calls
+    if (options.rateLimit) {
+      const rateLimitError = await checkRateLimit(auth.user._id.toString(), options.rateLimit);
+      if (rateLimitError) return { error: rateLimitError.error };
+    }
     return { userId: auth.user._id.toString() };
   }
   // Fallback to x-user-id header (from JWT proxy)

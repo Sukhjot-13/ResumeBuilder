@@ -35,7 +35,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/common/PermissionGate.js` — A wrapper component that conditionally renders children based on user permissions, with configurable fallback behaviors.
 
-- `PermissionGate (default export)` — Component that checks a user's permission via checkPermission(). If granted, renders children. If denied, renders nothing (hidden fallback), an AccessDenied (simple fallback), or a PremiumFeatureLock (default/compact fallback) with the permission's metadata.
+- `PermissionGate (default export)` — Component that checks a user's permission via checkPermission(). If granted, renders children. If denied, renders nothing (hidden fallback), an AccessDenied (simple fallback), or a PremiumFeatureLock (default/compact fallback) with the permission's metadata. Returns null (deny) when permission prop is missing/null — prevents accidental unauthenticated access.
 
 ### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/common/PremiumFeatureLock.js` — A reusable UI component that locks premium features behind an upgrade prompt with a Stripe checkout flow.
 
@@ -196,7 +196,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `DELETE` — Delete a user by ID, with a guard against self-deletion
 
-### `src/app/api/admin/users/route.js` — API route to list all users for the admin panel.
+### `src/app/api/admin/users/route.js` — API route to list all users for the admin panel. Supports both JWT and API-key auth via resolveUserId().
 
 - `GET` — Return all users sorted by creation date, excluding sensitive OTP fields
 
@@ -204,7 +204,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `DELETE` — Revoke (deactivate) an API key belonging to the authenticated user
 
-### `src/app/api/api-keys/route.js` — API route to list and create API keys.
+### `src/app/api/api-keys/route.js` — API route to list and create API keys. Supports both JWT and API-key auth via resolveUserId().
 
 - `GET` — List all active, non-revoked API keys for the authenticated user
 - `POST` — Create a new API key with a given name, returning the plaintext key once
@@ -300,16 +300,16 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Accepts a sessionId, retrieves the Stripe session and confirms payment_status is 'paid', verifies the session's userId matches the requesting user, then updates the user to SUBSCRIBER role with subscription details. Creates a Transaction record if one does not already exist for the payment intent.
 
-### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID. Uses CoverLetterService for all database operations and returns enveloped responses via `success()`.
+### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID. Uses CoverLetterService for all database operations, resolveUserId() for dual auth (JWT/API key), and returns enveloped responses via `success()`.
 
-- `GET` — Requires VIEW_COVER_LETTERS permission. Uses CoverLetterService.getCoverLetterById() to find a cover letter by ID and userId, returns it or a 404.
-- `DELETE` — Requires DELETE_COVER_LETTER permission. Uses CoverLetterService.deleteCoverLetter() to remove a cover letter by ID and userId.
-- `PATCH` — Requires VIEW_COVER_LETTERS permission. Uses CoverLetterService.updateCoverLetter() to update the content and/or metadata fields on a cover letter by ID and userId.
+- `GET` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.getCoverLetterById() to find a cover letter by ID and userId, returns it or a 404.
+- `DELETE` — Requires DELETE_COVER_LETTER permission. Uses resolveUserId() for auth, then CoverLetterService.deleteCoverLetter() to remove a cover letter by ID and userId.
+- `PATCH` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.updateCoverLetter() to update the content and/or metadata fields on a cover letter by ID and userId.
 
-### `src/app/api/cover-letters/route.js` — List all cover letters for the user or create a new cover letter. Uses CoverLetterService for all database operations.
+### `src/app/api/cover-letters/route.js` — List all cover letters for the user or create a new cover letter. Uses CoverLetterService for all database operations and resolveUserId() for dual auth.
 
-- `GET` — Requires VIEW_COVER_LETTERS permission. Uses CoverLetterService.getCoverLettersByUserId() to return the user's cover letters sorted by createdAt descending, limited to 50.
-- `POST` — Requires GENERATE_COVER_LETTER permission. Uses CoverLetterService.createCoverLetter() to accept content and optional metadata, returns the created document with a 201 status.
+- `GET` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.getCoverLettersByUserId() to return the user's cover letters sorted by createdAt descending, limited to 50.
+- `POST` — Requires GENERATE_COVER_LETTER permission. Uses resolveUserId() for auth, then CoverLetterService.createCoverLetter() to accept content and optional metadata, returns the created document with a 201 status.
 
 ### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking, plan-gated features, proper resume naming with incrementing suffixes ("Name" → "Name 1"), and multi-resume support.
 
@@ -319,22 +319,21 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Authenticates via API key, applies daily rate limiting. Merges GatekeeperRules (target titles, exclusions, etc.) and JobCriteria (salary, work-mode preferences) into a single ruleset. Calls the AI with a GATEKEEPER system prompt to evaluate the job, with one retry on parse failure. Persists the decision (apply, confidence, reason, flags) to GatekeeperDecision if a jobId is provided.
 
-### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with credit checking and deduction.
+### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with credit checking and deduction. Uses shared resolveUserId() (replaced previous inline resolveUser helper).
 
-- `resolveUser` — Internal helper that resolves the user from a Bearer API key (with rate limiting) or from the x-user-id header.
-- `POST` — Requires GENERATE_RESUME permission. Sanitizes the job description via shared sanitize.js utility, resolves the user, checks and deducts credits via SubscriptionService, checks if the user has USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves the result as a Resume document. Returns the generated content with a resumeId if saved.
+- `POST` — Requires GENERATE_RESUME permission. Resolves user identity via shared resolveUserId() (supports both API key and JWT auth). Sanitizes the job description via shared sanitize.js utility, checks and deducts credits via SubscriptionService, checks if the user has USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves the result as a Resume document. Returns the generated content with a resumeId if saved.
 
-### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with credit checking and deduction.
+### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with credit checking and deduction. Supports both JWT and API-key auth via shared resolveUserId().
 
-- `POST` — Requires GENERATE_COVER_LETTER permission. Sanitizes the job description via shared sanitize.js utility, loads the user's main resume content, checks and deducts credits via SubscriptionService, calls generateCoverLetter() with resume data and user info (name, email, phone from resume content's profile.phone), optionally saves the result as a CoverLetter document. Returns the generated content with a coverLetterId if saved.
+- `POST` — Requires GENERATE_COVER_LETTER permission. Resolves user identity via resolveUserId(), sanitizes the job description via shared sanitize.js utility, loads the user's main resume content, checks and deducts credits via SubscriptionService, calls generateCoverLetter() with resume data and user info (name, email, phone from resume content's profile.phone), optionally saves the result as a CoverLetter document. Returns the generated content with a coverLetterId if saved.
 
 ### `src/app/api/health/route.js` — Simple health-check endpoint for monitoring.
 
 - `GET` — Returns { status: 'ok', uptime, timestamp } to indicate the server is running.
 
-### `src/app/api/parse-resume/route.js` — Parses an uploaded resume file (e.g. PDF/DOCX) and extracts structured data.
+### `src/app/api/parse-resume/route.js` — Parses an uploaded resume file (e.g. PDF/DOCX) and extracts structured data. Uses withErrorHandler, ok(), fail(), and resolveUserId() for standardized error handling and dual auth.
 
-- `POST` — Disables Next.js body parser. Requires PARSE_RESUME permission. Accepts a multipart form upload with field 'resumeFile', passes it to parseResume() service, and returns the parsed JSON data.
+- `POST` — Disables Next.js body parser. Requires PARSE_RESUME permission. Resolves user identity via resolveUserId() for dual auth (JWT/API key). Accepts a multipart form upload with field 'resumeFile', passes it to parseResume() service, and returns the parsed JSON data via ok(). Errors returned via fail() instead of raw Response objects.
 
 ### `src/app/api/render-pdf-react/route.js` — Generates a downloadable PDF for a resume or cover letter using React PDF renderer.
 
@@ -344,7 +343,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `GET` — Returns an array of { id, name } objects for each available template: Professional, Modern, Classic, Classic 2, Creative, Simple.
 
-### `src/app/api/resumes/[id]/route.js` — Fetch, delete, or update metadata for a single resume by ID.
+### `src/app/api/resumes/[id]/route.js` — Fetch, delete, or update metadata for a single resume by ID. Uses resolveUserId() for dual auth (JWT/API key).
 
 - `GET` — Requires VIEW_OWN_RESUMES permission. Finds and returns a resume by ID and userId, excluding the version key.
 - `DELETE` — Requires DELETE_OWN_RESUME permission. Deletes a resume by ID and userId, removes its ID from the user's generatedResumes array, and deletes the associated ResumeMetadata document.
@@ -356,7 +355,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `PUT` — Requires UPLOAD_MAIN_RESUME permission. Validates resume content against the field schema, then either updates the existing master resume or creates a new one and sets it as the user's mainResume. Returns the updated user (populated with resume metadata) and the resume.
 - `DELETE` — Requires DELETE_OWN_RESUME permission. Removes the user's mainResume reference and deletes the resume document.
 
-### `src/app/api/resumes/route.js` — Lists the user's generated resumes or creates a new resume.
+### `src/app/api/resumes/route.js` — Lists the user's generated resumes or creates a new resume. Uses resolveUserId() for dual auth (JWT/API key).
 
 - `GET` — Requires VIEW_OWN_RESUMES permission. Loads the user with populated generatedResumes (each with populated metadata) and returns the array.
 - `POST` — Requires CREATE_RESUME permission. Accepts content and optional metadata, deducts a credit via SubscriptionService.trackUsage(), creates the resume via ResumeService, and adds it to the user's generatedResumes list.
@@ -609,10 +608,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ## lib
 
-### `src/lib/accessControl.js` — Permission checking utilities. Centralized access control using role-based permission lists.
+### `src/lib/accessControl.js` — Permission checking utilities. Centralized access control using role-based permission lists with 'ALL' wildcard support for admin.
 
-- `hasPermission` — Checks if a numeric userRole has a specific permission string against ROLE_PERMISSIONS mapping
-- `checkPermission` — Checks if a user object (containing role) has a specific permission -- primary method for app-level checks
+- `hasPermission` — Checks if a numeric userRole has a specific permission string against ROLE_PERMISSIONS mapping. Supports 'ALL' wildcard (ADMIN role returns true for any permission check). Returns false for unknown roles.
+- `checkPermission` — Checks if a user object (containing role) has a specific permission -- primary method for app-level checks. Validates user object exists and has a role.
 - `getPermissionMetadata` — Retrieves metadata (name, description, requiredPlan) for a given permission key from PERMISSION_METADATA
 
 ### `src/lib/ai/client.js` — Unified AI client that routes AI calls to the configured provider (Gemini or DeepSeek) for any task, with optional JSON parsing.
@@ -637,7 +636,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/lib/apiKeyAuth.js` — API key authentication for external API usage. Supports Bearer token validation, dual auth (API key + JWT proxy), rate limiting, and key generation. Uses hashToken from utils.js for SHA-256 hashing.
 
 - `authenticateRequest` — Validates a Bearer API key from the Authorization header, checks expiration, updates last-used timestamp, and returns the associated user document
-- `resolveUserId` — Resolves a userId from either an API key (Bearer token) or the x-user-id header (JWT proxy), supporting both auth methods
+- `resolveUserId` — Resolves a userId from either an API key (Bearer token) or the x-user-id header (JWT proxy), supporting both auth methods. Accepts optional `{ rateLimit }` option to apply daily rate limiting for API-key-authenticated calls.
 - `checkRateLimit` — Checks and increments daily API call count for a user against a configurable limit (default 100), returns 429 error if exceeded
 - `generateApiKey` — Generates a new API key with 'rb_' prefix, random 32-byte hex, and returns { plainKey, hashedKey, keyPrefix }
 
@@ -676,8 +675,8 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `ROLES` — Enum mapping role names (ADMIN: 0, DEVELOPER: 70, SUBSCRIBER: 99, USER: 100) to numeric levels
 - `PERMISSIONS` — Enum of all permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, subscription/billing, and job automation features
-- `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN has all, DEVELOPER has admin+full features, SUBSCRIBER has full features without admin, USER has basic manual features only
-- `PERMISSION_METADATA` — Maps permissions to metadata objects with name, description, and requiredPlan for UI display
+- `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN uses 'ALL' wildcard (any permission check passes), DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base permissions only. No more duplicated arrays.
+- `PERMISSION_METADATA` — Maps all 34 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
 - `PLANS` — Defines Free (2 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
 - `TOKEN_CONFIG` — JWT token configuration: access token expiry (15m), refresh token expiry (15 days), and type identifiers
 - `DEFAULTS` — Default values such as credits on signup

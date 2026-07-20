@@ -1,21 +1,35 @@
-import { ROLE_PERMISSIONS, PERMISSION_METADATA } from './constants';
+import { ROLE_PERMISSIONS, ROLES, PERMISSION_METADATA } from './constants';
 import { logger } from './logger';
 
 /**
  * Checks if a user role has a specific permission.
  * This is the ONLY way to check feature access - all features must be explicit permissions.
+ *
+ * Supports the 'ALL' wildcard for admin roles (any permission check returns true).
+ *
  * @param {number} userRole - The user's role level (from ROLES enum).
  * @param {string} permission - The permission to check (from PERMISSIONS enum).
  * @returns {boolean} - True if the user has the permission, false otherwise.
  */
 export function hasPermission(userRole, permission) {
-  const permissions = ROLE_PERMISSIONS[userRole] || [];
-  const hasAccess = permissions.includes(permission);
-  
+  const permissions = ROLE_PERMISSIONS[userRole];
+
+  if (!permissions) {
+    logger.debug('Permission check failed: Unknown role', { userRole, permission });
+    return false;
+  }
+
+  // Admin wildcard — admins have every permission
+  if (permissions === 'ALL' || (Array.isArray(permissions) && permissions[0] === 'ALL')) {
+    return true;
+  }
+
+  const hasAccess = Array.isArray(permissions) && permissions.includes(permission);
+
   if (!hasAccess) {
     logger.debug('Permission denied', { userRole, permission });
   }
-  
+
   return hasAccess;
 }
 
@@ -42,4 +56,3 @@ export function checkPermission(user, permission) {
 export function getPermissionMetadata(permission) {
   return PERMISSION_METADATA[permission] || null;
 }
-

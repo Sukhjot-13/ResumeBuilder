@@ -71,131 +71,116 @@ export const PERMISSIONS = {
   EMERGENCY_STOP: 'emergency_stop', // Pause all automation immediately
 };
 
+// ── Base permissions that ALL roles get ──────────────────────────────────
+const BASE_PERMISSIONS = [
+  PERMISSIONS.VIEW_OWN_PROFILE,
+  PERMISSIONS.EDIT_OWN_PROFILE,
+  PERMISSIONS.UPLOAD_MAIN_RESUME,
+  PERMISSIONS.CREATE_RESUME,
+  PERMISSIONS.DELETE_OWN_RESUME,
+  PERMISSIONS.DOWNLOAD_PDF,
+  PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
+  PERMISSIONS.MANAGE_OWN_SUBSCRIPTION,
+];
+
+// ── Pro-tier permissions (added on top of base) ─────────────────────────
+const PRO_PERMISSIONS = [
+  PERMISSIONS.GENERATE_RESUME,
+  PERMISSIONS.EDIT_RESUME_WITH_AI,
+  PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT,
+  PERMISSIONS.USE_SPECIAL_INSTRUCTIONS,
+  PERMISSIONS.PARSE_RESUME,
+  PERMISSIONS.GENERATE_COVER_LETTER,
+  PERMISSIONS.VIEW_COVER_LETTERS,
+  PERMISSIONS.DELETE_COVER_LETTER,
+  PERMISSIONS.VIEW_OWN_RESUMES,
+  PERMISSIONS.EDIT_RESUME_METADATA,
+  PERMISSIONS.ACCESS_AI_EDIT_PAGE,
+  // Automation
+  PERMISSIONS.VIEW_AUTOMATION,
+  PERMISSIONS.MANAGE_SCHEDULER,
+  PERMISSIONS.MANAGE_PLATFORM_SESSIONS,
+  PERMISSIONS.MANAGE_CRITERIA,
+  PERMISSIONS.MANAGE_GATEKEEPER_RULES,
+  PERMISSIONS.MANAGE_API_KEYS,
+  PERMISSIONS.VIEW_APPLICATIONS,
+  PERMISSIONS.EMERGENCY_STOP,
+];
+
+// ── Developer-tier permissions (added on top of pro) ─────────────────────
+const DEVELOPER_PERMISSIONS = [
+  PERMISSIONS.VIEW_USERS,
+  PERMISSIONS.VIEW_ANALYTICS,
+  PERMISSIONS.ACCESS_ADMIN_PANEL,
+  PERMISSIONS.VIEW_ALL_SUBSCRIPTIONS,
+];
+
 export const ROLE_PERMISSIONS = {
-  [ROLES.ADMIN]: [
-    // Admin has ALL permissions
-    PERMISSIONS.VIEW_USERS,
-    PERMISSIONS.MANAGE_USERS,
-    PERMISSIONS.CHANGE_USER_ROLE,
-    PERMISSIONS.VIEW_ALL_SUBSCRIPTIONS,
-    PERMISSIONS.MANAGE_CREDITS,
-    PERMISSIONS.UNLIMITED_CREDITS,
-    PERMISSIONS.VIEW_ANALYTICS,
-    PERMISSIONS.ACCESS_ADMIN_PANEL,
-    PERMISSIONS.DELETE_USER,
-    // AI & Generation
-    PERMISSIONS.GENERATE_RESUME,
-    PERMISSIONS.EDIT_RESUME_WITH_AI,
-    PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT,
-    PERMISSIONS.USE_SPECIAL_INSTRUCTIONS,
-    PERMISSIONS.PARSE_RESUME,
-    PERMISSIONS.GENERATE_COVER_LETTER,
-    PERMISSIONS.VIEW_COVER_LETTERS,
-    PERMISSIONS.DELETE_COVER_LETTER,
-    // Resume Management
-    PERMISSIONS.CREATE_RESUME,
-    PERMISSIONS.VIEW_OWN_RESUMES,
-    PERMISSIONS.DELETE_OWN_RESUME,
-    PERMISSIONS.EDIT_RESUME_METADATA,
-    PERMISSIONS.DOWNLOAD_PDF,
-    // Profile
-    PERMISSIONS.VIEW_OWN_PROFILE,
-    PERMISSIONS.EDIT_OWN_PROFILE,
-    PERMISSIONS.UPLOAD_MAIN_RESUME,
-    PERMISSIONS.ACCESS_AI_EDIT_PAGE,
-    // Subscription
-    PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
-    PERMISSIONS.MANAGE_OWN_SUBSCRIPTION,
-    // Automation
-    PERMISSIONS.VIEW_AUTOMATION,
-    PERMISSIONS.MANAGE_SCHEDULER,
-    PERMISSIONS.MANAGE_PLATFORM_SESSIONS,
-    PERMISSIONS.MANAGE_CRITERIA,
-    PERMISSIONS.MANAGE_GATEKEEPER_RULES,
-    PERMISSIONS.MANAGE_API_KEYS,
-    PERMISSIONS.VIEW_APPLICATIONS,
-    PERMISSIONS.EMERGENCY_STOP,
-  ],
+  // ADMIN uses 'ALL' wildcard — any permission check returns true.
+  // See hasPermission() in accessControl.js for the wildcard logic.
+  [ROLES.ADMIN]: ['ALL'],
   [ROLES.DEVELOPER]: [
-    // Developer: Admin panel access + basic user features
-    PERMISSIONS.VIEW_USERS,
-    PERMISSIONS.VIEW_ANALYTICS,
-    PERMISSIONS.ACCESS_ADMIN_PANEL,
-    PERMISSIONS.VIEW_ALL_SUBSCRIPTIONS,
-    // Basic user features
-    PERMISSIONS.GENERATE_RESUME,
-    PERMISSIONS.EDIT_RESUME_WITH_AI,
-    PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT,
-    PERMISSIONS.USE_SPECIAL_INSTRUCTIONS,
-    PERMISSIONS.PARSE_RESUME,
-    PERMISSIONS.CREATE_RESUME,
-    PERMISSIONS.VIEW_OWN_RESUMES,
-    PERMISSIONS.DELETE_OWN_RESUME,
-    PERMISSIONS.EDIT_RESUME_METADATA,
-    PERMISSIONS.DOWNLOAD_PDF,
-    PERMISSIONS.VIEW_OWN_PROFILE,
-    PERMISSIONS.EDIT_OWN_PROFILE,
-    PERMISSIONS.UPLOAD_MAIN_RESUME,
-    PERMISSIONS.ACCESS_AI_EDIT_PAGE,
-    PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
-    // Automation
-    PERMISSIONS.VIEW_AUTOMATION,
-    PERMISSIONS.MANAGE_SCHEDULER,
-    PERMISSIONS.MANAGE_PLATFORM_SESSIONS,
-    PERMISSIONS.MANAGE_CRITERIA,
-    PERMISSIONS.MANAGE_GATEKEEPER_RULES,
-    PERMISSIONS.MANAGE_API_KEYS,
-    PERMISSIONS.VIEW_APPLICATIONS,
-    PERMISSIONS.EMERGENCY_STOP,
+    ...BASE_PERMISSIONS,
+    ...PRO_PERMISSIONS,
+    ...DEVELOPER_PERMISSIONS,
   ],
   [ROLES.SUBSCRIBER]: [
-    // Subscriber (Pro): Full AI features + resume management
-    PERMISSIONS.GENERATE_RESUME,
-    PERMISSIONS.EDIT_RESUME_WITH_AI,
-    PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT,
-    PERMISSIONS.USE_SPECIAL_INSTRUCTIONS,
-    PERMISSIONS.PARSE_RESUME,
-    PERMISSIONS.CREATE_RESUME,
-    PERMISSIONS.VIEW_OWN_RESUMES,
-    PERMISSIONS.DELETE_OWN_RESUME,
-    PERMISSIONS.EDIT_RESUME_METADATA,
-    PERMISSIONS.DOWNLOAD_PDF,
-    PERMISSIONS.VIEW_OWN_PROFILE,
-    PERMISSIONS.EDIT_OWN_PROFILE,
-    PERMISSIONS.UPLOAD_MAIN_RESUME,
-    PERMISSIONS.ACCESS_AI_EDIT_PAGE,
-    PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
-    PERMISSIONS.MANAGE_OWN_SUBSCRIPTION,
-    // Automation
-    PERMISSIONS.VIEW_AUTOMATION,
-    PERMISSIONS.MANAGE_SCHEDULER,
-    PERMISSIONS.MANAGE_PLATFORM_SESSIONS,
-    PERMISSIONS.MANAGE_CRITERIA,
-    PERMISSIONS.MANAGE_GATEKEEPER_RULES,
-    PERMISSIONS.MANAGE_API_KEYS,
-    PERMISSIONS.VIEW_APPLICATIONS,
-    PERMISSIONS.EMERGENCY_STOP,
+    ...BASE_PERMISSIONS,
+    ...PRO_PERMISSIONS,
   ],
   [ROLES.USER]: [
-    // Free User: Basic features only, limited AI usage
-    // PERMISSIONS.PARSE_RESUME, // Parse resume is Pro only
-    // PERMISSIONS.VIEW_OWN_RESUMES, // Viewing generated resumes list is Pro only
-    PERMISSIONS.VIEW_OWN_PROFILE,
-    PERMISSIONS.EDIT_OWN_PROFILE,
-    PERMISSIONS.UPLOAD_MAIN_RESUME,   // Can save/update their master resume manually
-    PERMISSIONS.CREATE_RESUME,        // Can create a resume via manual form
-    PERMISSIONS.VIEW_OWN_SUBSCRIPTION,
-    PERMISSIONS.DELETE_OWN_RESUME,
-    PERMISSIONS.MANAGE_OWN_SUBSCRIPTION, // Can upgrade
-    PERMISSIONS.DOWNLOAD_PDF, // Can download their master resume
-    // Note: NO AI features
+    ...BASE_PERMISSIONS,
+    // Note: NO AI features for free users
   ],
 };
 
 export const PERMISSION_METADATA = {
-  [PERMISSIONS.PARSE_RESUME]: {
-    name: "AI Resume Parsing",
-    description: "Upload your existing resume and let our AI extract your details instantly. Save time and get a head start.",
+  // ── Base / Free permissions ──────────────────────────────────────────────
+  [PERMISSIONS.VIEW_OWN_PROFILE]: {
+    name: "View Profile",
+    description: "Access your profile information and personal details.",
+    requiredPlan: "FREE"
+  },
+  [PERMISSIONS.EDIT_OWN_PROFILE]: {
+    name: "Edit Profile",
+    description: "Update your personal details, name, email, and preferences.",
+    requiredPlan: "FREE"
+  },
+  [PERMISSIONS.UPLOAD_MAIN_RESUME]: {
+    name: "Upload Master Resume",
+    description: "Upload and maintain your primary resume document.",
+    requiredPlan: "FREE"
+  },
+  [PERMISSIONS.CREATE_RESUME]: {
+    name: "Create Resume",
+    description: "Create a new resume from scratch using the manual editor.",
+    requiredPlan: "FREE"
+  },
+  [PERMISSIONS.DELETE_OWN_RESUME]: {
+    name: "Delete Resumes",
+    description: "Remove resumes from your library.",
+    requiredPlan: "FREE"
+  },
+  [PERMISSIONS.DOWNLOAD_PDF]: {
+    name: "PDF Download",
+    description: "Download your resumes as professionally formatted PDF files.",
+    requiredPlan: "FREE"
+  },
+  [PERMISSIONS.VIEW_OWN_SUBSCRIPTION]: {
+    name: "View Subscription",
+    description: "Check your subscription status, plan details, and credit balance.",
+    requiredPlan: "FREE"
+  },
+  [PERMISSIONS.MANAGE_OWN_SUBSCRIPTION]: {
+    name: "Manage Subscription",
+    description: "Upgrade, cancel, or change your subscription plan.",
+    requiredPlan: "FREE"
+  },
+
+  // ── Pro permissions ──────────────────────────────────────────────────────
+  [PERMISSIONS.GENERATE_RESUME]: {
+    name: "AI Resume Generation",
+    description: "Generate tailored resumes from job descriptions using advanced AI.",
     requiredPlan: "PRO"
   },
   [PERMISSIONS.EDIT_RESUME_WITH_AI]: {
@@ -213,14 +198,24 @@ export const PERMISSION_METADATA = {
     description: "Provide specific instructions to the AI for more personalized resume generation.",
     requiredPlan: "PRO"
   },
-  [PERMISSIONS.GENERATE_RESUME]: {
-    name: "AI Resume Generation",
-    description: "Generate tailored resumes from job descriptions using advanced AI.",
+  [PERMISSIONS.PARSE_RESUME]: {
+    name: "AI Resume Parsing",
+    description: "Upload your existing resume and let our AI extract your details instantly.",
     requiredPlan: "PRO"
   },
-  [PERMISSIONS.EDIT_OWN_PROFILE]: {
-    name: "Edit Profile",
-    description: "Update your personal details and information.",
+  [PERMISSIONS.GENERATE_COVER_LETTER]: {
+    name: "AI Cover Letter Generation",
+    description: "Generate tailored cover letters from job descriptions using AI.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.VIEW_COVER_LETTERS]: {
+    name: "View Cover Letters",
+    description: "Access your library of generated and saved cover letters.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.DELETE_COVER_LETTER]: {
+    name: "Delete Cover Letters",
+    description: "Remove cover letters from your library.",
     requiredPlan: "PRO"
   },
   [PERMISSIONS.VIEW_OWN_RESUMES]: {
@@ -228,31 +223,106 @@ export const PERMISSION_METADATA = {
     description: "Access your library of generated and saved resumes.",
     requiredPlan: "PRO"
   },
-  [PERMISSIONS.DELETE_OWN_RESUME]: {
-    name: "Delete Resumes",
-    description: "Remove resumes from your library.",
-    requiredPlan: "PRO"
-  },
-  [PERMISSIONS.DOWNLOAD_PDF]: {
-    name: "PDF Download",
-    description: "Download your resumes as professionally formatted PDF files.",
-    requiredPlan: "PRO"
-  },
   [PERMISSIONS.EDIT_RESUME_METADATA]: {
     name: "Edit Resume Details",
     description: "Update job title and company name for your saved resumes.",
     requiredPlan: "PRO"
   },
-  [PERMISSIONS.VIEW_OWN_PROFILE]: {
-    name: "View Profile",
-    description: "Access your profile information.",
+  [PERMISSIONS.ACCESS_AI_EDIT_PAGE]: {
+    name: "AI Edit Access",
+    description: "Access the AI-powered resume editor page.",
     requiredPlan: "PRO"
   },
-  [PERMISSIONS.VIEW_OWN_SUBSCRIPTION]: {
-    name: "View Subscription",
-    description: "Check your subscription status and plan details.",
+  // Automation
+  [PERMISSIONS.VIEW_AUTOMATION]: {
+    name: "Automation Dashboard",
+    description: "Access the job automation dashboard and monitor applications.",
     requiredPlan: "PRO"
-  }
+  },
+  [PERMISSIONS.MANAGE_SCHEDULER]: {
+    name: "Schedule Manager",
+    description: "Configure and manage your automation schedule and timing.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.MANAGE_PLATFORM_SESSIONS]: {
+    name: "Platform Sessions",
+    description: "Manage LinkedIn, Indeed, and other job platform sessions and cookies.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.MANAGE_CRITERIA]: {
+    name: "Job Search Criteria",
+    description: "Configure your job search filters, salary range, and preferences.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.MANAGE_GATEKEEPER_RULES]: {
+    name: "Gatekeeper Rules",
+    description: "Configure AI gatekeeper rules to filter job applications automatically.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.MANAGE_API_KEYS]: {
+    name: "API Key Management",
+    description: "Create and revoke API keys for external integrations.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.VIEW_APPLICATIONS]: {
+    name: "Application History",
+    description: "View your complete job application history and status.",
+    requiredPlan: "PRO"
+  },
+  [PERMISSIONS.EMERGENCY_STOP]: {
+    name: "Emergency Stop",
+    description: "Immediately pause all active automation processes.",
+    requiredPlan: "PRO"
+  },
+
+  // ── Developer permissions ────────────────────────────────────────────────
+  [PERMISSIONS.VIEW_USERS]: {
+    name: "View Users",
+    description: "Browse registered users in the admin panel.",
+    requiredPlan: "DEVELOPER"
+  },
+  [PERMISSIONS.VIEW_ANALYTICS]: {
+    name: "View Analytics",
+    description: "Access platform analytics and usage statistics.",
+    requiredPlan: "DEVELOPER"
+  },
+  [PERMISSIONS.ACCESS_ADMIN_PANEL]: {
+    name: "Admin Panel Access",
+    description: "Access the administrative control panel.",
+    requiredPlan: "DEVELOPER"
+  },
+  [PERMISSIONS.VIEW_ALL_SUBSCRIPTIONS]: {
+    name: "View All Subscriptions",
+    description: "View subscription details for all users.",
+    requiredPlan: "DEVELOPER"
+  },
+
+  // ── Admin permissions ────────────────────────────────────────────────────
+  [PERMISSIONS.MANAGE_USERS]: {
+    name: "Manage Users",
+    description: "Ban, suspend, or manage user accounts.",
+    requiredPlan: "ADMIN"
+  },
+  [PERMISSIONS.CHANGE_USER_ROLE]: {
+    name: "Change User Roles",
+    description: "Promote or demote user roles and permissions.",
+    requiredPlan: "ADMIN"
+  },
+  [PERMISSIONS.MANAGE_CREDITS]: {
+    name: "Manage Credits",
+    description: "Manually add, reset, or adjust user credit balances.",
+    requiredPlan: "ADMIN"
+  },
+  [PERMISSIONS.UNLIMITED_CREDITS]: {
+    name: "Unlimited Credits",
+    description: "Bypass all credit limits and usage restrictions.",
+    requiredPlan: "ADMIN"
+  },
+  [PERMISSIONS.DELETE_USER]: {
+    name: "Delete Users",
+    description: "Permanently delete user accounts from the system.",
+    requiredPlan: "ADMIN"
+  },
 };
 
 export const PLANS = {
