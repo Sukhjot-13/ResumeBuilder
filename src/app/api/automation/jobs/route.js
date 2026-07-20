@@ -73,5 +73,5 @@ export const POST = withErrorHandler(async (request) => {
     { upsert: true, new: true }
   );
 
-  return ok(listing, 'Job listing saved', 201);
+  return ok(listing, 201);
 });

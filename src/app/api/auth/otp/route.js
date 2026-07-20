@@ -42,7 +42,7 @@ export const POST = withErrorHandler(async (req) => {
 
     await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-    return ok(null, 'OTP sent successfully');
+    return ok(null);
   } catch (error) {
     console.error('OTP sending error:', error);
     return fail('Failed to send OTP', 500);

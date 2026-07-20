@@ -61,5 +61,5 @@ export const POST = withErrorHandler(async (request) => {
     );
   }
 
-  return ok(app, 'Application saved', 201);
+  return ok(app, 201);
 });

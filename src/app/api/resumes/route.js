@@ -79,5 +79,5 @@ export const POST = withErrorHandler(async (req) => {
   await UserService.addGeneratedResume(userId, newResume._id);
 
   logger.info("Resume created successfully", { userId, resumeId: newResume._id });
-  return ok(newResume, 'Resume created', 201);
+  return ok(newResume, 201);
 });

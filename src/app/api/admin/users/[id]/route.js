@@ -24,5 +24,5 @@ export const DELETE = withErrorHandler(async (req, { params }) => {
     return fail('User not found', 404);
   }
 
-  return ok(null, 'User deleted successfully');
+  return ok(null);
 });

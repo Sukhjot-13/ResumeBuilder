@@ -1,7 +1,7 @@
 import { ok } from '@/lib/apiResponse';
 
 export async function POST() {
-  const response = ok(null, 'Logged out successfully');
+  const response = ok(null);
 
   // Clear cookies
   response.cookies.set('accessToken', '', {

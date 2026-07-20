@@ -127,5 +127,5 @@ export const DELETE = withErrorHandler(async (req) => {
   await user.save();
 
   logger.info('Master resume deleted', { userId, resumeId });
-  return ok(null, 'Master resume deleted');
+  return ok(null);
 });

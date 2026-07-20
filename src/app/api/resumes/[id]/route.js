@@ -54,7 +54,7 @@ export const DELETE = withErrorHandler(async (req, context) => {
 
   await ResumeMetadata.findOneAndDelete({ resumeId: id });
 
-  return ok(null, 'Resume deleted successfully');
+  return ok(null);
 });
 
 export const PATCH = withErrorHandler(async (req, context) => {
