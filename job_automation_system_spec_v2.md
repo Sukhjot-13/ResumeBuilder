@@ -831,6 +831,56 @@ export async function generateResume(
 
 ---
 
+### Current Worker Directory Structure (Actual)
+
+```
+worker/src/
+  index.js                ← Express entry point (port 3001)
+  config.js               ← Worker config (env vars)
+  db-api.js               ← HTTP client to Next.js app API
+  redis.js                ← Redis + BullMQ setup
+
+  automation/
+    browser.js            ← createBrowserContext() — Playwright
+    anti-detection.js     ← randomDelay, humanLikeMove
+
+  scraper/
+    index.js              ← Dispatcher
+    indeed.js             ← Indeed scraper (full descriptions via viewjob pages)
+    linkedin.js           ← LinkedIn scraper
+
+  queue/
+    jobs.js               ← BullMQ job definitions
+    workers.js            ← Worker pool
+    processors/
+      scrape.processor.js ← Job scraping → enqueue gate (respects pipelineMode)
+      gate.processor.js   ← Gatekeeper eval → enqueue generate (respects pipelineMode)
+      generate.processor.js ← Resume generation
+      apply.processor.js  ← DeepSeek AI form filling loop
+
+  scheduler/
+    cron.js               ← Cron (reads settings from MongoDB)
+
+  routes/
+    health.js             ← /health
+    queue.js              ← /queue/*
+    trigger.js            ← /trigger/scrape, /trigger/apply, /trigger/apply-job
+
+  notifications/
+    index.js              ← Notification helpers
+
+  tests/
+    test-apply-with-ai.js ← Working — full AI loop
+    test-pipeline.js      ← Updated — calls production applyJobProcessor
+```
+
+### Known Issues (Current)
+
+1. **CAPTCHA handling** — Manual intervention only. Worker pauses and waits for user to solve in the browser.
+2. **Proxy passes all Bearer tokens** — Intentional, DB lookup happens in the route.
+3. **Worker not deployed** — Only runs locally. Needs Render/Railway deployment.
+4. **Profile sync page** (`/automation/settings/profile`) — Not built, low priority.
+
 ### Worker Checklist
 
 **Setup**
@@ -1184,7 +1234,7 @@ npx playwright install-deps chromium && npx playwright install chromium
 ## NOTES FOR AI CODING ASSISTANT
 
 ### Audit ✅ (Already Done)
-- **Codebase audit is complete** — see `a1.md` for full report.
+- **Codebase audit is complete** — see `architecture.md` for full documentation.
 - **Shared libs are already extracted** — `src/lib/ai/`, `src/lib/resume-generator.js`, `src/lib/pdf-generator.js` exist and are in use.
 
 ### Architecture Decisions
