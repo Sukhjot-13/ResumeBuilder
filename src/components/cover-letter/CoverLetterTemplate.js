@@ -17,7 +17,12 @@ const styles = StyleSheet.create({
   senderEmail: {
     fontSize: 10,
     color: "#444",
-    marginBottom: 4,
+    marginBottom: 2,
+  },
+  senderPhone: {
+    fontSize: 10,
+    color: "#444",
+    marginBottom: 20,
   },
   date: {
     fontSize: 10,
@@ -60,6 +65,7 @@ export default function CoverLetterTemplate({ coverLetterData }) {
     closing,
     senderName,
     senderEmail,
+    senderPhone,
   } = coverLetterData || {};
 
   const today = new Date().toLocaleDateString("en-US", {
@@ -73,6 +79,7 @@ export default function CoverLetterTemplate({ coverLetterData }) {
       <Page size="LETTER" style={styles.page}>
         {senderName && <Text style={styles.senderName}>{senderName}</Text>}
         {senderEmail && <Text style={styles.senderEmail}>{senderEmail}</Text>}
+        {senderPhone && <Text style={styles.senderPhone}>{senderPhone}</Text>}
 
         <Text style={styles.date}>{today}</Text>
 

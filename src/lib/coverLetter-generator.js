@@ -12,7 +12,8 @@ const COVER_LETTER_OUTPUT_SCHEMA = `{
   "bodyParagraphs": "array of strings (3-4 paragraphs)",
   "closing": "string (e.g. 'Sincerely,')",
   "senderName": "string (the user's full name)",
-  "senderEmail": "string (the user's email)"
+  "senderEmail": "string (the user's email)",
+  "senderPhone": "string (the user's phone number)"
 }`;
 
 const BASE_PROMPT = `
@@ -45,7 +46,7 @@ Your output MUST be a valid JSON object with the fields below.
  * @returns {Promise<object>}       - Cover letter content object
  */
 export async function generateCoverLetter(resume, jobDescription, opts = {}) {
-  const { recipientName, userName, userEmail } = opts;
+  const { recipientName, userName, userEmail, userPhone } = opts;
 
   let prompt = BASE_PROMPT.replace('{{SCHEMA}}', COVER_LETTER_OUTPUT_SCHEMA);
 
@@ -59,6 +60,7 @@ export async function generateCoverLetter(resume, jobDescription, opts = {}) {
   prompt += `\n\n[SPECIFIC INSTRUCTIONS]
 - Sender name: ${userName || 'the user'}
 - Sender email: ${userEmail || ''}
+- Sender phone: ${userPhone || ''}
 - Use today's date as the letter date.
 - Format bodyParagraphs as an array of strings, one paragraph per element.
 - IMPORTANT: Only set recipientTitle if you have a specific job title (like "VP of Engineering" or "HR Manager"). Never repeat recipientName in recipientTitle — leave it empty/null if there is no distinct title.`;

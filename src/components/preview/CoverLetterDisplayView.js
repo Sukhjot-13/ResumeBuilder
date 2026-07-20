@@ -13,6 +13,7 @@ export default function CoverLetterDisplayView({ coverLetterData }) {
     closing,
     senderName,
     senderEmail,
+    senderPhone,
   } = coverLetterData;
 
   return (
@@ -20,6 +21,7 @@ export default function CoverLetterDisplayView({ coverLetterData }) {
       {/* Sender Info */}
       {senderName && <p className="font-semibold">{senderName}</p>}
       {senderEmail && <p className="text-sm text-gray-600">{senderEmail}</p>}
+      {senderPhone && <p className="text-sm text-gray-600">{senderPhone}</p>}
 
       <p className="mt-4 text-sm text-gray-600">
         {new Date().toLocaleDateString('en-US', {

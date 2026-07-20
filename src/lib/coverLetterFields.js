@@ -12,6 +12,7 @@
  *   closing,             // e.g. "Sincerely,"
  *   senderName,          // User's full name (auto-filled from profile)
  *   senderEmail,         // User's email (auto-filled)
+ *   senderPhone,         // User's phone number (auto-filled from profile)
  * }
  */
 
@@ -25,6 +26,7 @@ export const COVER_LETTER_FIELDS = {
   closing: { type: 'text', label: 'Closing', required: false },
   senderName: { type: 'text', label: 'Sender Name', required: false },
   senderEmail: { type: 'text', label: 'Sender Email', required: false },
+  senderPhone: { type: 'text', label: 'Sender Phone', required: false },
 };
 
 /**
@@ -41,5 +43,6 @@ export function buildEmptyCoverLetter() {
     closing: '',
     senderName: '',
     senderEmail: '',
+    senderPhone: '',
   };
 }

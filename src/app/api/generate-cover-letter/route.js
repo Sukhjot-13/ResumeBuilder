@@ -61,12 +61,13 @@ export const POST = withErrorHandler(async (request) => {
   const resumeData = user.mainResume?.content || {};
   const userName = user.name || '';
   const userEmail = user.email || '';
+  const userPhone = user.phone || '';
 
   try {
     const coverLetterData = await generateCoverLetter(
       resumeData,
       cleanJobDescription,
-      { recipientName, userName, userEmail }
+      { recipientName, userName, userEmail, userPhone }
     );
 
     let coverLetterId = null;
