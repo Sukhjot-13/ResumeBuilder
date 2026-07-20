@@ -22,7 +22,7 @@ export const POST = withErrorHandler(async (req) => {
     return fail('Invalid JSON', 400);
   }
 
-  const { resume, query, createNewResume, type, coverLetterContent, coverLetterId } = body;
+  const { resume, resumeId, query, createNewResume, type, coverLetterContent, coverLetterId } = body;
 
   if (!query) {
     return fail('Query is required', 400);
@@ -139,12 +139,13 @@ export const POST = withErrorHandler(async (req) => {
 
     return ok(newResume.content);
   } else {
+    const targetResumeId = resumeId || user.mainResume;
     const updatedResume = await ResumeService.updateResumeContent(
-      user.mainResume,
+      targetResumeId,
       sanitizedContent
     );
 
-    logger.info("Resume updated via AI edit", { userId, resumeId: user.mainResume });
+    logger.info("Resume updated via AI edit", { userId, resumeId: targetResumeId });
 
     return ok(updatedResume.content);
   }

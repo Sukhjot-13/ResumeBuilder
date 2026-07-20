@@ -140,6 +140,7 @@ export default function AIEditPage() {
       const body = editType === 'resume'
         ? {
             resume: selectedResume.content,
+            resumeId: selectedResume._id,
             query,
             createNewResume: createNew,
           }
