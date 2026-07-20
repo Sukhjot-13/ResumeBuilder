@@ -16,6 +16,8 @@
  * }
  */
 
+import mongoose from 'mongoose';
+
 export const COVER_LETTER_FIELDS = {
   recipientName: { type: 'text', label: 'Recipient Name', required: true },
   recipientTitle: { type: 'text', label: 'Recipient Title', required: false },
@@ -45,4 +47,21 @@ export function buildEmptyCoverLetter() {
     senderEmail: '',
     senderPhone: '',
   };
+}
+
+/**
+ * Generates a Mongoose schema definition for the cover letter `content` field.
+ * Maps field types: 'text' → String, 'array' → [String].
+ * Returns an object you can pass directly to `new mongoose.Schema({ content: <this> })`.
+ */
+export function generateCoverLetterContentSchema() {
+  const def = {};
+  for (const [fieldKey, field] of Object.entries(COVER_LETTER_FIELDS)) {
+    if (field.type === 'array') {
+      def[fieldKey] = [String];
+    } else {
+      def[fieldKey] = String;
+    }
+  }
+  return { type: new mongoose.Schema(def, { _id: false }), required: true };
 }

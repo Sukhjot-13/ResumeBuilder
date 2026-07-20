@@ -1,8 +1,8 @@
 import dbConnect from '@/lib/mongodb';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
-import CoverLetter from '@/models/CoverLetter';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { CoverLetterService } from '@/services/coverLetterService';
+import { success, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (request, context) => {
   const userId = request.headers.get('x-user-id');
@@ -15,10 +15,10 @@ export const GET = withErrorHandler(async (request, context) => {
   const permResult = await requirePermission(userId, PERMISSIONS.VIEW_COVER_LETTERS);
   if (isPermissionError(permResult)) return permResult.error;
 
-  const letter = await CoverLetter.findOne({ _id: id, userId }).lean();
+  const letter = await CoverLetterService.getCoverLetterById(id, userId);
   if (!letter) return fail('Cover letter not found', 404);
 
-  return ok(letter);
+  return success(letter);
 });
 
 export const DELETE = withErrorHandler(async (request, context) => {
@@ -32,10 +32,10 @@ export const DELETE = withErrorHandler(async (request, context) => {
   const permResult = await requirePermission(userId, PERMISSIONS.DELETE_COVER_LETTER);
   if (isPermissionError(permResult)) return permResult.error;
 
-  const letter = await CoverLetter.findOneAndDelete({ _id: id, userId });
+  const letter = await CoverLetterService.deleteCoverLetter(id, userId);
   if (!letter) return fail('Cover letter not found', 404);
 
-  return ok(null, 'Cover letter deleted');
+  return success(null, 'Cover letter deleted');
 });
 
 export const PATCH = withErrorHandler(async (request, context) => {
@@ -56,17 +56,12 @@ export const PATCH = withErrorHandler(async (request, context) => {
   const permResult = await requirePermission(userId, PERMISSIONS.VIEW_COVER_LETTERS);
   if (isPermissionError(permResult)) return permResult.error;
 
-  const update = {};
-  if (body.content) update.content = body.content;
-  if (body.metadata) update.metadata = body.metadata;
-
-  const letter = await CoverLetter.findOneAndUpdate(
-    { _id: id, userId },
-    { $set: update },
-    { new: true }
-  );
+  const letter = await CoverLetterService.updateCoverLetter(id, userId, {
+    content: body.content,
+    metadata: body.metadata,
+  });
 
   if (!letter) return fail('Cover letter not found', 404);
 
-  return ok(letter, 'Cover letter updated');
+  return success(letter, 'Cover letter updated');
 });

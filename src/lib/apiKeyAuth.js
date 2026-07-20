@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import dbConnect from '@/lib/mongodb';
+import { hashToken } from '@/lib/utils';
 import ApiKey from '@/models/ApiKey';
 import User from '@/models/User';
 import DailyCount from '@/models/DailyCount';
@@ -21,7 +22,7 @@ export async function authenticateRequest(request) {
   }
 
   const token = authHeader.slice(7);
-  const hashed = crypto.createHash('sha256').update(token).digest('hex');
+  const hashed = hashToken(token);
 
   await dbConnect();
 
@@ -102,7 +103,7 @@ export async function checkRateLimit(userId, limit = 100) {
 
 export function generateApiKey() {
   const plainKey = 'rb_' + crypto.randomBytes(32).toString('hex');
-  const hashed = crypto.createHash('sha256').update(plainKey).digest('hex');
+  const hashed = hashToken(plainKey);
   const keyPrefix = plainKey.slice(0, 8);
 
   return { plainKey, hashedKey: hashed, keyPrefix };

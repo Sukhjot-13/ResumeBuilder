@@ -1,7 +1,5 @@
 import mongoose from 'mongoose';
-import { COVER_LETTER_FIELDS } from '@/lib/coverLetterFields';
-
-const CoverLetterContentSchema = new mongoose.Schema({}, { strict: false });
+import { generateCoverLetterContentSchema } from '@/lib/coverLetterFields';
 
 const CoverLetterSchema = new mongoose.Schema({
   userId: {
@@ -10,10 +8,7 @@ const CoverLetterSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  content: {
-    type: CoverLetterContentSchema,
-    required: true,
-  },
+  content: generateCoverLetterContentSchema(),
   metadata: {
     jobTitle: { type: String },
     companyName: { type: String },

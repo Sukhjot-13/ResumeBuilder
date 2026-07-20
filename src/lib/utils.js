@@ -9,6 +9,13 @@ export function sha256(string) {
 
 export const hashToken = sha256;
 
+/**
+ * SHA-256 hash returning a raw Buffer (for key derivation, encryption, etc.)
+ */
+export function sha256Buffer(string) {
+  return crypto.createHash('sha256').update(string).digest();
+}
+
 
 
 export async function generateAccessToken(userId, role) {

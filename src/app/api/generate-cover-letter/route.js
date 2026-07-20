@@ -1,30 +1,13 @@
 import { generateCoverLetter } from '@/lib/coverLetter-generator';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { sanitizeJobDescription } from '@/lib/sanitize';
 import { PERMISSIONS } from '@/lib/constants';
+import { SubscriptionService } from '@/services/subscriptionService';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import CoverLetter from '@/models/CoverLetter';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
-
-const INJECTION_PATTERNS = [
-  /\[.*?(ignore|disregard|forget|override|system|instruction|task|prompt|jailbreak).*?\]/gi,
-  /<\s*(system|instruction|prompt|task|override)\s*>/gi,
-  /###\s*(system|instruction|override|ignore)/gi,
-  /you\s+are\s+now\s+/gi,
-  /ignore\s+(all\s+)?(previous|prior|above)\s+(instruction|prompt|rule)/gi,
-  /forget\s+(everything|all)\s+/gi,
-  /act\s+as\s+(if\s+you\s+are\s+)?(a\s+)?/gi,
-];
-
-function sanitizeJobDescription(text) {
-  if (!text || typeof text !== 'string') return '';
-  let sanitized = text;
-  for (const pattern of INJECTION_PATTERNS) {
-    sanitized = sanitized.replace(pattern, '[removed]');
-  }
-  return sanitized.slice(0, 8000);
-}
 
 export const POST = withErrorHandler(async (request) => {
   await dbConnect();
@@ -58,10 +41,17 @@ export const POST = withErrorHandler(async (request) => {
     return fail('User not found', 404);
   }
 
+  // Check credits before generating
+  const hasCredits = await SubscriptionService.hasCredits(userId, 1);
+  if (!hasCredits) {
+    logger.info('User attempted to generate cover letter without credits', { userId });
+    return fail('Insufficient credits. Please upgrade your plan.', 403);
+  }
+
   const resumeData = user.mainResume?.content || {};
   const userName = user.name || '';
   const userEmail = user.email || '';
-  const userPhone = user.phone || '';
+  const userPhone = user.mainResume?.content?.profile?.phone || '';
 
   try {
     const coverLetterData = await generateCoverLetter(
@@ -69,6 +59,12 @@ export const POST = withErrorHandler(async (request) => {
       cleanJobDescription,
       { recipientName, userName, userEmail, userPhone }
     );
+
+    // Deduct credit after successful generation
+    const tracked = await SubscriptionService.trackUsage(userId, 1);
+    if (!tracked) {
+      logger.warn('Credit deduction failed after cover letter generation', { userId });
+    }
 
     let coverLetterId = null;
     try {

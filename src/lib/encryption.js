@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { sha256Buffer } from '@/lib/utils';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
@@ -11,7 +12,7 @@ function getKey() {
     throw new Error('COOKIE_ENCRYPTION_KEY env var is required for cookie encryption');
   }
   // Derive a 32-byte key from whatever is provided
-  return crypto.createHash('sha256').update(String(key)).digest();
+  return sha256Buffer(String(key));
 }
 
 export function encrypt(text) {

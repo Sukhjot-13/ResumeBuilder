@@ -1,6 +1,8 @@
 import { generateResume } from '@/lib/resume-generator';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { authenticateRequest, checkRateLimit } from '@/lib/apiKeyAuth';
+import { sanitizeJobDescription } from '@/lib/sanitize';
+import { SubscriptionService } from '@/services/subscriptionService';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
@@ -9,25 +11,6 @@ import User from '@/models/User';
 import Resume from '@/models/resume';
 import SchedulerSettings from '@/models/SchedulerSettings';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
-
-const INJECTION_PATTERNS = [
-  /\[.*?(ignore|disregard|forget|override|system|instruction|task|prompt|jailbreak).*?\]/gi,
-  /<\s*(system|instruction|prompt|task|override)\s*>/gi,
-  /###\s*(system|instruction|override|ignore)/gi,
-  /you\s+are\s+now\s+/gi,
-  /ignore\s+(all\s+)?(previous|prior|above)\s+(instruction|prompt|rule)/gi,
-  /forget\s+(everything|all)\s+/gi,
-  /act\s+as\s+(if\s+you\s+are\s+)?(a\s+)?/gi,
-];
-
-function sanitizeJobDescription(text) {
-  if (!text || typeof text !== 'string') return '';
-  let sanitized = text;
-  for (const pattern of INJECTION_PATTERNS) {
-    sanitized = sanitized.replace(pattern, '[removed]');
-  }
-  return sanitized.slice(0, 8000);
-}
 
 /**
  * Resolve user from API key (Worker) or x-user-id header (web UI).
@@ -82,6 +65,13 @@ export const POST = withErrorHandler(async (request) => {
     return fail('User not found', 404);
   }
 
+  // Check credits before generating
+  const hasCredits = await SubscriptionService.hasCredits(userId, 1);
+  if (!hasCredits) {
+    logger.info('User attempted to generate without credits', { userId });
+    return fail('Insufficient credits. Please upgrade your plan.', 403);
+  }
+
   const userRole = user.role;
   const hasSpecialInstructionsPermission = checkPermission(
     { role: userRole },
@@ -120,6 +110,12 @@ export const POST = withErrorHandler(async (request) => {
         logger.error('Failed to save generated resume document', saveErr, { userId });
         // Non-fatal — return the content anyway
       }
+    }
+
+    // Deduct credit after successful generation
+    const tracked = await SubscriptionService.trackUsage(userId, 1);
+    if (!tracked) {
+      logger.warn('Credit deduction failed after resume generation', { userId });
     }
 
     logger.info('Resume content generated successfully', { userId, role: userRole });

@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-Auto-generated from all 165 source files.
+Auto-generated from all 167 source files.
 
 ---
 
@@ -300,16 +300,16 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Accepts a sessionId, retrieves the Stripe session and confirms payment_status is 'paid', verifies the session's userId matches the requesting user, then updates the user to SUBSCRIBER role with subscription details. Creates a Transaction record if one does not already exist for the payment intent.
 
-### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID.
+### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID. Uses CoverLetterService for all database operations and returns enveloped responses via `success()`.
 
-- `GET` — Requires VIEW_COVER_LETTERS permission. Finds a cover letter by ID and userId, returns it or a 404.
-- `DELETE` — Requires DELETE_COVER_LETTER permission. Finds and deletes a cover letter by ID and userId.
-- `PATCH` — Requires VIEW_COVER_LETTERS permission. Updates the content and/or metadata fields on a cover letter by ID and userId.
+- `GET` — Requires VIEW_COVER_LETTERS permission. Uses CoverLetterService.getCoverLetterById() to find a cover letter by ID and userId, returns it or a 404.
+- `DELETE` — Requires DELETE_COVER_LETTER permission. Uses CoverLetterService.deleteCoverLetter() to remove a cover letter by ID and userId.
+- `PATCH` — Requires VIEW_COVER_LETTERS permission. Uses CoverLetterService.updateCoverLetter() to update the content and/or metadata fields on a cover letter by ID and userId.
 
-### `src/app/api/cover-letters/route.js` — List all cover letters for the user or create a new cover letter.
+### `src/app/api/cover-letters/route.js` — List all cover letters for the user or create a new cover letter. Uses CoverLetterService for all database operations.
 
-- `GET` — Requires VIEW_COVER_LETTERS permission. Returns the user's cover letters sorted by createdAt descending, limited to 50.
-- `POST` — Requires GENERATE_COVER_LETTER permission. Accepts content and optional metadata, creates a new CoverLetter document for the user, returns it with a 201 status.
+- `GET` — Requires VIEW_COVER_LETTERS permission. Uses CoverLetterService.getCoverLettersByUserId() to return the user's cover letters sorted by createdAt descending, limited to 50.
+- `POST` — Requires GENERATE_COVER_LETTER permission. Uses CoverLetterService.createCoverLetter() to accept content and optional metadata, returns the created document with a 201 status.
 
 ### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking, plan-gated features, proper resume naming with incrementing suffixes ("Name" → "Name 1"), and multi-resume support.
 
@@ -319,16 +319,14 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Authenticates via API key, applies daily rate limiting. Merges GatekeeperRules (target titles, exclusions, etc.) and JobCriteria (salary, work-mode preferences) into a single ruleset. Calls the AI with a GATEKEEPER system prompt to evaluate the job, with one retry on parse failure. Persists the decision (apply, confidence, reason, flags) to GatekeeperDecision if a jobId is provided.
 
-### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI.
+### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with credit checking and deduction.
 
 - `resolveUser` — Internal helper that resolves the user from a Bearer API key (with rate limiting) or from the x-user-id header.
-- `sanitizeJobDescription` — Internal helper that strips prompt injection patterns from the job description and truncates to 8000 characters.
-- `POST` — Requires GENERATE_RESUME permission. Sanitizes the job description, resolves the user, checks if the user has USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves the result as a Resume document. Returns the generated content with a resumeId if saved.
+- `POST` — Requires GENERATE_RESUME permission. Sanitizes the job description via shared sanitize.js utility, resolves the user, checks and deducts credits via SubscriptionService, checks if the user has USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves the result as a Resume document. Returns the generated content with a resumeId if saved.
 
-### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI.
+### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with credit checking and deduction.
 
-- `sanitizeJobDescription` — Internal helper that strips prompt injection patterns from the job description and truncates to 8000 characters.
-- `POST` — Requires GENERATE_COVER_LETTER permission. Sanitizes the job description, loads the user's main resume content, calls generateCoverLetter() with resume data and user info (name, email, phone), optionally saves the result as a CoverLetter document. Returns the generated content with a coverLetterId if saved.
+- `POST` — Requires GENERATE_COVER_LETTER permission. Sanitizes the job description via shared sanitize.js utility, loads the user's main resume content, checks and deducts credits via SubscriptionService, calls generateCoverLetter() with resume data and user info (name, email, phone from resume content's profile.phone), optionally saves the result as a CoverLetter document. Returns the generated content with a coverLetterId if saved.
 
 ### `src/app/api/health/route.js` — Simple health-check endpoint for monitoring.
 
@@ -636,7 +634,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `callGemini` — Calls the Gemini API with model name and prompt using the Google Generative AI SDK, returns response text
 - `parseGeminiJson` — Parses JSON from Gemini response text, stripping markdown code block markers and extracting the last valid JSON object
 
-### `src/lib/apiKeyAuth.js` — API key authentication for external API usage. Supports Bearer token validation, dual auth (API key + JWT proxy), rate limiting, and key generation.
+### `src/lib/apiKeyAuth.js` — API key authentication for external API usage. Supports Bearer token validation, dual auth (API key + JWT proxy), rate limiting, and key generation. Uses hashToken from utils.js for SHA-256 hashing.
 
 - `authenticateRequest` — Validates a Bearer API key from the Authorization header, checks expiration, updates last-used timestamp, and returns the associated user document
 - `resolveUserId` — Resolves a userId from either an API key (Bearer token) or the x-user-id header (JWT proxy), supporting both auth methods
@@ -648,11 +646,21 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `requirePermission` — Fetches a user by ID, checks the required permission via checkPermission, and returns the user object or an error response
 - `isPermissionError` — Helper that returns true if a requirePermission result contains an error
 
-### `src/lib/apiResponse.js` — Standardized API response helpers for Next.js route handlers, providing success/error responses and error wrapping.
+### `src/lib/apiResponse.js` — Standardized API response helpers for Next.js route handlers, providing success/error responses, enveloped success, custom error classes, and error wrapping.
 
-- `ok` — Returns a success NextResponse.json with the given data and status (default 200)
+- `ok` — Returns a success NextResponse.json with the given data and status (default 200), data is returned unwrapped for chaining
+- `success` — Returns a success NextResponse.json with a standard envelope (`{ success: true, data, message? }`) for consistent API contracts
 - `fail` — Returns an error NextResponse.json with { success: false, error: message } and given status (default 400)
-- `withErrorHandler` — Higher-order function that wraps a route handler, catching any thrown errors and returning a 500 fail response
+- `AppError` — Base error class with a `status` property for use with withErrorHandler
+- `NotFoundError` — AppError subclass defaulting to 404
+- `ValidationError` — AppError subclass defaulting to 400
+- `AuthError` — AppError subclass defaulting to 401
+- `ForbiddenError` — AppError subclass defaulting to 403
+- `withErrorHandler` — Higher-order function that wraps a route handler, catching AppError subclasses for status-specific responses and generic errors for a 500 response
+
+### `src/lib/sanitize.js` — Shared utility for sanitizing user-provided text (e.g. job descriptions) against prompt injection patterns.
+
+- `sanitizeJobDescription` — Strips prompt injection patterns from text and truncates to 8000 characters
 
 ### `src/lib/auth-edge.js` — Edge-runtime JWT verification using the jose library. Used in middleware/edge functions for fast token validation without database access.
 
@@ -681,10 +689,11 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `generateCoverLetter` — Generates a cover letter by constructing a detailed prompt from the user's resume, job description, and optional recipient/sender info, then calling the AI client.
 
-### `src/lib/coverLetterFields.js` — Source of truth for the cover letter content structure — defines all fields, their types, labels, and required flags.
+### `src/lib/coverLetterFields.js` — Source of truth for the cover letter content structure — defines all fields, their types, labels, and required flags. Also provides schema generation helper mirroring resumeFields.js.
 
 - `COVER_LETTER_FIELDS` — Constant object mapping each cover letter field key to its type, label, and required flag.
 - `buildEmptyCoverLetter` — Returns a blank cover letter content object with empty strings and an empty array for bodyParagraphs.
+- `generateCoverLetterContentSchema` — Generates a Mongoose schema definition from COVER_LETTER_FIELDS (text→String, array→[String]) for the cover letter content field, replacing the previous strict:false schema.
 
 ### `src/lib/dateUtils.js` — Collection of pure date manipulation and comparison utility functions.
 
@@ -693,7 +702,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `isPast` — Returns true if the given date is before the current time.
 - `now` — Returns the current date/time — useful as a mock point in tests.
 
-### `src/lib/encryption.js` — AES-256-GCM encryption and decryption for cookie values, keyed via the COOKIE_ENCRYPTION_KEY environment variable.
+### `src/lib/encryption.js` — AES-256-GCM encryption and decryption for cookie values, keyed via the COOKIE_ENCRYPTION_KEY environment variable. Uses sha256Buffer from utils.js for key derivation.
 
 - `encrypt` — Encrypts a plaintext string with AES-256-GCM and returns a colon-delimited string of IV + auth tag + ciphertext.
 - `decrypt` — Decrypts an encrypted string (IV:tag:ciphertext) back to plaintext using AES-256-GCM.
@@ -748,10 +757,11 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `checkAndDowngradeExpiredSubscription` — Checks if a user's subscription has expired and downgrades their role to USER if so.
 - `isSubscriptionActive` — Returns true if the user's subscription status is active and the expiration date is in the future.
 
-### `src/lib/utils.js` — Utility functions for SHA-256 hashing and JWT access/refresh token generation and verification.
+### `src/lib/utils.js` — Utility functions for SHA-256 hashing (hex string and raw Buffer variants) and JWT access/refresh token generation and verification.
 
 - `sha256` — Computes a SHA-256 hex digest of the input string.
 - `hashToken` — Alias for sha256.
+- `sha256Buffer` — SHA-256 hash returning a raw Buffer (for key derivation, encryption, etc.). Used by encryption.js.
 - `generateAccessToken` — Creates and signs a JWT access token containing userId and role, using the configured expiry.
 - `generateRefreshToken` — Creates and signs a JWT refresh token containing userId, with a 15-day expiry.
 - `verifyToken` — Verifies a JWT token (access or refresh) using the corresponding secret and returns the decoded payload.
@@ -773,9 +783,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `ApplyInstructions (default export)` — Mongoose model with fields: userId (unique), instructions, updatedAt.
 
-### `src/models/CoverLetter.js` — Mongoose model for saved cover letters with flexible content schema and metadata.
+### `src/models/CoverLetter.js` — Mongoose model for saved cover letters with content schema derived from coverLetterFields.js and metadata.
 
-- `CoverLetter (default export)` — Mongoose model with fields: userId, content (flexible sub-schema), metadata (jobTitle, companyName, coverLetterName), createdAt.
+- `CoverLetter (default export)` — Mongoose model with fields: userId, content (generated schema from generateCoverLetterContentSchema — fields validated against COVER_LETTER_FIELDS), metadata (jobTitle, companyName, coverLetterName), createdAt.
 
 ### `src/models/DailyCount.js` — Mongoose model for tracking daily per-user usage counts (e.g. AI generation quotas).
 
@@ -871,6 +881,14 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `ResumeService.updateResumeMetadata(metadataId, updates, returnNew)` — Updates a ResumeMetadata document fields.
 - `ResumeService.deleteResume(resumeId, options)` — Deletes a resume and optionally its associated metadata document.
 - `ResumeService.getResumeContent(resumeId)` — Retrieves just the content field of a resume as a plain JS object.
+
+### `src/services/coverLetterService.js` — Centralized CRUD service for all cover letter database operations. Mirrors the pattern in resumeService.js. Used by cover letter API routes instead of inline model operations.
+
+- `CoverLetterService.getCoverLetterById(id, userId, options)` — Gets a single cover letter by ID and userId with configurable lean and throw-on-not-found behavior.
+- `CoverLetterService.getCoverLettersByUserId(userId, options)` — Gets all cover letters for a user with limit, sort, and lean options.
+- `CoverLetterService.createCoverLetter(userId, content, metadata)` — Creates a new cover letter document with optional metadata (jobTitle, companyName, coverLetterName).
+- `CoverLetterService.updateCoverLetter(id, userId, updates, returnNew)` — Updates a cover letter's content and/or metadata fields using findOneAndUpdate scoped to userId.
+- `CoverLetterService.deleteCoverLetter(id, userId)` — Deletes a cover letter by ID and userId using findOneAndDelete.
 
 ### `src/services/subscriptionService.js` — Subscription and credit usage management service that tracks per-user daily/weekly credit limits, resets usage for free users, and enforces plan boundaries.
 
