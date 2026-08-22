@@ -7,13 +7,12 @@ Covers the Next.js app (`src/`) and root configs. The job-automation feature (UI
 
 ## Docs
 
-### `docs/audit.md` — Deep-dive site audit report
+### `docs/audit.md` — Site audit report (open items)
 
-Latest full-codebase audit (2026-08-22): critical/high/medium/low findings with file:line references,
-what's-solid notes, and a suggested fix order. **All C1–C2, H1–H8, M1–M15 findings were fixed on
-2026-08-22** (see ✅ markers inline); low items fixed unless marked accepted. Carried-over open items
-from the 2026-08-21 audit are preserved at the bottom. Superseded findings from older audits remain
-in git history (`docs/audit.md` at commit `4a5b2a3`).
+The 2026-08-22 full-codebase audit's critical/high/medium findings (and nearly all low items) were
+**fixed on 2026-08-22** — see git history for the original detailed findings and remediation notes.
+The file now tracks only what remains open: manual actions, recommended follow-ups (legacy-data
+migration, automated tests, toast migration), accepted-as-is items, and a "what's solid" summary.
 
 ### `docs/to-do.md` — Consolidated master task list
 
