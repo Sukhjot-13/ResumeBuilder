@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { API_ENDPOINTS } from '@/lib/constants';
 
 // AuthContext holds loading state, auth status, and minimal user info
@@ -8,7 +8,7 @@ const AuthContext = createContext({ loading: true, isAuthenticated: false, user:
 export const AuthProvider = ({ children }) => {
   const [state, setState] = useState({ loading: true, isAuthenticated: false, user: null });
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch('/api/user/profile');
       if (res.ok) {
@@ -26,10 +26,38 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       setState({ loading: false, isAuthenticated: false, user: null });
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchProfile();
+    let cancelled = false;
+
+    // All setState calls happen asynchronously (after await), never during the effect body
+    (async () => {
+      try {
+        const res = await fetch('/api/user/profile');
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (cancelled) return;
+          const isAuthenticated = !!data.email;
+          setState({
+            loading: false,
+            isAuthenticated,
+            user: isAuthenticated ? data : null,
+          });
+        } else {
+          setState({ loading: false, isAuthenticated: false, user: null });
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setState({ loading: false, isAuthenticated: false, user: null });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

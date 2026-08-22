@@ -17,7 +17,7 @@ export default function CheckoutCancel() {
         </h1>
         
         <p className="text-slate-400">
-          Your payment was cancelled and no charges were made. You can try again whenever you're ready.
+          Your payment was cancelled and no charges were made. You can try again whenever you&apos;re ready.
         </p>
 
         <div className="pt-4 flex gap-4 justify-center">

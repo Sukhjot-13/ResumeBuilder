@@ -17,6 +17,7 @@ const env = {
 
   // AI
   geminiApiKey: process.env.GEMINI_API_KEY,
+  deepseekApiKey: process.env.DEEPSEEK_API_KEY,
 
   // Stripe
   stripeSecretKey: process.env.STRIPE_SECRET_KEY,

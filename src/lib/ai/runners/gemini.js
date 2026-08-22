@@ -1,10 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import env from '@/config/env';
 
 let client = null;
 
 function getClient() {
   if (!client) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = env.geminiApiKey;
     if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
     client = new GoogleGenerativeAI(apiKey);
   }

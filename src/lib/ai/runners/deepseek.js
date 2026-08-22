@@ -1,11 +1,13 @@
 /**
  * DeepSeek AI runner — OpenAI-compatible API.
- * Uses DEEPSEEK_API_KEY env var.
+ * Uses DEEPSEEK_API_KEY env var (accessed via @/config/env).
  */
+import env from '@/config/env';
+
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 function getApiKey() {
-  const key = process.env.DEEPSEEK_API_KEY;
+  const key = env.deepseekApiKey;
   if (!key) throw new Error('DEEPSEEK_API_KEY is not set');
   return key;
 }

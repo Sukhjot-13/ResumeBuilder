@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { API_ENDPOINTS, ROUTES } from '@/lib/constants';
+import { useApiClient } from '@/hooks/useApiClient';
 
 export default function OnboardingPage() {
   const [name, setName] = useState('');
@@ -11,39 +11,27 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const apiClient = useApiClient();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Function to get a cookie by name
-    const getCookie = (name) => {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop().split(';').shift();
-    };
-
-    const accessToken = getCookie('accessToken');
-
-    if (!accessToken) {
-      setError('No access token found. Please log in again.');
-      router.push('/login');
-      return;
-    }
-
     try {
-      const response = await fetch('/api/user/profile', {
+      const response = await apiClient('/api/user/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ name, dateOfBirth }),
       });
 
       if (response.ok) {
         router.push('/dashboard');
+      } else if (response.status === 401) {
+        setError('Your session has expired. Please log in again.');
+        router.push('/login');
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to update profile');

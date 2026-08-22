@@ -92,6 +92,31 @@ export const SubscriptionService = {
   },
 
   /**
+   * Refund previously deducted credits when an operation fails after deduction.
+   * Atomic decrement, floored at zero.
+   * @param {string} userId
+   * @param {number} amount
+   * @returns {Promise<boolean>}
+   */
+  async refundUsage(userId, amount = 1) {
+    const result = await User.findOneAndUpdate(
+      { _id: userId, creditsUsed: { $gte: amount } },
+      { $inc: { creditsUsed: -amount } }
+    );
+
+    // Clamp at zero when creditsUsed dipped below the refund amount
+    if (!result) {
+      await User.updateOne(
+        { _id: userId, creditsUsed: { $gt: 0 } },
+        { $set: { creditsUsed: 0 } }
+      );
+    }
+
+    logger.info('Refunded usage', { userId, amount });
+    return true;
+  },
+
+  /**
    * Reset usage (daily/monthly) if applicable.
    * @param {object} user Mongoose document
    */

@@ -17,6 +17,8 @@ export default function ProfilePage() {
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [masterResume, setMasterResume] = useState(null);
   const [showAiEditor, setShowAiEditor] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
@@ -201,6 +203,8 @@ export default function ProfilePage() {
   }, [userRole]);
 
   const handleUpgrade = async () => {
+    if (checkoutLoading) return;
+    setCheckoutLoading(true);
     try {
       const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
@@ -208,10 +212,10 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          planName: 'PRO', // Use constant or ID
+          planName: PLANS.PRO.name,
         }),
       });
-      
+
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
@@ -220,15 +224,19 @@ export default function ProfilePage() {
       }
     } catch (err) {
       setError("Failed to initiate checkout");
+    } finally {
+      setCheckoutLoading(false);
     }
   };
 
   const handleManageSubscription = async () => {
-     try {
+    if (portalLoading) return;
+    setPortalLoading(true);
+    try {
       const response = await fetch('/api/checkout/create-portal-session', {
         method: 'POST',
       });
-      
+
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
@@ -237,6 +245,8 @@ export default function ProfilePage() {
       }
     } catch (err) {
       setError("Failed to open billing portal");
+    } finally {
+      setPortalLoading(false);
     }
   };
 
@@ -410,18 +420,20 @@ export default function ProfilePage() {
                   {userRole !== ROLES.SUBSCRIBER && userRole !== ROLES.ADMIN && (
                     <button
                       onClick={handleUpgrade}
-                      className="w-full mt-6 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] shadow-lg"
+                      disabled={checkoutLoading}
+                      className="w-full mt-6 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                     >
-                      Upgrade to Pro ($13.99/mo)
+                      {checkoutLoading ? 'Opening checkout...' : `Upgrade to ${PLANS.PRO.name} ($${PLANS.PRO.price}/${PLANS.PRO.interval === 'month' ? 'mo' : PLANS.PRO.interval})`}
                     </button>
                   )}
-                  
+
                   {userRole === ROLES.SUBSCRIBER && (
                     <button
                       onClick={handleManageSubscription}
-                      className="w-full mt-6 bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                      disabled={portalLoading}
+                      className="w-full mt-6 bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Manage Subscription
+                      {portalLoading ? 'Opening portal...' : 'Manage Subscription'}
                     </button>
                   )}
                 </div>

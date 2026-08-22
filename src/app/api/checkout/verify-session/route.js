@@ -52,10 +52,10 @@ export const POST = withErrorHandler(async (req) => {
     lastCreditResetDate: new Date(),
   }, { new: true });
 
-  const existingTransaction = await Transaction.findOne({ stripePaymentId: session.payment_intent || session.id });
-
-  if (!existingTransaction) {
-    await Transaction.create({
+  // Idempotent — prevents duplicates when racing the webhook handler
+  await Transaction.findOneAndUpdate(
+    { stripePaymentId: session.payment_intent || session.id },
+    {
       user: userId,
       stripePaymentId: session.payment_intent || session.id,
       stripeSubscriptionId: subscriptionId,
@@ -69,8 +69,9 @@ export const POST = withErrorHandler(async (req) => {
         sessionId: session.id,
         verificationMethod: 'api_fallback',
       },
-    });
-  }
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 
   return ok({ user: updatedUser });
 });

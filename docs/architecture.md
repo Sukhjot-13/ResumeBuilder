@@ -69,7 +69,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/components/layout/Footer.js` — Application footer with branding, product links, legal links, and copyright.
 
-- `Footer (default export)` — Stateless component rendering a footer with ResumeAI branding, Product links (Features, Templates, Pricing), Legal links (Privacy Policy, Terms of Service), and a dynamic copyright year.
+- `Footer (default export)` — Stateless component rendering a footer with ResumeAI branding, Product links (Features → `/#features`, Templates → `/templates`, Pricing → `/pricing`), Legal links (Privacy Policy → `/privacy`, Terms of Service → `/terms`), and a dynamic copyright year. Uses next/link for client-side navigation.
 
 ### `src/components/layout/Navbar.js` — Top navigation bar with authentication-aware links, credit badge, role-based navigation items, and mobile menu.
 
@@ -240,7 +240,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/checkout/verify-session/route.js` — Verifies a completed Stripe Checkout Session and activates the user's subscription.
 
-- `POST` — Accepts a sessionId, retrieves the Stripe session and confirms payment_status is 'paid', verifies the session's userId matches the requesting user, then updates the user to SUBSCRIBER role with subscription details. Creates a Transaction record if one does not already exist for the payment intent.
+- `POST` — Accepts a sessionId, retrieves the Stripe session and confirms payment_status is 'paid', verifies the session's userId matches the requesting user, then updates the user to SUBSCRIBER role. Upserts the Transaction record idempotently (safe when racing the webhook handler).
 
 ### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID. Uses CoverLetterService for all database operations, resolveUserId() for dual auth (JWT/API key). Uses `ok()` for GET (unwrapped response) and `success()` for DELETE/PATCH (enveloped).
 
@@ -253,25 +253,25 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `GET` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.getCoverLettersByUserId() to return the user's cover letters sorted by createdAt descending, limited to 50.
 - `POST` — Requires GENERATE_COVER_LETTER permission. Uses resolveUserId() for auth, then CoverLetterService.createCoverLetter() to accept content and optional metadata, returns the created document with a 201 status.
 
-### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking, plan-gated features, proper resume naming with incrementing suffixes ("Name" → "Name 1"), and multi-resume support.
+### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking, plan-gated features, proper resume naming with incrementing suffixes ("Name" → "Name 1"), and multi-resume support. Hardened 2026-08-21: all cover-letter/resume reads & writes are scoped by userId (IDOR fix) and credits are deducted BEFORE the AI call with automatic refund on failure.
 
-- `POST` — Requires EDIT_RESUME_WITH_AI permission and checks credit availability. For type='cover-letter', edits the cover letter content via AI and optionally saves to CoverLetter model. For resume editing: accepts `resumeId` for multi-resume support, edits via AI, deducts a credit. If `createNewResume`, names the source resume with an incrementing suffix ("Name" → "Name 1", "Name 1" → "Name 2") using `resumeName` metadata, gives the new resume the original name, and only sets it as main if editing the master. Sanitizes Mongo _id fields from the AI output before saving.
+- `POST` — Requires EDIT_RESUME_WITH_AI permission. Verifies ownership (`{ _id, userId }`) of any requested coverLetterId/resumeId BEFORE spending AI tokens (404 otherwise). Deducts a credit atomically first; refunds it if the AI edit throws. For type='cover-letter', edits content via AI and saves only via `findOneAndUpdate({ _id, userId })`. For resume editing: accepts `resumeId` for multi-resume support; if `createNewResume`, names the source resume with an incrementing suffix ("Name" → "Name 1") using metadata, gives the new resume the original name, and only sets it as main if editing the master. Sanitizes Mongo _id fields from the AI output before saving.
 
-### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with credit checking and deduction. Uses shared resolveUserId() (replaced previous inline resolveUser helper).
+### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with deduct-first/refund-on-failure credit handling.
 
-- `POST` — Requires GENERATE_RESUME permission. Resolves user identity via shared resolveUserId() (supports both API key and JWT auth). Sanitizes the job description via shared sanitize.js utility, checks and deducts credits via SubscriptionService, checks if the user has USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves the result as a Resume document. Returns the generated content with a resumeId if saved.
+- `POST` — Requires GENERATE_RESUME permission. Resolves user identity via resolveUserId(). Sanitizes the job description via sanitize.js utility, deducts a credit atomically BEFORE generation (refunds on failure), checks USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves the result as a Resume document. Returns the generated content with a resumeId if saved.
 
-### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with credit checking and deduction. Supports both JWT and API-key auth via shared resolveUserId().
+### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with deduct-first/refund-on-failure credit handling. Supports JWT auth via resolveUserId().
 
-- `POST` — Requires GENERATE_COVER_LETTER permission. Resolves user identity via resolveUserId(), sanitizes the job description via shared sanitize.js utility, loads the user's main resume content, checks and deducts credits via SubscriptionService, calls generateCoverLetter() with resume data and user info (name, email, phone from resume content's profile.phone), optionally saves the result as a CoverLetter document. Returns the generated content with a coverLetterId if saved.
+- `POST` — Requires GENERATE_COVER_LETTER permission. Resolves user identity via resolveUserId(), sanitizes the job description, loads the user's main resume content, deducts a credit atomically BEFORE generation (refunds on failure), calls generateCoverLetter() with resume data and user info (name, email, phone from resume content's profile.phone), optionally saves the result as a CoverLetter document. Returns the generated content with a coverLetterId if saved.
 
 ### `src/app/api/health/route.js` — Simple health-check endpoint for monitoring.
 
 - `GET` — Returns { status: 'ok', uptime, timestamp } to indicate the server is running.
 
-### `src/app/api/parse-resume/route.js` — Parses an uploaded resume file (e.g. PDF/DOCX) and extracts structured data. Uses withErrorHandler, ok(), fail(), and resolveUserId() for standardized error handling and dual auth.
+### `src/app/api/parse-resume/route.js` — Parses an uploaded resume file (PDF/DOCX) and extracts structured data. Hardened 2026-08-21: 5MB size cap (413), MIME allowlist, PDF/ZIP magic-byte verification (415), dead Pages-Router bodyParser directive removed.
 
-- `POST` — Disables Next.js body parser. Requires PARSE_RESUME permission. Resolves user identity via resolveUserId() for dual auth (JWT/API key). Accepts a multipart form upload with field 'resumeFile', passes it to parseResume() service, and returns the parsed JSON data via ok(). Errors returned via fail() instead of raw Response objects.
+- `POST` — Requires PARSE_RESUME permission. Resolves user identity via resolveUserId(). Accepts a multipart form upload with field 'resumeFile', validates size/type/content signature, then passes the verified Buffer to parseResume() and returns parsed JSON via ok().
 
 ### `src/app/api/render-pdf-react/route.js` — Generates a downloadable PDF for a resume or cover letter using React PDF renderer.
 
@@ -305,7 +305,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/webhooks/stripe/route.js` — Handles incoming Stripe webhook events for subscription lifecycle management.
 
-- `POST` — Verifies the Stripe webhook signature. Handles three event types: checkout.session.completed (upgrades user to SUBSCRIBER role, saves transaction), invoice.payment_succeeded (renews subscription, resets credits, saves renewal transaction), and customer.subscription.deleted (sets subscriptionStatus to canceled, downgrades user to USER role).
+- `POST` — Verifies the Stripe webhook signature. Handles checkout.session.completed (upgrades user to SUBSCRIBER, upserts transaction idempotently), invoice.payment_succeeded (renews subscription, resets credits, upserts renewal transaction), and customer.subscription.deleted (cancels + downgrades to USER). Transaction writes use findOneAndUpdate+upsert keyed on stripePaymentId so Stripe retries never duplicate rows.
 
 ### `src/app/checkout/cancel/page.js` — Displays a payment-cancelled confirmation page after a user cancels a Stripe checkout session, with links to view plans or return to dashboard.
 
@@ -352,6 +352,20 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `Home` — Default export. Client component rendering the marketing landing page with hero, three feature cards (ATS Optimization, AI Content Generation, Real-time Editing), how-it-works steps, and CTA section.
 
+### `src/app/templates/page.js` — Public templates gallery page (added 2026-08-21 to fix dead nav links).
+
+- `TemplatesPage` — Server component rendering a grid describing all six ATS-friendly resume templates with tags and a signup CTA.
+
+### `src/app/privacy/page.js` — Privacy Policy page (added 2026-08-21).
+
+- `metadata` — SEO title/description.
+- `PrivacyPage` — Server component rendering policy sections (data collected, AI processing, sharing, retention, security, contact).
+
+### `src/app/terms/page.js` — Terms of Service page (added 2026-08-21).
+
+- `metadata` — SEO title/description.
+- `TermsPage` — Server component rendering numbered terms sections (accounts, acceptable use, subscriptions/billing via Stripe, refunds, AI content ownership, liability).
+
 ### `src/app/pricing/page.js` — Pricing page displaying Free and Pro subscription plans with feature comparisons and upgrade buttons that trigger Stripe checkout.
 
 - `PricingPage` — Default export. Client component rendering two pricing tiers (Free and Pro) with feature lists, pricing from constants, and an upgrade flow that initiates Stripe checkout via POST /api/checkout/create-session.
@@ -374,7 +388,8 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/components/profile/ManualResumeForm.js` — Multi-section form for manually entering resume data. Driven entirely by RESUME_FIELD_SCHEMA -- add a field there, it appears here. Available to all users (no AI parsing required).
 
-- `FieldInput` — Renders primitive form field inputs based on field type (checkbox, textarea, bullet list, tag list, text/email/url/month)
+- `TagInputField` — Standalone TAG_LIST input component (own useState draft state) — extracted so FieldInput has no conditional hooks
+- `FieldInput` — Renders primitive form field inputs based on field type (checkbox, textarea, bullet list, tag list via TagInputField, text/email/url/month)
 - `ObjectSection` — Renders an object-type section (profile, additional_info) with a grid of field inputs
 - `ArrayItemCard` — Renders a single item card for array sections (work_experience, education, skills) with field inputs and remove button
 - `ArraySection` — Wrapper for array-type sections that manages add/update/remove of items
@@ -423,7 +438,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/config/env.js` — Single source of truth for environment variable access. Centralizes all process.env references so renaming a variable only requires a change here.
 
-- `env (default export)` — Object mapping config keys to environment variables for auth secrets, MongoDB URI, AI keys (Gemini), Stripe keys, Brevo email config, and app URL. Legacy automation keys (`workerUrl`, `cookieEncryptionKey`) are still defined but their only consumers were archived on 2026-08-21.
+- `env (default export)` — Object mapping config keys to environment variables for auth secrets, MongoDB URI, AI keys (Gemini + DeepSeek), Stripe keys, Brevo email config, and app URL. Legacy automation keys (`workerUrl`, `cookieEncryptionKey`) are still defined but their only consumers were archived on 2026-08-21.
 
 
 ---
@@ -664,7 +679,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `Role (default export)` — Mongoose model with fields: name (unique, USER/SUBSCRIBER/DEVELOPER/ADMIN), value (unique, 100/99/70/0), permissions (array of strings), isAdmin (boolean, true -> ALL wildcard), description, timestamps. Used by DB-backed permission checking and admin management UI.
 
-### `src/models/Transaction.js` — Mongoose model for tracking payment transactions via Stripe, supporting both subscription and one-time payments with status tracking (pending/completed/failed/refunded).
+### `src/models/Transaction.js` — Mongoose model for tracking payment transactions via Stripe, supporting both subscription and one-time payments with status tracking (pending/completed/failed/refunded). Has a **unique index on stripePaymentId** for idempotency against webhook retries.
 
 - `default export (Transaction model)` — Reuses existing Mongoose model or creates a new 'Transaction' model with fields: user, stripePaymentId, stripeSubscriptionId, stripeCustomerId, amount (cents), currency, status, planName, type (subscription/one-time), createdAt, metadata.
 
@@ -695,10 +710,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `editResumeWithAI(resume, query)` — Takes the current resume data object and a natural language edit query, constructs a prompt instructing an AI to edit the resume within the RESUME_SCHEMA_FOR_PROMPT schema, and returns the updated resume data via callAI. Returns original data if the query cannot be fulfilled.
 
-### `src/services/resumeParsingService.js` — Resume file parsing service that extracts text from PDF and DOCX files, then uses AI to parse the text into structured resume data.
+### `src/services/resumeParsingService.js` — Resume file parsing service that extracts text from PDF and DOCX files, then uses AI to parse the text into structured resume data. Type detection is content-based (magic bytes).
 
 - `extractText(fileBuffer, fileType)` — Internal helper that extracts raw text from a file buffer based on MIME type: uses unpdf for PDF and mammoth for DOCX. Throws on unsupported file types.
-- `parseResume(file)` — Takes a File object, converts it to a buffer, extracts raw text via extractText, then sends the text to an AI with a structured JSON schema prompt to parse into profile, work_experience, education, skills, and additional_info fields.
+- `parseResume(fileBuffer)` — Takes a verified Buffer (type detection via magic bytes: %PDF or ZIP container; never trusts client MIME), extracts raw text via extractText, then sends the text to an AI with a structured JSON schema prompt to parse into profile, work_experience, education, skills, and additional_info fields.
 
 ### `src/services/resumeService.js` — Centralized CRUD service for all resume-related database operations, handling Resume and ResumeMetadata models with flexible query options.
 
@@ -725,6 +740,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `SubscriptionService.trackUsage(userId, amount)` — Atomically increments a user's creditsUsed counter only if it would not exceed the limit. Automatically checks/resets daily limits for free users. Returns true on success, false if limit would be exceeded.
 - `SubscriptionService.hasCredits(userId, amount)` — Checks whether a user has enough remaining credits for a given operation without deducting. Returns boolean.
 - `SubscriptionService.checkAndResetDailyLimits(user)` — Resets a free user's creditsUsed to 0 if the current day differs from lastCreditResetDate. Skips reset for subscriber-role users.
+- `SubscriptionService.refundUsage(userId, amount)` — Atomically refunds previously-deducted credits when an operation fails after deduction (floored at zero).
 - `SubscriptionService.resetUsage(userId)` — Manually resets a user's creditsUsed to 0 and updates lastCreditResetDate to now.
 
 ### `src/services/userService.js` — Centralized CRUD service for all user-related database operations, handling the User model with flexible query, population, and update methods.
@@ -816,6 +832,7 @@ the library intact), automation permission strings in
 | `REFRESH_TOKEN_SECRET` | JWT refresh token signing secret | `src/config/env.js` → auth/utils |
 | `MONGODB_URI` | MongoDB connection string | `src/config/env.js` → `src/lib/mongodb.js`, `scripts/seed.mjs` |
 | `GEMINI_API_KEY` | Gemini AI provider key | `src/config/env.js` → `src/lib/ai/runners/gemini.js` |
+| `DEEPSEEK_API_KEY` | DeepSeek AI provider key | `src/config/env.js` → `src/lib/ai/runners/deepseek.js` |
 | `STRIPE_SECRET_KEY` | Stripe SDK key | `src/config/env.js` → `src/lib/stripe.js` |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification | `src/config/env.js` → stripe webhook route |
 | `BREVO_API_KEY` | Brevo transactional email API key | `src/config/env.js` → OTP email sending |

@@ -77,7 +77,7 @@ export default function PricingPage() {
             </button>
           </div>
           <div className="pt-6 pb-8 px-6">
-            <h3 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What's included</h3>
+            <h3 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What&apos;s included</h3>
             <ul className="mt-6 space-y-4">
               <li className="flex space-x-3">
                 <span className="text-green-500">✓</span>
@@ -109,7 +109,7 @@ export default function PricingPage() {
             </button>
           </div>
           <div className="pt-6 pb-8 px-6">
-            <h3 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What's included</h3>
+            <h3 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What&apos;s included</h3>
             <ul className="mt-6 space-y-4">
               <li className="flex space-x-3">
                 <span className="text-green-500">✓</span>

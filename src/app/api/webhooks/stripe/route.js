@@ -73,24 +73,26 @@ export async function POST(req) {
         console.error('❌ Database error updating user:', dbError);
       }
 
-      // Save transaction record
-      const transaction = await Transaction.create({
-        user: userId,
-        stripePaymentId: session.payment_intent || session.id,
-        stripeSubscriptionId: subscriptionId,
-        stripeCustomerId: customerId,
-        amount: session.amount_total, // Amount in cents
-        currency: session.currency,
-        status: 'completed',
-        planName: planName,
-        type: 'subscription',
-        metadata: {
-          sessionId: session.id,
-          planDetails: planDetails,
+      // Save transaction record (idempotent — safe on Stripe retries)
+      await Transaction.findOneAndUpdate(
+        { stripePaymentId: session.payment_intent || session.id },
+        {
+          user: userId,
+          stripePaymentId: session.payment_intent || session.id,
+          stripeSubscriptionId: subscriptionId,
+          stripeCustomerId: customerId,
+          amount: session.amount_total, // Amount in cents
+          currency: session.currency,
+          status: 'completed',
+          planName: planName,
+          type: 'subscription',
+          metadata: {
+            sessionId: session.id,
+            planDetails: planDetails,
+          },
         },
-      });
-
-      console.log('💰 Transaction saved:', transaction._id);
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
       console.log(`✅ User ${userId} upgraded to SUBSCRIBER (role 99) until ${expiryDate.toISOString()}`);
     } else {
       console.warn('⚠️ Missing userId or planName in metadata:', { userId, planName });
@@ -114,21 +116,25 @@ export async function POST(req) {
       user.lastCreditResetDate = new Date();
       await user.save();
 
-      // Log the renewal transaction
-      await Transaction.create({
-        user: user._id,
-        stripePaymentId: session.payment_intent || session.id,
-        stripeSubscriptionId: subscriptionId,
-        stripeCustomerId: customerId,
-        amount: session.amount_paid,
-        currency: session.currency,
-        status: 'completed',
-        planName: 'PRO',
-        type: 'subscription',
-        metadata: {
-          renewalDate: new Date(),
+      // Log the renewal transaction (idempotent — safe on Stripe retries)
+      await Transaction.findOneAndUpdate(
+        { stripePaymentId: session.payment_intent || session.id },
+        {
+          user: user._id,
+          stripePaymentId: session.payment_intent || session.id,
+          stripeSubscriptionId: subscriptionId,
+          stripeCustomerId: customerId,
+          amount: session.amount_paid,
+          currency: session.currency,
+          status: 'completed',
+          planName: 'PRO',
+          type: 'subscription',
+          metadata: {
+            renewalDate: new Date(),
+          },
         },
-      });
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
 
       console.log(`✅ User ${user._id} subscription renewed until ${expiryDate.toISOString()}`);
     }

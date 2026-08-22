@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Footer() {
   return (
     <footer className="border-t border-white/10 bg-slate-900/50 py-12 mt-auto">
@@ -15,17 +17,17 @@ export default function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">Product</h3>
             <ul className="space-y-2 text-sm text-slate-400">
-              <li><a href="/features" className="hover:text-blue-400 transition-colors">Features</a></li>
-              <li><a href="/templates" className="hover:text-blue-400 transition-colors">Templates</a></li>
-              <li><a href="/pricing" className="hover:text-blue-400 transition-colors">Pricing</a></li>
+              <li><Link href="/#features" className="hover:text-blue-400 transition-colors">Features</Link></li>
+              <li><Link href="/templates" className="hover:text-blue-400 transition-colors">Templates</Link></li>
+              <li><Link href="/pricing" className="hover:text-blue-400 transition-colors">Pricing</Link></li>
             </ul>
           </div>
-          
+
           <div>
             <h3 className="text-white font-semibold mb-4">Legal</h3>
             <ul className="space-y-2 text-sm text-slate-400">
-              <li><a href="/privacy" className="hover:text-blue-400 transition-colors">Privacy Policy</a></li>
-              <li><a href="/terms" className="hover:text-blue-400 transition-colors">Terms of Service</a></li>
+              <li><Link href="/privacy" className="hover:text-blue-400 transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:text-blue-400 transition-colors">Terms of Service</Link></li>
             </ul>
           </div>
         </div>

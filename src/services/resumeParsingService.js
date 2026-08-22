@@ -27,16 +27,27 @@ async function extractText(fileBuffer, fileType) {
 
 /**
  * Parses a resume file and returns structured data.
- * @param {File} file - The resume file to parse.
+ * Type detection is content-based (magic bytes), never trusting client-supplied MIME types.
+ * @param {Buffer} fileBuffer - The resume file content.
  * @returns {Promise<object>} The parsed resume data.
  */
-export async function parseResume(file) {
-  if (!file) {
+export async function parseResume(fileBuffer) {
+  if (!fileBuffer || !Buffer.isBuffer(fileBuffer)) {
     throw new Error("No file provided");
   }
 
-  const fileBuffer = Buffer.from(await file.arrayBuffer());
-  const rawText = await extractText(fileBuffer, file.type);
+  // Content-based type detection
+  const header = fileBuffer.subarray(0, 4).toString('latin1');
+  let fileType;
+  if (header.startsWith('%PDF')) {
+    fileType = 'application/pdf';
+  } else if (fileBuffer[0] === 0x50 && fileBuffer[1] === 0x4b) {
+    fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'; // ZIP-based (.docx)
+  } else {
+    throw new Error('Unsupported file type');
+  }
+
+  const rawText = await extractText(fileBuffer, fileType);
 
   const prompt = `
     [TASK]

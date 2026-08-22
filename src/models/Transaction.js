@@ -47,4 +47,7 @@ const TransactionSchema = new mongoose.Schema({
   },
 });
 
+// Idempotency guard: one transaction row per Stripe payment (webhook retries / races)
+TransactionSchema.index({ stripePaymentId: 1 }, { unique: true });
+
 export default (mongoose.models && mongoose.models.Transaction) || mongoose.model('Transaction', TransactionSchema);

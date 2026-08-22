@@ -42,9 +42,9 @@ export const POST = withErrorHandler(async (request) => {
     return fail('User not found', 404);
   }
 
-  // Check credits before generating
-  const hasCredits = await SubscriptionService.hasCredits(userId, 1);
-  if (!hasCredits) {
+  // Deduct credit BEFORE generating (atomic); refund on failure below
+  const tracked = await SubscriptionService.trackUsage(userId, 1);
+  if (!tracked) {
     logger.info('User attempted to generate without credits', { userId });
     return fail('Insufficient credits. Please upgrade your plan.', 403);
   }
@@ -89,15 +89,10 @@ export const POST = withErrorHandler(async (request) => {
       }
     }
 
-    // Deduct credit after successful generation
-    const tracked = await SubscriptionService.trackUsage(userId, 1);
-    if (!tracked) {
-      logger.warn('Credit deduction failed after resume generation', { userId });
-    }
-
     logger.info('Resume content generated successfully', { userId, role: userRole });
     return ok({ resumeId, ...tailoredData });
   } catch (error) {
+    await SubscriptionService.refundUsage(userId, 1);
     logger.error('Error generating content', error, { userId });
     return fail(error.message || 'Error generating content', 500);
   }

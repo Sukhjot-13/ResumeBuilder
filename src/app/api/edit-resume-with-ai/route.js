@@ -8,6 +8,7 @@ import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { checkPermission } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import CoverLetter from '@/models/CoverLetter';
+import Resume from '@/models/resume';
 import { logger } from '@/lib/logger';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
@@ -38,31 +39,45 @@ export const POST = withErrorHandler(async (req) => {
   }
   const { user } = permResult;
 
-  const hasCredits = await SubscriptionService.hasCredits(userId, 1);
-
-  if (!hasCredits) {
-    logger.info('User attempted to edit without credits', { userId });
-    return fail('Insufficient credits. Please upgrade your plan.', 403);
-  }
-
   // ── Cover Letter Editing ─────────────────────────────────────────────────
   if (type === 'cover-letter') {
     if (!coverLetterContent) {
       return fail('Cover letter content is required', 400);
     }
 
-    const editedContent = await editCoverLetterWithAI(coverLetterContent, query);
-
-    const tracked = await SubscriptionService.trackUsage(userId, 1);
-    if (!tracked) {
-      logger.warn('Credit deduction failed after cover letter edit', { userId });
+    // Ownership check before spending AI credits/tokens (C1 fix)
+    if (coverLetterId) {
+      const owned = await CoverLetter.exists({ _id: coverLetterId, userId });
+      if (!owned) {
+        logger.warn('AI edit attempted on non-owned cover letter', { userId, coverLetterId });
+        return fail('Cover letter not found', 404);
+      }
     }
 
-    // Save the edited cover letter
+    // Deduct credit BEFORE editing (atomic); refund on failure below
+    const tracked = await SubscriptionService.trackUsage(userId, 1);
+    if (!tracked) {
+      logger.info('User attempted to edit without credits', { userId });
+      return fail('Insufficient credits. Please upgrade your plan.', 403);
+    }
+
+    let editedContent;
+    try {
+      editedContent = await editCoverLetterWithAI(coverLetterContent, query);
+    } catch (error) {
+      await SubscriptionService.refundUsage(userId, 1);
+      throw error;
+    }
+
+    // Save the edited cover letter (scoped to owner)
     if (coverLetterId) {
-      await CoverLetter.findByIdAndUpdate(coverLetterId, {
-        $set: { content: editedContent },
-      });
+      const updated = await CoverLetter.findOneAndUpdate(
+        { _id: coverLetterId, userId },
+        { $set: { content: editedContent } }
+      );
+      if (!updated) {
+        logger.warn('Owned cover letter disappeared during AI edit', { userId, coverLetterId });
+      }
     }
 
     return ok(editedContent);
@@ -80,7 +95,30 @@ export const POST = withErrorHandler(async (req) => {
     }
   }
 
-  const editedResumeContent = await editResumeWithAI(resume, query);
+  // Ownership check before reading/writing any resume (H1 fix)
+  const requestedResumeId = resumeId || user.mainResume;
+  if (requestedResumeId) {
+    const owned = await Resume.exists({ _id: requestedResumeId, userId });
+    if (!owned) {
+      logger.warn('AI edit attempted on non-owned resume', { userId, resumeId: String(requestedResumeId) });
+      return fail('Resume not found', 404);
+    }
+  }
+
+  // Deduct credit BEFORE editing (atomic); refund on failure below
+  const tracked = await SubscriptionService.trackUsage(userId, 1);
+  if (!tracked) {
+    logger.info('User attempted to edit without credits', { userId });
+    return fail('Insufficient credits. Please upgrade your plan.', 403);
+  }
+
+  let editedResumeContent;
+  try {
+    editedResumeContent = await editResumeWithAI(resume, query);
+  } catch (error) {
+    await SubscriptionService.refundUsage(userId, 1);
+    throw error;
+  }
 
   const removeIds = (obj) => {
     if (Array.isArray(obj)) {
@@ -98,11 +136,6 @@ export const POST = withErrorHandler(async (req) => {
   };
 
   const sanitizedContent = removeIds(editedResumeContent);
-
-  const tracked = await SubscriptionService.trackUsage(userId, 1);
-  if (!tracked) {
-    logger.warn("Credit deduction failed after generation", { userId });
-  }
 
   if (createNewResume) {
     // Determine which resume we're copying from — use the selected resumeId

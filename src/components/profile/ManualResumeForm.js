@@ -41,6 +41,67 @@ const SECTION_ICONS = {
   ),
 };
 
+// ─── Tag list input (own component so hooks are unconditional — H8 fix) ──────
+function TagInputField({ field, value, onChange, baseInput }) {
+  const tags = Array.isArray(value) ? value : [];
+  const [draft, setDraft] = useState("");
+
+  const addTag = () => {
+    const trimmed = draft.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      onChange([...tags, trimmed]);
+    }
+    setDraft("");
+  };
+
+  const removeTag = (idx) => onChange(tags.filter((_, i) => i !== idx));
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag, idx) => (
+          <span
+            key={`${tag}-${idx}`}
+            className="flex items-center gap-1 bg-blue-500/20 text-blue-300 text-xs px-2.5 py-1 rounded-full border border-blue-500/30"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(idx)}
+              className="hover:text-red-400 transition-colors ml-0.5"
+              aria-label={`Remove ${tag}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              addTag();
+            }
+          }}
+          placeholder={field.placeholder || "Type and press Enter…"}
+          className={`${baseInput} flex-1`}
+        />
+        <button
+          type="button"
+          onClick={addTag}
+          className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Primitive field renderer ─────────────────────────────────────────────────
 function FieldInput({ fieldKey, field, value, onChange }) {
   const baseInput =
@@ -121,63 +182,7 @@ function FieldInput({ fieldKey, field, value, onChange }) {
   }
 
   if (field.type === FIELD_TYPES.TAG_LIST) {
-    const tags = Array.isArray(value) ? value : [];
-    const [draft, setDraft] = useState("");
-
-    const addTag = () => {
-      const trimmed = draft.trim();
-      if (trimmed && !tags.includes(trimmed)) {
-        onChange([...tags, trimmed]);
-      }
-      setDraft("");
-    };
-
-    const removeTag = (idx) => onChange(tags.filter((_, i) => i !== idx));
-
-    return (
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-2">
-          {tags.map((tag, idx) => (
-            <span
-              key={idx}
-              className="flex items-center gap-1 bg-blue-500/20 text-blue-300 text-xs px-2.5 py-1 rounded-full border border-blue-500/30"
-            >
-              {tag}
-              <button
-                type="button"
-                onClick={() => removeTag(idx)}
-                className="hover:text-red-400 transition-colors ml-0.5"
-                aria-label={`Remove ${tag}`}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === ",") {
-                e.preventDefault();
-                addTag();
-              }
-            }}
-            placeholder={field.placeholder || "Type and press Enter…"}
-            className={`${baseInput} flex-1`}
-          />
-          <button
-            type="button"
-            onClick={addTag}
-            className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
-          >
-            Add
-          </button>
-        </div>
-      </div>
-    );
+    return <TagInputField field={field} value={value} onChange={onChange} baseInput={baseInput} />;
   }
 
   // Text / email / url / month

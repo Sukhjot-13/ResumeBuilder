@@ -26,6 +26,30 @@ unreachable without auth — a monitoring problem worth fixing (M1).
 
 ---
 
+## Fix Status (updated 2026-08-21 — same day)
+
+Applied in order of severity:
+
+| Item | Status |
+|---|---|
+| C1 IDOR (cover letter) | ✅ FIXED — `findOneAndUpdate({ _id, userId })` + ownership pre-check before AI spend |
+| H1 unscoped resume ops | ✅ FIXED — `Resume.exists({ _id, userId })` gate on all read/write paths |
+| H9 seed requiredPlan drift | ✅ FIXED — 5 permissions corrected to ADMIN, drift-check script reports 0, DB re-seeded |
+| H6 broken links (×7) | ✅ FIXED — new `/templates`, `/privacy`, `/terms` pages; Features → `/#features` anchor |
+| H5 onboarding auth | ✅ FIXED — uses `useApiClient()` (HttpOnly cookies), removed Bearer/document.cookie hack |
+| H3 webhook dup transactions | ✅ FIXED — unique index on `stripePaymentId` + upserts in webhook & verify-session |
+| H4 credit race | ✅ FIXED — deduct-first via atomic `trackUsage` + new `refundUsage()` on failure (3 routes) |
+| H2 parse-resume DoS | ✅ FIXED — 5MB cap, MIME allowlist, magic-byte verification; dead bodyParser directive removed |
+| H7 double-submit Stripe | ✅ FIXED — pending states + disabled buttons on upgrade/portal |
+| H8 conditional hook | ✅ FIXED — TAG_LIST input extracted into `TagInputField` component |
+| H11 DEEPSEEK key bypass | ✅ FIXED — `deepseekApiKey` added to env.js; deepseek.js/gemini.js use central config |
+| M9 AuthContext setState-in-effect | ✅ FIXED — async effect body with cancelled-flag cleanup |
+| L13 lint errors (unescaped entities ×3, Footer `<a>` nav) | ✅ FIXED — **lint now 0 errors** (15 warnings remain) |
+
+Remaining open: all other Medium/Low items and Suggestions.
+
+---
+
 ## Part 2 — 🔴 Critical
 
 ### C1 — Cross-user cover-letter overwrite (IDOR)

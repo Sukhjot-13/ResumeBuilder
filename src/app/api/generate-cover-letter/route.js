@@ -41,9 +41,9 @@ export const POST = withErrorHandler(async (request) => {
     return fail('User not found', 404);
   }
 
-  // Check credits before generating
-  const hasCredits = await SubscriptionService.hasCredits(userId, 1);
-  if (!hasCredits) {
+  // Deduct credit BEFORE generating (atomic); refund on failure below
+  const tracked = await SubscriptionService.trackUsage(userId, 1);
+  if (!tracked) {
     logger.info('User attempted to generate cover letter without credits', { userId });
     return fail('Insufficient credits. Please upgrade your plan.', 403);
   }
@@ -59,12 +59,6 @@ export const POST = withErrorHandler(async (request) => {
       cleanJobDescription,
       { recipientName, userName, userEmail, userPhone }
     );
-
-    // Deduct credit after successful generation
-    const tracked = await SubscriptionService.trackUsage(userId, 1);
-    if (!tracked) {
-      logger.warn('Credit deduction failed after cover letter generation', { userId });
-    }
 
     let coverLetterId = null;
     try {
@@ -85,6 +79,7 @@ export const POST = withErrorHandler(async (request) => {
     logger.info('Cover letter generated successfully', { userId });
     return ok({ coverLetterId, ...coverLetterData });
   } catch (error) {
+    await SubscriptionService.refundUsage(userId, 1);
     logger.error('Error generating cover letter', error, { userId });
     return fail(error.message || 'Error generating cover letter', 500);
   }
