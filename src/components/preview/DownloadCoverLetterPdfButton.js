@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useToast } from "@/components/common/ToastProvider";
 
 export default function DownloadCoverLetterPdfButton({ coverLetterData }) {
   const [downloading, setDownloading] = useState(false);
+  const toast = useToast();
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -33,10 +35,10 @@ export default function DownloadCoverLetterPdfButton({ coverLetterData }) {
           const data = await response.json();
           if (data?.error) message = data.error;
         } catch {}
-        alert(message);
+        toast.error(message);
       }
     } catch (error) {
-      alert("Failed to download PDF. Please check your connection and try again.");
+      toast.error("Failed to download PDF. Please check your connection and try again.");
     }
     setDownloading(false);
   };

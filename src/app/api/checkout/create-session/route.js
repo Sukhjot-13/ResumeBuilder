@@ -1,6 +1,7 @@
 import { stripe } from '@/lib/stripe';
 import User from '@/models/User';
 import { PLANS } from '@/lib/constants';
+import { resolvePlanKey } from '@/lib/planResolver';
 import dbConnect from '@/lib/mongodb';
 import { logger } from '@/lib/logger';
 import { resolveUserId } from '@/lib/apiKeyAuth';
@@ -21,12 +22,7 @@ export const POST = withErrorHandler(async (req) => {
     }
 
     // Resolve the plan from either its key ('PRO') or display name ('Pro'), case-insensitively
-    const requested = typeof planName === 'string' ? planName.trim() : '';
-    const planKey = Object.keys(PLANS).find(
-      (key) =>
-        key.toLowerCase() === requested.toLowerCase() ||
-        PLANS[key].name.toLowerCase() === requested.toLowerCase()
-    );
+    const planKey = resolvePlanKey(planName);
 
     if (!planKey) {
       return fail('Invalid plan', 400);
@@ -65,17 +61,17 @@ export const POST = withErrorHandler(async (req) => {
       customer_email: user.email,
       metadata: {
         userId: userId.toString(),
-        planName: planName,
+        planName: planKey, // always the canonical KEY ('PRO') so webhook/verify checks match
       },
       subscription_data: {
         metadata: {
           userId: userId.toString(),
-          planName: planName,
+          planName: planKey,
         },
       },
     });
 
-    logger.info('Stripe checkout session created', { userId, planName });
+    logger.info('Stripe checkout session created', { userId, planKey });
     return ok({ url: session.url });
   } catch (error) {
     logger.error('Stripe Checkout Error', error, { userId });

@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PLANS } from '@/lib/constants';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/common/ToastProvider';
 
 export default function PricingPage() {
   const [loading, setLoading] = useState(false);
   const { isAuthenticated, user } = useAuth();
   const router = useRouter();
+  const toast = useToast();
   // Subscribers/Admins already have the Free tier included
   const isSubscriber = isAuthenticated && typeof user?.role === 'number' && user.role <= 99;
 
@@ -32,11 +34,11 @@ export default function PricingPage() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert(data.error || 'Something went wrong');
+        toast.error(data.error || 'Something went wrong');
       }
     } catch (error) {
       console.error(error);
-      alert('Failed to start checkout');
+      toast.error('Failed to start checkout');
     } finally {
       setLoading(false);
     }

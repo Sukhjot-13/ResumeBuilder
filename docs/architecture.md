@@ -44,7 +44,12 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/components/common/PremiumFeatureLock.js` — A reusable UI component that locks premium features behind an upgrade prompt with a Stripe checkout flow.
 
 - `PremiumFeatureLock (default export)` — Component displaying a lock icon, feature name, description, and an upgrade button that initiates a checkout session via /api/checkout/create-session. Supports default (full-size centered) and compact (inline) variants.
-- `handleUpgrade` — Internal async function that either calls a custom onUpgrade handler or posts to /api/checkout/create-session and redirects to the Stripe checkout URL.
+- `handleUpgrade` — Internal async function that either calls a custom onUpgrade handler or posts to /api/checkout/create-session and redirects to the Stripe checkout URL. Failures surface via toast notifications.
+
+### `src/components/common/ToastProvider.js` — App-wide non-blocking notification system (replaces alert() calls).
+
+- `ToastProvider (default export)` — Client context provider rendering a stacked, auto-dismissing toast container (bottom-right); mounted in the root layout.
+- `useToast` — Hook returning { show(message, type), success(message), error(message), info(message) }; safe no-op fallback outside the provider.
 
 ### `src/components/cover-letter/CoverLetterTemplate.js` — A React-PDF Document template for rendering a cover letter as a PDF document.
 
@@ -215,7 +220,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/checkout/create-session/route.js` — Creates a Stripe Checkout Session for a new subscription purchase.
 
-- `POST` — Reads x-user-id from header (set by middleware), resolves the requested plan from either its KEY ('PRO') or display name ('Pro') case-insensitively, and **rejects any plan other than PRO** (FREE is never a checkout product). Creates a Stripe Checkout Session with subscription mode and returns the checkout URL. Includes userId and planName='PRO' in both session and subscription metadata.
+- `POST` — Reads x-user-id from header (set by middleware), resolves the requested plan via `resolvePlanKey()` (accepts KEY 'PRO' or display name 'Pro', case-insensitive) and **rejects any plan other than PRO** (FREE is never a checkout product). Creates a Stripe Checkout Session with subscription mode and returns the checkout URL. Includes userId and planName='PRO' (canonical KEY) in both session and subscription metadata so webhook/verify checks always match.
 
 ### `src/app/api/checkout/verify-session/route.js` — Verifies a completed Stripe Checkout Session and activates the user's subscription.
 
@@ -312,10 +317,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `DashboardContent` — Default export (via re-export). Client component with the full dashboard UI: job description input, special instructions, resume generation, live preview, save checkbox, Stripe session verification (inline dismissible status banner instead of alert()), and resume list via ResumeList component.
 - `handleGenerateResume` — Async callback that calls POST to the generate endpoint with resume content, job description, special instructions, and save flag; when the server saves (`resumeId` returned) it refetches the saved-resumes list so the new resume appears immediately.
 
-### `src/app/layout.js` — Root layout for the entire application, setting up fonts, global CSS, auth context, navigation bar, and footer.
+### `src/app/layout.js` — Root layout for the entire application, setting up fonts, global CSS, auth context, toast notifications, navigation bar, and footer.
 
 - `metadata` — Named export. SEO metadata object with title 'ATS-Friendly Resume Builder' and description.
-- `RootLayout` — Default export. Server component providing the HTML document structure with Outfit font, AuthProvider context, Navbar, main content area, and Footer.
+- `RootLayout` — Default export. Server component providing the HTML document structure with Outfit font, AuthProvider context, ToastProvider (app-wide toasts), Navbar, main content area, and Footer.
 
 ### `src/app/login/page.js` — Login page with an email-based OTP authentication flow: send a login code to the user's email, then verify the code to redirect to onboarding (new users) or dashboard (existing users).
 
@@ -348,7 +353,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/pricing/page.js` — Pricing page displaying Free and Pro subscription plans with feature comparisons and upgrade buttons that trigger Stripe checkout.
 
 - `PricingPage` — Client component rendering Free/Pro tiers; Free-tier label adapts to the viewer's role (Start Free / Your Plan / Included) via useAuth.
-- `handleUpgrade(planKey)` — POSTs the plan KEY (`'PRO'`) to /api/checkout/create-session and redirects to Stripe.
+- `handleUpgrade(planKey)` — POSTs the plan KEY (`'PRO'`) to /api/checkout/create-session and redirects to Stripe. Errors surface via toast.
 
 ### `src/app/profile/page.js` — User profile page with tabs for personal details (name, date of birth, AI resume editing, manual resume form, resume upload/parse) and subscription management (plan info, upgrade, manage billing).
 
@@ -584,6 +589,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `generatePdf` — Validates the requested template against ALLOWED_TEMPLATES, dynamically imports the component **using the validated id (never the raw client string)** + PdfResumeRenderer, renders to a PDF blob Buffer.
 - `generateCoverLetterPdf` — Dynamically imports the cover letter template, renders it to a PDF blob, and returns it as a Buffer.
 
+### `src/lib/planResolver.js` — Pure helper mapping a client-supplied plan identifier to a PLANS key (extracted from create-session for unit testing — C1 regression guard).
+
+- `resolvePlanKey(planName)` — Accepts the KEY ('PRO') or display name ('Pro') case-insensitively; returns the canonical PLANS key or null for unknown input.
+
 ### `src/lib/promptConfig.js` — Single source of truth for AI prompt strategies — maps user roles to prompt tiers and provides builder functions for each tier.
 
 - `PROMPT_STRATEGIES` — Maps user roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) to template names (premium, standard, basic).
@@ -756,6 +765,17 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `UserService.updateUser(userId, updateData, options)` — Generic update for any user fields with configurable returnNew and runValidators options.
 - `UserService.addGeneratedResume(userId, resumeId)` — Pushes a resume ID into the user's generatedResumes array.
 - `UserService.removeGeneratedResume(userId, resumeId)` — Pulls a resume ID from the user's generatedResumes array.
+
+### `scripts/backfill-users.mjs` — One-time data migration (2026-08-22 audit follow-ups). Idempotent; supports `--dry-run`.
+
+1. Lowercases + trims all user emails (skips with a warning on collisions for manual merge).
+2. Clears stale `subscriptionId` from users who are not active subscribers (unless their paid-through window hasn't passed).
+
+**Applied 2026-08-22**: 0 email conflicts, 2 stale subscriptionIds cleared.
+
+**Usage:** `node scripts/backfill-users.mjs [--dry-run]` (reads MONGODB_URI from env or `.env.local`)
+
+### `vitest.config.js` — Vitest test runner config: `@/*` alias + an Oxc-based plugin that compiles JSX inside the app's `.js` source files (Next.js convention) so templates can be imported in tests. Tests live in `tests/` and run via `npm test`.
 
 ### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections.
 

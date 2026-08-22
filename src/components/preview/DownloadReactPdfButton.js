@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { checkPermission, getPermissionMetadata } from "@/lib/accessControl";
 import { PERMISSIONS } from "@/lib/constants";
+import { useToast } from "@/components/common/ToastProvider";
 
 export default function DownloadReactPdfButton({
   resumeData,
@@ -10,12 +11,13 @@ export default function DownloadReactPdfButton({
   user,
 }) {
   const [downloading, setDownloading] = useState(false);
+  const toast = useToast();
 
   const hasPermission = user && checkPermission(user, PERMISSIONS.DOWNLOAD_PDF);
 
   const handleDownload = async () => {
     if (!hasPermission) {
-      alert("Upgrade to Pro to download PDFs");
+      toast.info("Upgrade to Pro to download PDFs");
       return;
     }
     setDownloading(true);
@@ -49,10 +51,10 @@ export default function DownloadReactPdfButton({
           const data = await response.json();
           if (data?.error) message = data.error;
         } catch {}
-        alert(message);
+        toast.error(message);
       }
     } catch (error) {
-      alert("Failed to download PDF. Please check your connection and try again.");
+      toast.error("Failed to download PDF. Please check your connection and try again.");
     }
     setDownloading(false);
   };

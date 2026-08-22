@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ROLES, PLANS } from '@/lib/constants';
+import { useToast } from '@/components/common/ToastProvider';
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const router = useRouter();
+  const toast = useToast();
 
   useEffect(() => {
     fetchUsers();
@@ -41,15 +43,16 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: parseInt(newRole) }),
       });
-      
+
       if (res.ok) {
+        toast.success('Role updated.');
         fetchUsers(); // Refresh list
       } else {
-        alert('Failed to update role');
+        toast.error('Failed to update role');
       }
     } catch (err) {
       console.error(err);
-      alert('Error updating role');
+      toast.error('Error updating role');
     }
   };
 
@@ -62,13 +65,14 @@ export default function AdminDashboard() {
       });
 
       if (res.ok) {
+        toast.success('Usage reset.');
         fetchUsers();
       } else {
-        alert('Failed to reset usage');
+        toast.error('Failed to reset usage');
       }
     } catch (err) {
       console.error(err);
-      alert('Error resetting usage');
+      toast.error('Error resetting usage');
     }
   };
 
@@ -81,14 +85,15 @@ export default function AdminDashboard() {
       });
 
       if (res.ok) {
+        toast.success(`Deleted ${userEmail}.`);
         fetchUsers();
       } else {
-        const data = await res.json();
-        alert(data.error || 'Failed to delete user');
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to delete user');
       }
     } catch (err) {
       console.error(err);
-      alert('Error deleting user');
+      toast.error('Error deleting user');
     }
   };
 

@@ -3,11 +3,7 @@
 ## 🟢 Improvements
 
 - **2026-08-22** — Audit remediation pass: ALL critical/high/medium findings from the 2026-08-22 audit fixed in one batch (billing correctness, permission-check args, downgrade credit leak, skills normalization, refresh-rotation grace window, dead server actions deleted, logout revocation, OTP hardening, AI runner timeouts/retries, rate limiting, env boot validation, etc.). Verified: `npm run lint` 0 errors (2 accepted warnings), `npm run build` passes. Details in `docs/audit.md`.
-- **2026-08-22 (follow-ups)** — Ideas surfaced while fixing:
-  - Move the in-memory rate limiter (`src/lib/rateLimit.js`) to Redis when scaling beyond one instance; same for the OTP per-IP throttle.
-  - One-time data migration script: lowercase existing user emails + backfill-clear stale `subscriptionId` on non-subscriber users (H2/M1 cleanup for legacy rows).
-  - Add integration tests for checkout flow (both plan-name casings) and PDF template rendering with schema-shaped skills — these would have caught C1/C2/H3.
-  - Replace remaining `alert()`s in admin dashboard & download buttons with toasts (accepted polish).
+- **2026-08-22 (follow-ups — IMPLEMENTED same day):** ✅ Redis-backed rate limiting remains an idea only when scaling beyond one instance (`src/lib/rateLimit.js` + OTP throttle are in-memory). ✅ Data migration shipped as `scripts/backfill-users.mjs` (email casing + stale subscriptionId cleanup) and applied. ✅ Automated tests shipped: Vitest with 15 regression tests (checkout plan resolution, skills normalization, PDF template rendering) via `npm test`. ✅ All `alert()`s replaced by shared toasts (`src/components/common/ToastProvider.js`).
 - **2026-08-22** — Full deep-dive audit completed → see `docs/audit.md` (2 critical incl. broken Stripe checkout from Pricing/Profile pages, 8 high incl. always-failing "save as new" permission check + Pro-limit leak after downgrade + blank Skills in 4 templates, 15 medium, 13 low; fix order at bottom of that file).
 
 - **2026-08-21** — Full site audit completed → see `docs/audit.md` (1 critical IDOR in edit-resume-with-ai, 11 high incl. broken nav links + onboarding auth flow + seed permission drift; fix order at bottom of that file).

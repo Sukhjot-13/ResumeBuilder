@@ -3,6 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { AuthProvider } from "@/context/AuthContext";
+import ToastProvider from "@/components/common/ToastProvider";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -20,11 +21,13 @@ export default function RootLayout({ children }) {
     <html lang="en" className={outfit.variable}>
       <body className="antialiased min-h-screen flex flex-col">
         <AuthProvider>
-          <Navbar />
-          <main className="flex-grow pt-16">
-            {children}
-          </main>
-          <Footer />
+          <ToastProvider>
+            <Navbar />
+            <main className="flex-grow pt-16">
+              {children}
+            </main>
+            <Footer />
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

@@ -7,31 +7,39 @@
 > dead server actions deleted, logout revocation, OTP hardening, AI runner timeouts/retries,
 > rate limiting, env boot validation, and more.
 >
-> Superseded detail is in git history (`docs/audit.md` before this rewrite). This file now tracks
-> **only what is still open**, plus items accepted as-is.
+> Superseded detail is in git history (`docs/audit.md` before this rewrite). This file tracks
+> what was open afterwards — most of which has since been completed (see statuses).
 
 **Scope of original review:** Full-codebase review of the active site (`src/`): auth/session flow,
 Stripe billing & credits, permissions, every API route, all pages/components/hooks, PDF templates,
-AI stack, and data schema consistency. Verified with `npm run lint` (0 errors, 2 accepted warnings)
-and `npm run build` (passes).
+AI stack, and data schema consistency. Verified with `npm run lint`, `npm test`, `npm run build`.
 
 ---
 
-## ⬜ Open Items
+## Open Items
 
 ### 🔴 Action Required (manual)
-1. **Rotate archived worker secrets**, then delete `automation/worker/.env` (gitignored, never committed).
+1. **Rotate archived worker secrets at their providers** (DeepSeek, Resend, etc.) — the local
+   `automation/worker/.env` file was deleted on 2026-08-22; rotation in the provider dashboards is
+   the only remaining manual step. ⬜ manual
 
-### 🟠 Follow-ups (recommended)
-1. **Legacy-data migration** — lowercase existing user emails (M1 fix only normalizes new writes) and backfill-clear stale `subscriptionId` on non-subscriber users so the H2 credit-limit fix covers pre-fix rows.
-2. **Automated tests** — no unit/e2e tests exist. Regressions like the old C1/H1/H3 are exactly what a few integration tests would catch (checkout with both plan-name casings; PDF template rendering with schema-shaped skills).
-3. **Replace remaining `alert()`s** in admin dashboard and download buttons with toasts/modals (dashboard payment flow already converted to an inline banner).
+### 🟠 Follow-ups
+1. ✅ **DONE 2026-08-22** — Legacy-data migration: `scripts/backfill-users.mjs` lowercases user emails
+   and clears stale `subscriptionId` on non-subscribers (idempotent, `--dry-run` supported).
+   Applied to the database: 0 email casing conflicts, 2 stale subscriptionIds cleared.
+2. ✅ **DONE 2026-08-22** — Automated tests: Vitest set up (`npm test`) with three suites / 15 tests:
+   plan resolution for checkout (both casings — C1 regression), skills normalization across every
+   historical shape (H3 regression), and real PDF rendering of all 6 templates with schema-shaped
+   skills + text extraction assertions. Run via `npx vitest run`; config in `vitest.config.js`.
+3. ✅ **DONE 2026-08-22** — All `alert()`s replaced with a shared toast system
+   (`src/components/common/ToastProvider.js`, mounted app-wide in `layout.js`). `confirm()` guards
+   intentionally retained for destructive actions.
 
 ### 🟡 Accepted As-Is (documented, not bugs)
 1. Exhaustive-deps lint warnings (fetch-on-mount patterns; currently 2) — intentional; lint otherwise 0 errors.
 2. Mixed response envelopes (list/detail GETs unwrapped, mutations enveloped) — deliberate convention, see `docs/architecture.md` → `apiResponse.js`.
 3. Index keys on bullet-list inputs in ManualResumeForm — cosmetic.
-4. Next.js 16.3.2 upgrade — staging regression pass still pending before deploy.
+4. Next.js 16.3.2 upgrade — staging regression pass still pending before deploy. ⬜ needs staging environment
 
 ---
 
@@ -52,4 +60,5 @@ and `npm run build` (passes).
 - AI stack: provider timeouts, token caps, retry/backoff; prompt-injection sanitization on job
   descriptions and parsed resume text.
 - Boot-time env validation (`src/instrumentation.js`); response-envelope convention documented;
+  automated regression tests for billing plan resolution, skills rendering, and PDF output;
   lint 0 errors; build clean.

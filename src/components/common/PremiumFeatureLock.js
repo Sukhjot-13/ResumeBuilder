@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PLANS } from '@/lib/constants';
+import { useToast } from '@/components/common/ToastProvider';
 
 /**
  * A reusable component to lock premium features.
@@ -25,6 +26,7 @@ export default function PremiumFeatureLock({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   const handleUpgrade = async () => {
     if (onUpgrade) {
@@ -43,17 +45,17 @@ export default function PremiumFeatureLock({
           planName: planName,
         }),
       });
-      
+
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert('Failed to initiate checkout. Please try again.');
+        toast.error('Failed to initiate checkout. Please try again.');
         setLoading(false);
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to initiate checkout');
+      toast.error('Failed to initiate checkout');
       setLoading(false);
     }
   };
