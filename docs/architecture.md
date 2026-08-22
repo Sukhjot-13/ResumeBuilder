@@ -1,12 +1,13 @@
 # Architecture Documentation
 
-Auto-generated from all 167 source files.
+Maintained inventory of every file in the codebase: purpose + all functions per file.
+Covers the Next.js app (`src/`) and root configs. The job-automation feature (UI pages, API routes, models, and the `worker/` service) was archived on 2026-08-21 into the root `automation/` folder — see its section below.
 
 ---
 
-## Root
+## Docs
 
-### `TODO.md` — Consolidated master task list
+### `docs/to-do.md` — Consolidated master task list
 
 Single source of truth for all pending work. Organized by priority: 🔴 Critical (security/integrity), 🟠 High (auth, permissions, features), 🟡 Medium (UX, infrastructure, architecture), ⬜ Pending (deploy/future). Supersedes the now-deleted `audit.md`, `suggested_changes.md`, `auth.md`, `a1.md`, `README.md`, `plan.md`.
 
@@ -17,110 +18,110 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ## Users
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/app/resume-history/page.js` — Page route displaying the user's resume history, including master resume and all generated tailored resumes, with delete and preview capabilities.
+### `src/app/resume-history/page.js` — Page route displaying the user's resume history, including master resume and all generated tailored resumes, with delete and preview capabilities.
 
 - `ResumeHistoryPage (default export)` — Page component that fetches user profile/mainResume and all generated resumes on mount, renders a ResumeList, and includes a modal overlay for viewing tailored resume content as JSON.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/app/test/page.js` — Test page that displays the master resume rendered via React-PDF for visual comparison/testing.
+### `src/app/test/page.js` — Test page that displays the master resume rendered via React-PDF for visual comparison/testing.
 
 - `TestPage (default export)` — Page component that fetches the user profile's mainResume content and renders it using a dynamically imported ReactPdfView component.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/common/AccessDenied.js` — A simple access denied UI component that shows a restriction message without an upgrade/upsell prompt.
+### `src/components/common/AccessDenied.js` — A simple access denied UI component that shows a restriction message without an upgrade/upsell prompt.
 
 - `AccessDenied (default export)` — Stateless component rendering a centered card with a lock icon (customizable), a title, and a message to inform the user they lack permission.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/common/LoadingSpinner.js` — A reusable animated loading spinner component.
+### `src/components/common/LoadingSpinner.js` — A reusable animated loading spinner component.
 
 - `LoadingSpinner (default export)` — Stateless component rendering a centered spinning circle with a blue border.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/common/PermissionGate.js` — A wrapper component that conditionally renders children based on user permissions, with configurable fallback behaviors.
+### `src/components/common/PermissionGate.js` — A wrapper component that conditionally renders children based on user permissions, with configurable fallback behaviors.
 
 - `PermissionGate (default export)` — Component that checks a user's permission via checkPermission(). If granted, renders children. If denied, renders nothing (hidden fallback), an AccessDenied (simple fallback), or a PremiumFeatureLock (default/compact fallback) with the permission's metadata. Returns null (deny) when permission prop is missing/null — prevents accidental unauthenticated access.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/common/PremiumFeatureLock.js` — A reusable UI component that locks premium features behind an upgrade prompt with a Stripe checkout flow.
+### `src/components/common/PremiumFeatureLock.js` — A reusable UI component that locks premium features behind an upgrade prompt with a Stripe checkout flow.
 
 - `PremiumFeatureLock (default export)` — Component displaying a lock icon, feature name, description, and an upgrade button that initiates a checkout session via /api/checkout/create-session. Supports default (full-size centered) and compact (inline) variants.
 - `handleUpgrade` — Internal async function that either calls a custom onUpgrade handler or posts to /api/checkout/create-session and redirects to the Stripe checkout URL.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/cover-letter/CoverLetterTemplate.js` — A React-PDF Document template for rendering a cover letter as a PDF document.
+### `src/components/cover-letter/CoverLetterTemplate.js` — A React-PDF Document template for rendering a cover letter as a PDF document.
 
 - `CoverLetterTemplate (default export)` — React-PDF component that renders a full-page cover letter PDF with sender info, date, recipient info, salutation, body paragraphs, closing, and signature using styled react-pdf primitives (Document, Page, Text, View).
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/diff/DiffViewer.js` — A text diff viewer component that highlights added and removed lines between two text inputs.
+### `src/components/diff/DiffViewer.js` — A text diff viewer component that highlights added and removed lines between two text inputs.
 
 - `DiffViewer (default export)` — Component that accepts originalText and newText props, computes line-level diffs using the 'diff' library, and renders each change with green for additions, red/strikethrough for removals, and normal styling for unchanged lines.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/home/JobDescription.js` — A simple textarea component for inputting a job description.
+### `src/components/home/JobDescription.js` — A simple textarea component for inputting a job description.
 
 - `JobDescription (default export)` — Stateless component rendering a labeled textarea for pasting a job description, bound via jobDescription/setJobDescription props.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/home/JobDescriptionInput.js` — An enhanced job description textarea with a loading skeleton state.
+### `src/components/home/JobDescriptionInput.js` — An enhanced job description textarea with a loading skeleton state.
 
 - `JobDescriptionInput (default export)` — Component rendering a labeled textarea for job description input, with an animated pulse skeleton shown while the loading prop is true.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/home/SpecialInstructionsInput.js` — Input panel for special instructions and generate button, with permission-gated lock states for free users.
+### `src/components/home/SpecialInstructionsInput.js` — Input panel for special instructions and generate button, with permission-gated lock states for free users.
 
 - `SpecialInstructionsInput (default export)` — Component that renders a special instructions textarea and a generate resume button. For users lacking USE_SPECIAL_INSTRUCTIONS permission, the textarea is locked with an overlay badge. For users lacking GENERATE_RESUME permission, the generate button is disabled with an upgrade prompt. Shows skeleton while loading.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/home/TemplateSelector.js` — A dropdown component for selecting a resume template, loaded asynchronously from the server.
+### `src/components/home/TemplateSelector.js` — A dropdown component for selecting a resume template, loaded asynchronously from the server.
 
 - `TemplateSelector (default export)` — Component that fetches available templates via the getTemplates server action on mount, renders a select dropdown with loading/error states, and calls setSelectedTemplate on change.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/layout/Footer.js` — Application footer with branding, product links, legal links, and copyright.
+### `src/components/layout/Footer.js` — Application footer with branding, product links, legal links, and copyright.
 
 - `Footer (default export)` — Stateless component rendering a footer with ResumeAI branding, Product links (Features, Templates, Pricing), Legal links (Privacy Policy, Terms of Service), and a dynamic copyright year.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/layout/Navbar.js` — Top navigation bar with authentication-aware links, credit badge, role-based navigation items, and mobile menu.
+### `src/components/layout/Navbar.js` — Top navigation bar with authentication-aware links, credit badge, role-based navigation items, and mobile menu.
 
-- `Navbar (default export)` — Component that renders a fixed header with ResumeAI logo, desktop nav links (public or authenticated based on auth state), a credit badge showing remaining credits, role/permission-gated navigation items (Dashboard, Automation, Cover Letters, AI Edit, Admin), Profile link, Logout button, and a toggleable mobile hamburger menu.
+- `Navbar (default export)` — Component that renders a fixed header with ResumeAI logo, desktop nav links (public or authenticated based on auth state), a credit badge showing remaining credits, role/permission-gated navigation items (Dashboard, Cover Letters, AI Edit, Admin), Profile link, Logout button, and a toggleable mobile hamburger menu. Automation links removed 2026-08-21 when the feature was archived.
 - `handleLogout` — Internal async function that POSTs to /api/auth/logout, refreshes auth state, and redirects to /login.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/CoverLetterDisplayView.js` — An HTML/text view of a cover letter for on-screen display.
+### `src/components/preview/CoverLetterDisplayView.js` — An HTML/text view of a cover letter for on-screen display.
 
 - `CoverLetterDisplayView (default export)` — Stateless component that renders a cover letter as styled HTML, showing sender info, date, recipient info, salutation, body paragraphs, closing, and signature.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/CoverLetterPdfView.js` — A PDF viewer for cover letters using react-pdf with zoom and download controls.
+### `src/components/preview/CoverLetterPdfView.js` — A PDF viewer for cover letters using react-pdf with zoom and download controls.
 
 - `CoverLetterPdfView (default export)` — Component that POSTs coverLetterData to /api/render-pdf-react to generate a PDF blob, then displays it via react-pdf's Document/Page components. Provides zoom in/out controls and a download link. Shows loading state and error state.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/CoverLetterPreview.js` — Main cover letter preview component with toggle between text view and PDF view.
+### `src/components/preview/CoverLetterPreview.js` — Main cover letter preview component with toggle between text view and PDF view.
 
 - `CoverLetterPreview (default export)` — Component that renders a preview container with a tab toggle (Text View / PDF View), the active view component, and a DownloadCoverLetterPdfButton. Dynamically imports CoverLetterPdfView for client-side only rendering.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/DownloadCoverLetterPdfButton.js` — Download button that generates and downloads a cover letter PDF.
+### `src/components/preview/DownloadCoverLetterPdfButton.js` — Download button that generates and downloads a cover letter PDF.
 
 - `DownloadCoverLetterPdfButton (default export)` — Component with a handleDownload function that POSTs coverLetterData to /api/render-pdf-react, receives a PDF blob, and triggers a client-side file download named cover-letter.pdf.
 - `handleDownload` — Internal async function that fetches the PDF from the API, creates a temporary anchor element, triggers the download, and cleans up.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/DownloadReactPdfButton.js` — Download button for resume PDFs with permission-gated lock state for free users.
+### `src/components/preview/DownloadReactPdfButton.js` — Download button for resume PDFs with permission-gated lock state for free users.
 
 - `DownloadReactPdfButton (default export)` — Component that checks the DOWNLOAD_PDF permission. If the user lacks permission, renders a disabled button with a lock icon. If permitted, renders an active button that POSTs resumeData and template to /api/render-pdf-react and triggers a download named resume-react.pdf.
 - `handleDownload` — Internal async function that checks permission (alerting if denied), fetches the PDF from the API, and triggers a client-side download.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/PdfResumeRenderer.js` — A thin wrapper that renders a resume data object through a provided Template component.
+### `src/components/preview/PdfResumeRenderer.js` — A thin wrapper that renders a resume data object through a provided Template component.
 
 - `PdfResumeRenderer (default export)` — Functional component that accepts resumeData and a Template component as props, instantiating the Template with resumeData as its prop.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/ReactPdfView.js` — A full-featured PDF viewer for resumes using react-pdf with zoom controls and download.
+### `src/components/preview/ReactPdfView.js` — A full-featured PDF viewer for resumes using react-pdf with zoom controls and download.
 
 - `ReactPdfView (default export)` — Component that POSTs resumeData and template to /api/render-pdf-react to generate a PDF blob, then renders it via react-pdf. Supports zoom in/out (25% steps, min 50%), responsive page width based on screen size, and a download button. Handles loading, error, and cleanup states.
 - `onLoadSuccess` — Internal callback that sets the numPages state when the PDF document finishes loading.
 - `zoomIn` — Internal function that increases the zoom level by 0.25.
 - `zoomOut` — Internal function that decreases the zoom level by 0.25, floored at 0.5.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/ResumeDisplayView.js` — An HTML/text view of resume data for on-screen display.
+### `src/components/preview/ResumeDisplayView.js` — An HTML/text view of resume data for on-screen display.
 
 - `ResumeDisplayView (default export)` — Stateless component that renders resume data as styled HTML, displaying profile info (name, email, phone, location, website, headline, summary), work experience with responsibilities, education with coursework, skills as tags, and additional info (languages, certifications, awards/activities).
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/ResumePreview.js` — Main resume preview component with toggle between text view and PDF view.
+### `src/components/preview/ResumePreview.js` — Main resume preview component with toggle between text view and PDF view.
 
 - `ResumePreview (default export)` — Component that renders a resume preview container with a tab toggle (Text View / PDF View), the active view component, and a DownloadReactPdfButton. Dynamically imports ReactPdfView for client-side only rendering.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/preview/TemplateViewer.js` — A combined component that wraps a TemplateSelector and ResumePreview for viewing a resume with different templates.
+### `src/components/preview/TemplateViewer.js` — A combined component that wraps a TemplateSelector and ResumePreview for viewing a resume with different templates.
 
 - `TemplateViewer (default export)` — Component that holds a selectedTemplate state, renders a TemplateSelector for choosing a template, and a ResumePreview below it showing the resume rendered with the selected template.
 
-### `/Users/sukhjot/codes/untitled folder 2/ats-resume-builder-a1/src/components/ResumeList.js` — Displays the master resume card and a grid of all generated/saved resumes with view, edit, and delete actions.
+### `src/components/ResumeList.js` — Displays the master resume card and a grid of all generated/saved resumes with view, edit, and delete actions.
 
 - `ResumeList (default export)` — Component that renders a loading spinner, empty state, master resume card, and a grid of generated resumes. Supports inline editing of resume metadata (name, job title, company) via PATCH API, delete via callback, and view via callback. Uses PermissionGate to conditionally show edit/delete buttons.
 - `startEditing` — Internal function that sets the editing state to a specific resume and populates the edit form with its current metadata.
@@ -176,10 +177,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `getResumeLabel` — Formats resume display names with priority: `resumeName` > `jobTitle` > `profile.headline` > `profile.name` > fallback, plus master badge and date
 - `getCoverLetterLabel` — Formats cover letter display names from `coverLetterName` or `companyName` with date
 
-### `src/app/api-keys/page.js` — API keys management page for creating, viewing, and revoking API keys used by the Automation Worker.
-
-- `ApiKeysPage` — Default export — renders API key management UI with key creation form, key list, and revoke functionality
-
 ### `src/app/api/admin/permissions/route.js` — API route to list all available permissions from the database (seeded from constants). Requires MANAGE_ROLES permission.
 
 - `GET` — Returns all Permission documents sorted by group and key. Requires MANAGE_ROLES.
@@ -213,15 +210,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `GET` — Return all users sorted by creation date, excluding sensitive OTP fields
 
-### `src/app/api/api-keys/[id]/route.js` — API route to revoke a specific API key by ID.
-
-- `DELETE` — Revoke (deactivate) an API key belonging to the authenticated user
-
-### `src/app/api/api-keys/route.js` — API route to list and create API keys. Supports both JWT and API-key auth via resolveUserId().
-
-- `GET` — List all active, non-revoked API keys for the authenticated user
-- `POST` — Create a new API key with a given name, returning the plaintext key once
-
 ### `src/app/api/auth/check-subscription/route.js` — API route to check a user's subscription status and downgrade if expired.
 
 - `POST` — Check subscription, auto-downgrade if expired, and return current role and subscription status
@@ -241,65 +229,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/api/auth/verify-token/route.js` — API route to rotate a refresh token and issue new access/refresh tokens.
 
 - `POST` — Accept refresh token, rotate it, and return new access and refresh tokens with userId
-
-### `src/app/api/automation/applications/route.js` — API route to list and create job applications, syncing related job listing status.
-
-- `GET` — List the authenticated user's recent applications with populated job details
-- `POST` — Create a new application record and sync the related job listing's status
-
-### `src/app/api/automation/apply-instructions/route.js` — API route to get and save custom apply instructions for the automation worker.
-
-- `GET` — Retrieve the user's saved apply instructions
-- `PUT` — Save or update the user's apply instructions with upsert
-
-### `src/app/api/automation/criteria/route.js` — API route to get and save job search criteria used by the automation worker.
-
-- `GET` — Retrieve the user's job search criteria
-- `PUT` — Save or update the user's job search criteria with upsert
-
-### `src/app/api/automation/daily-count/route.js` — API route to track daily automation usage counts.
-
-- `GET` — Get today's application count for the authenticated user
-- `POST` — Increment today's application count for the authenticated user with upsert
-
-### `src/app/api/automation/gatekeeper-rules/route.js` — API route to get and save gatekeeper rules, redirecting salary/work-mode fields to the consolidated JobCriteria source.
-
-- `GET` — Retrieve the user's gatekeeper rules
-- `PUT` — Save/update gatekeeper rules, redirecting salary and work-mode fields to JobCriteria
-
-### `src/app/api/automation/jobs/[id]/apply/route.js` — Forwards a request to the external worker service to trigger an automated job application for a specific job listing.
-
-- `POST` — Requires VIEW_AUTOMATION permission. Looks up the job by ID and userId, then POSTs to the worker's /trigger/apply-job endpoint with the jobId. Returns success or a worker/network error.
-
-### `src/app/api/automation/jobs/[id]/route.js` — Fetches a single job listing with its gatekeeper decision and application, or deletes a job listing and cleanup associated records.
-
-- `GET` — Requires VIEW_AUTOMATION permission. Finds the job by ID and userId; concurrently loads the related GatekeeperDecision and most recent Application. Returns the merged result.
-- `DELETE` — Requires VIEW_AUTOMATION permission. Finds and deletes the job by ID and userId, then deletes all associated GatekeeperDecision and Application records.
-
-### `src/app/api/automation/jobs/route.js` — Lists recent job listings with optional filters and attached gatekeeper decisions, or creates/upserts a new job listing.
-
-- `GET` — Requires VIEW_AUTOMATION permission. Queries JobListing with optional status/platform filters, sorted by scrapedAt descending, limited to 50. Attaches the related GatekeeperDecision to each job.
-- `POST` — Requires VIEW_AUTOMATION permission. Parses JSON body and upserts a JobListing keyed on userId + platform + externalId, defaulting company to 'Unknown Company' and status to 'pending'.
-
-### `src/app/api/automation/notifications/route.js` — Reads and updates the user's automation notification preferences.
-
-- `GET` — Requires VIEW_AUTOMATION permission. Returns the user's NotificationPrefs document, or a default set if none exists (emailOnApply, emailOnError, emailOnCaptcha, emailOnSchedulerStop all true).
-- `PUT` — Requires VIEW_AUTOMATION permission. Accepts JSON body and updates only the allowed boolean fields (emailOnApply, emailOnError, emailOnCaptcha, emailOnSchedulerStop), then upserts the document.
-
-### `src/app/api/automation/scheduler/route.js` — Manages per-user scheduler settings for automation.
-
-- `GET` — Requires MANAGE_SCHEDULER permission. Returns the user's SchedulerSettings document or null.
-- `PUT` — Requires MANAGE_SCHEDULER permission. Upserts the user's SchedulerSettings with the entire request body, setting updatedAt to the current date.
-
-### `src/app/api/automation/sessions/route.js` — Manages encrypted platform sessions (LinkedIn/Indeed cookies) for automated job applications.
-
-- `GET` — Requires MANAGE_PLATFORM_SESSIONS permission. Lists all platform sessions for the user. For Bearer-authenticated (worker) calls, includes the encrypted cookies; for web UI calls, omits them.
-- `POST` — Requires MANAGE_PLATFORM_SESSIONS permission. Accepts platform and cookies, validates platform is linkedin or indeed, encrypts the cookies, and upserts the session document.
-- `DELETE` — Requires MANAGE_PLATFORM_SESSIONS permission. Deletes a platform session for the given platform query parameter.
-
-### `src/app/api/automation/trigger-scrape/route.js` — Triggers a scrape job on the external worker service.
-
-- `POST` — Forwards a POST request to the worker's /trigger/scrape endpoint. Returns the worker's JSON response or a 502 error if the worker is unreachable or returns an error.
 
 ### `src/app/api/checkout/create-portal-session/route.js` — Creates a Stripe Billing Portal session so the user can manage their subscription.
 
@@ -327,10 +256,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking, plan-gated features, proper resume naming with incrementing suffixes ("Name" → "Name 1"), and multi-resume support.
 
 - `POST` — Requires EDIT_RESUME_WITH_AI permission and checks credit availability. For type='cover-letter', edits the cover letter content via AI and optionally saves to CoverLetter model. For resume editing: accepts `resumeId` for multi-resume support, edits via AI, deducts a credit. If `createNewResume`, names the source resume with an incrementing suffix ("Name" → "Name 1", "Name 1" → "Name 2") using `resumeName` metadata, gives the new resume the original name, and only sets it as main if editing the master. Sanitizes Mongo _id fields from the AI output before saving.
-
-### `src/app/api/gatekeeper/evaluate/route.js` — Evaluates a job listing against user-defined gatekeeper rules using AI, deciding whether to apply.
-
-- `POST` — Authenticates via API key, applies daily rate limiting. Merges GatekeeperRules (target titles, exclusions, etc.) and JobCriteria (salary, work-mode preferences) into a single ruleset. Calls the AI with a GATEKEEPER system prompt to evaluate the job, with one retry on parse failure. Persists the decision (apply, confidence, reason, flags) to GatekeeperDecision if a jobId is provided.
 
 ### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with credit checking and deduction. Uses shared resolveUserId() (replaced previous inline resolveUser helper).
 
@@ -381,91 +306,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/api/webhooks/stripe/route.js` — Handles incoming Stripe webhook events for subscription lifecycle management.
 
 - `POST` — Verifies the Stripe webhook signature. Handles three event types: checkout.session.completed (upgrades user to SUBSCRIBER role, saves transaction), invoice.payment_succeeded (renews subscription, resets credits, saves renewal transaction), and customer.subscription.deleted (sets subscriptionStatus to canceled, downgrades user to USER role).
-
-### `src/app/automation/applications/page.js` — Displays a list of jobs the Automation Worker has applied to, showing status, platform, submission time, and error details for each application.
-
-- `ApplicationsPage` — Default export. Client component that fetches and renders submitted applications with loading state, empty state, and a list of application cards with status badges.
-- `fetchApplications` — Async function that calls GET /api/automation/applications to retrieve application data and updates the apps state.
-- `statusBadge` — Returns a Tailwind CSS class string for the color-coded status badge based on application status (submitted, failed, pending).
-
-### `src/app/automation/jobs/[id]/page.js` — Displays full details of a single scraped job, including metadata, description, apply URL, application status, and gatekeeper AI decision. Allows user to apply to the job or delete it.
-
-- `JobDetailPage` — Default export. Client component for viewing a single job's details, with controls to apply, delete, and view gatekeeper reasoning.
-- `fetchJob` — Async function that calls GET /api/automation/jobs/:id to retrieve the job data.
-- `handleApplyNow` — Async function that calls POST /api/automation/jobs/:id/apply to queue the job for automated applying and displays a success/error message.
-- `statusBadge` — Returns Tailwind CSS class string for color-coded status badge based on job status (pending, approved, skipped, applied, failed, review, external_apply).
-
-### `src/app/automation/jobs/page.js` — Lists all scraped jobs with filtering by status and platform, allowing users to browse and delete job listings.
-
-- `JobsPage` — Default export. Client component that fetches and renders scraped job listings with filter controls, loading state, empty state, and inline delete buttons.
-- `fetchJobs` — Async function that calls GET /api/automation/jobs with optional query parameters for status and platform filters, updating the jobs state.
-- `statusBadge` — Returns Tailwind CSS class string for color-coded status badge based on job status (pending, approved, skipped, applied, failed, review, external_apply).
-
-### `src/app/automation/layout.js` — Provides the navigation layout for the automation section, including a sub-navigation bar with links to Dashboard, Jobs, Applications, and Settings, gated by VIEW_AUTOMATION permission.
-
-- `AutomationLayout` — Default export. Client component wrapping automation pages with a navigation bar, permission gate, and background styling.
-
-### `src/app/automation/page.js` — Main automation dashboard showing system status cards, a manual scrape trigger button, pipeline mode information, quick links to settings, and a how-it-works guide.
-
-- `AutomationDashboard` — Default export. Client component rendering the automation hub with status cards, scrape controls, pipeline mode display, quick start links, and setup instructions.
-- `triggerScrape` — Async function that calls POST /api/automation/trigger-scrape to enqueue a new scrape job and displays success or error.
-
-### `src/app/automation/settings/accounts/page.js` — Settings page for managing LinkedIn and Indeed platform accounts by pasting session cookies, which are encrypted before storage.
-
-- `AccountsPage` — Default export. Client component managing LinkedIn and Indeed session cookie configuration with save, remove, and preview functionality.
-- `fetchSessions` — Async function that calls GET /api/automation/sessions to retrieve existing platform sessions.
-- `handleSave` — Async function that saves session cookies for a given platform via POST /api/automation/sessions.
-- `handleRemove` — Async function that removes a platform session via DELETE /api/automation/sessions.
-- `copyExample` — Copies an example cookie JSON structure to clipboard for the specified platform.
-- `SessionCard` — Renders a platform-specific card with cookie input, instructions, parsed preview toggle, save button, and remove button.
-
-### `src/app/automation/settings/api-keys/page.js` — Settings page for creating, listing, and revoking API keys used by the Automation Worker to authenticate with the application's API.
-
-- `AutomationApiKeysPage` — Default export. Client component for managing API keys with create form, one-time key display, key list, and revoke capability.
-- `fetchKeys` — Async callback that calls GET /api/api-keys to retrieve all API keys.
-- `handleCreate` — Async function that creates a new API key via POST /api/api-keys and displays the key value once.
-- `handleRevoke` — Async function that revokes an API key via DELETE /api/api-keys/:id after confirmation.
-
-### `src/app/automation/settings/apply-instructions/page.js` — Plain English instructions that the AI reads before filling out each job application form, guiding how to answer common questions.
-
-- `ApplyInstructionsPage` — Default export. Client component providing a text editor for writing AI instructions, with save and reset functionality.
-- `fetchInstructions` — Async function that calls GET /api/automation/apply-instructions to load existing instructions.
-- `handleSubmit` — Async function that saves instructions via PUT /api/automation/apply-instructions.
-
-### `src/app/automation/settings/criteria/page.js` — Settings page for configuring job search criteria including target titles, locations, work modes (remote/hybrid/onsite), salary range, and platforms.
-
-- `CriteriaPage` — Default export. Client component with form for setting job search criteria, fetching/saving via API.
-- `fetchCriteria` — Async function that calls GET /api/automation/criteria to load existing search criteria.
-- `handleSubmit` — Async function that saves criteria via PUT /api/automation/criteria, converting textarea inputs to arrays.
-- `togglePlatform` — Toggles a platform (linkedin/indeed) on/off in the form state.
-
-### `src/app/automation/settings/gatekeeper/page.js` — Settings page for configuring Gatekeeper AI rules that evaluate each job listing and decide whether to apply, skip, or flag for review.
-
-- `GatekeeperPage` — Default export. Client component with form for target titles, exclude companies/keywords, required keywords, seniority levels, and custom plain-English instructions.
-- `fetchRules` — Async function that calls GET /api/automation/gatekeeper-rules to load existing gatekeeper rules.
-- `handleSubmit` — Async function that saves gatekeeper rules via PUT /api/automation/gatekeeper-rules, converting textarea inputs to arrays.
-
-### `src/app/automation/settings/layout.js` — Provides the sidebar navigation layout for the automation settings section with links to sub-pages (Overview, Accounts, Criteria, Gatekeeper, Scheduler, API Keys).
-
-- `SettingsLayout` — Default export. Client component rendering a sidebar nav and content area for all automation settings sub-pages.
-
-### `src/app/automation/settings/notifications/page.js` — Settings page to configure which automation events trigger email notifications (application submitted, errors, CAPTCHA detected, scheduler stopped).
-
-- `NotificationsPage` — Default export. Client component with toggle switches for each notification event, with save and reset.
-- `fetchPrefs` — Async function that calls GET /api/automation/notifications to load notification preferences.
-- `handleToggle` — Toggles a single notification preference key in the form state.
-- `handleSubmit` — Async function that saves notification preferences via PUT /api/automation/notifications.
-
-### `src/app/automation/settings/page.js` — Settings overview page showing cards linking to each individual settings section (Accounts, Criteria, Gatekeeper, Scheduler, API Keys, Apply Instructions, Notifications).
-
-- `SettingsOverviewPage` — Default export. Client component rendering a grid of link cards to each automation settings sub-page.
-
-### `src/app/automation/settings/scheduler/page.js` — Settings page for the Automation Worker scheduler, controlling enable/disable, pipeline mode, time window, active days, application limits, delay ranges, gatekeeper thresholds, and pause conditions.
-
-- `SchedulerPage` — Default export. Client component with comprehensive form for all scheduler settings, including master toggle, pipeline mode selector, time window inputs, active day buttons, limit inputs, delay inputs, threshold sliders, and pause checkboxes.
-- `fetchSettings` — Async function that calls GET /api/automation/scheduler to load scheduler configuration.
-- `toggleDay` — Toggles a day of the week on/off in the activeDays form state.
-- `handleSubmit` — Async function that saves scheduler settings via PUT /api/automation/scheduler.
 
 ### `src/app/checkout/cancel/page.js` — Displays a payment-cancelled confirmation page after a user cancels a Stripe checkout session, with links to view plans or return to dashboard.
 
@@ -583,7 +423,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/config/env.js` — Single source of truth for environment variable access. Centralizes all process.env references so renaming a variable only requires a change here.
 
-- `env (default export)` — Object mapping config keys to environment variables for auth secrets, MongoDB URI, AI keys (Gemini), Stripe keys, Brevo email config, app URL, and automation settings
+- `env (default export)` — Object mapping config keys to environment variables for auth secrets, MongoDB URI, AI keys (Gemini), Stripe keys, Brevo email config, and app URL. Legacy automation keys (`workerUrl`, `cookieEncryptionKey`) are still defined but their only consumers were archived on 2026-08-21.
 
 
 ---
@@ -635,7 +475,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/ai/config.js` — AI task configuration mapping each task to a provider and model. Supports environment variable overrides per task.
 
-- `AI_TASKS` — Object mapping task keys (RESUME_GENERATION, COVER_LETTER_GENERATION, AI_EDIT, RESUME_PARSING, GATEKEEPER) to { provider, model } -- all currently routed to DeepSeek
+- `AI_TASKS` — Object mapping task keys (RESUME_GENERATION, COVER_LETTER_GENERATION, AI_EDIT, RESUME_PARSING, GATEKEEPER) to { provider, model } -- all currently routed to DeepSeek. The GATEKEEPER key is now referenced only by the archived gatekeeper endpoint (2026-08-21).
 - `getEffectiveConfig` — Returns the effective { provider, model } for a task key, checking for environment variable overrides (format: AI_TASK_<KEY>=provider:model) before falling back to AI_TASKS defaults
 
 ### `src/lib/ai/runners/deepseek.js` — DeepSeek AI API runner implementing the OpenAI-compatible chat completions endpoint.
@@ -648,12 +488,12 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `callGemini` — Calls the Gemini API with model name and prompt using the Google Generative AI SDK, returns response text
 - `parseGeminiJson` — Parses JSON from Gemini response text, stripping markdown code block markers and extracting the last valid JSON object
 
-### `src/lib/apiKeyAuth.js` — API key authentication for external API usage. Supports Bearer token validation, dual auth (API key + JWT proxy), rate limiting, and key generation. Uses hashToken from utils.js for SHA-256 hashing.
+### `src/lib/apiKeyAuth.js` — API key authentication library. **Kept live only for `resolveUserId()`,** which active resume / cover-letter / generate / parse routes call for auth (JWT path). The Bearer API-key side is dormant since the key-management UI/routes were archived on 2026-08-21 — no new keys can be created, though pre-existing DB keys would still validate.
 
-- `authenticateRequest` — Validates a Bearer API key from the Authorization header, checks expiration, updates last-used timestamp, and returns the associated user document
-- `resolveUserId` — Resolves a userId from either an API key (Bearer token) or the x-user-id header (JWT proxy), supporting both auth methods. Accepts optional `{ rateLimit }` option to apply daily rate limiting for API-key-authenticated calls.
-- `checkRateLimit` — Checks and increments daily API call count for a user against a configurable limit (default 100), returns 429 error if exceeded
-- `generateApiKey` — Generates a new API key with 'rb_' prefix, random 32-byte hex, and returns { plainKey, hashedKey, keyPrefix }
+- `authenticateRequest` — Validates a Bearer API key from the Authorization header, checks expiration, updates last-used timestamp, and returns the associated user document. **Dormant** — only consumer (archived gatekeeper route) removed.
+- `resolveUserId` — Resolves a userId from either an API key (Bearer token) or the x-user-id header (JWT proxy), supporting both auth methods. Accepts optional `{ rateLimit }` option to apply daily rate limiting for API-key-authenticated calls. **Actively used** across live routes (JWT path).
+- `checkRateLimit` — Checks and increments daily API call count for a user against a configurable limit (default 100), returns 429 error if exceeded. **Dormant** — only caller was the archived gatekeeper route.
+- `generateApiKey` — Generates a new API key with 'rb_' prefix, random 32-byte hex, and returns { plainKey, hashedKey, keyPrefix }. **Dormant** — only caller was the archived api-keys POST route.
 
 ### `src/lib/apiPermissionGuard.js` — Route-level permission guard that retrieves a user by ID and checks if they have a required permission before allowing access. Now uses DB-backed checkPermissionDB with fallback to constants.
 
@@ -689,15 +529,15 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/lib/constants.js` — Application-wide constants including role/permission enums, plan definitions, token config, routes, and API endpoints.
 
 - `ROLES` — Enum mapping role names (ADMIN: 0, DEVELOPER: 70, SUBSCRIBER: 99, USER: 100) to numeric levels
-- `PERMISSIONS` — Enum of 36 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, subscription/billing, and job automation features. Includes EDIT_COVER_LETTER (cover letter editing) and MANAGE_ROLES (admin permission management) — both PRO-tier permissions.
+- `PERMISSIONS` — Enum of 36 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, and billing. Includes EDIT_COVER_LETTER (cover letter editing) and MANAGE_ROLES (admin permission management) — both PRO-tier permissions. Automation-related strings (VIEW_AUTOMATION, MANAGE_SCHEDULER, MANAGE_PLATFORM_SESSIONS, MANAGE_API_KEYS, EMERGENCY_STOP, etc.) are inert legacy values kept to avoid touching role/seed logic — their features were archived on 2026-08-21.
 - `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN uses 'ALL' wildcard (any permission check passes), DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base permissions only. No more duplicated arrays.
 - `PERMISSION_METADATA` — Maps all 34 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
 - `PLANS` — Defines Free (2 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
 - `TOKEN_CONFIG` — JWT token configuration: access token expiry (15m), refresh token expiry (15 days), and type identifiers
 - `DEFAULTS` — Default values such as credits on signup
 - `OTP_CONFIG` — OTP expiry configuration (5 minutes)
-- `ROUTES` — Maps route names to URL paths for all app pages (home, login, onboarding, dashboard, profile, pricing, checkout, resume-history, ai-edit, cover-letters, admin, automation, api-keys)
-- `API_ENDPOINTS` — Maps API endpoint categories (auth, user, resumes, generate, cover-letters, edit-with-ai, parse-resume, checkout, admin, automation) to their URL paths
+- `ROUTES` — Maps route names to URL paths for all app pages (home, login, onboarding, dashboard, profile, pricing, checkout, resume-history, ai-edit, cover-letters, admin). The AUTOMATION_*/API_KEYS entries are legacy paths pointing at pages archived on 2026-08-21.
+- `API_ENDPOINTS` — Maps API endpoint categories (auth, user, resumes, generate, cover-letters, edit-with-ai, parse-resume, checkout, admin). The automation/API_KEYS/GATEKEEPER entries are legacy paths for routes archived on 2026-08-21.
 
 ### `src/lib/coverLetter-generator.js` — Shared core for cover letter generation via AI. Builds prompts and calls the AI client to produce a cover letter JSON object.
 
@@ -720,6 +560,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `encrypt` — Encrypts a plaintext string with AES-256-GCM and returns a colon-delimited string of IV + auth tag + ciphertext.
 - `decrypt` — Decrypts an encrypted string (IV:tag:ciphertext) back to plaintext using AES-256-GCM.
+- **Status:** no live importers since platform-session storage was archived on 2026-08-21 — kept so the automation archive can be restored without re-implementing crypto.
 
 ### `src/lib/logger.js` — Centralized logging service providing structured JSON log output at INFO, WARN, ERROR, and DEBUG levels.
 
@@ -788,42 +629,16 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/models/ApiKey.js` — Mongoose model for API keys associated with users for programmatic access.
 
 - `ApiKey (default export)` — Mongoose model with fields: userId, name, key, keyPrefix, isActive, lastUsedAt, expiresAt, createdAt, revokedAt.
-
-### `src/models/Application.js` — Mongoose model for job application records tracking submissions to various platforms.
-
-- `Application (default export)` — Mongoose model with fields: jobId, userId, resumeId, resumeUrl, submittedAt, status, errorMessage, platform.
-
-### `src/models/ApplyInstructions.js` — Mongoose model for storing a user's custom auto-apply instructions.
-
-- `ApplyInstructions (default export)` — Mongoose model with fields: userId (unique), instructions, updatedAt.
+- **Kept** because `src/lib/apiKeyAuth.js` imports it; no new keys can be created since the management UI/routes were archived 2026-08-21.
 
 ### `src/models/CoverLetter.js` — Mongoose model for saved cover letters with content schema derived from coverLetterFields.js and metadata.
 
 - `CoverLetter (default export)` — Mongoose model with fields: userId, content (generated schema from generateCoverLetterContentSchema — fields validated against COVER_LETTER_FIELDS), metadata (jobTitle, companyName, coverLetterName), createdAt.
 
-### `src/models/DailyCount.js` — Mongoose model for tracking daily per-user usage counts (e.g. AI generation quotas).
+### `src/models/DailyCount.js` — Mongoose model for tracking daily per-user usage counts (API rate limiting / automation quotas).
 
 - `DailyCount (default export)` — Mongoose model with fields: userId, date, count. Has a unique compound index on (userId, date).
-
-### `src/models/GatekeeperDecision.js` — Mongoose model for storing AI gatekeeper decisions about whether to apply to a job listing.
-
-- `GatekeeperDecision (default export)` — Mongoose model with fields: jobId, apply, confidence, reason, flags, keywordsFound, keywordsMissing, overriddenByUser, overrideDecision, createdAt.
-
-### `src/models/GatekeeperRules.js` — Mongoose model for storing a user's gatekeeper filtering rules (job titles, excludes, keywords, seniority levels, custom instructions).
-
-- `GatekeeperRules (default export)` — Mongoose model with fields: userId (unique), targetTitles, excludeCompanies, excludeKeywords, requiredKeywords, seniorityLevels, excludeSeniorityLevels, customInstructions, updatedAt.
-
-### `src/models/JobCriteria.js` — Mongoose model for user's consolidated job search criteria (titles, locations, work modes, salary range, platforms).
-
-- `JobCriteria (default export)` — Mongoose model with fields: userId (unique), titles, locations, remote, hybrid, onSite, minSalary, maxSalary, platforms, updatedAt.
-
-### `src/models/JobListing.js` — Mongoose model for scraped job listings from external platforms like LinkedIn and Indeed.
-
-- `JobListing (default export)` — Mongoose model with fields: userId, platform, externalId, title, company, location, salary, description, applyUrl, isEasyApply, postedDate, scrapedAt, status.
-
-### `src/models/NotificationPrefs.js` — Mongoose model for user notification preferences (email notifications for apply events, errors, captchas, scheduler stops).
-
-- `NotificationPrefs (default export)` — Mongoose model with fields: userId (unique), emailOnApply, emailOnError, emailOnCaptcha, emailOnSchedulerStop, lastUpdated.
+- **Kept** because the rate limiter in `src/lib/apiKeyAuth.js` imports it; its main consumer (automation daily-count route) was archived 2026-08-21.
 
 ### `src/models/Permission.js` — Mongoose model for permission metadata stored in the database, seeded from constants.js with upsert support.
 
@@ -832,10 +647,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/models/plan.js` — Mongoose model for subscription plans defining name, price, credits, billing interval, and Stripe price ID.
 
 - `default export (Plan model)` — Reuses existing Mongoose model or creates a new 'Plan' model with fields: name, price, currency, credits, interval, stripePriceId.
-
-### `src/models/PlatformSession.js` — Mongoose model for storing encrypted session cookies for job platforms (LinkedIn, Indeed) per user, with a unique compound index on userId+platform.
-
-- `default export (PlatformSession model)` — Reuses existing Mongoose model or creates a new 'PlatformSession' model with fields: userId, platform (linkedin/indeed), cookiesEncrypted, lastRefreshed, isValid, createdAt.
 
 ### `src/models/refreshToken.js` — Mongoose model for authentication refresh tokens with a compound index on userId+token and a TTL index on expiresAt for automatic MongoDB document deletion.
 
@@ -852,10 +663,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/models/Role.js` — Mongoose model for role documents with embedded permissions array, seeded from constants.js.
 
 - `Role (default export)` — Mongoose model with fields: name (unique, USER/SUBSCRIBER/DEVELOPER/ADMIN), value (unique, 100/99/70/0), permissions (array of strings), isAdmin (boolean, true -> ALL wildcard), description, timestamps. Used by DB-backed permission checking and admin management UI.
-
-### `src/models/SchedulerSettings.js` — Mongoose model for per-user job application scheduler configuration, including time windows, daily/weekly limits, delay ranges, gatekeeper thresholds, pipeline mode, and pause-on-error settings.
-
-- `default export (SchedulerSettings model)` — Reuses existing Mongoose model or creates a new 'SchedulerSettings' model with fields: userId, enabled, startHour, endHour, timezone, activeDays, maxPerDay, maxPerWeek, maxPerRun, minDelaySeconds, maxDelaySeconds, gatekeeperThreshold, reviewQueueThreshold, pipelineMode, dailyRateLimit, pauseOnError, pauseOnSessionExpiry, updatedAt.
 
 ### `src/models/Transaction.js` — Mongoose model for tracking payment transactions via Stripe, supporting both subscription and one-time payments with status tracking (pending/completed/failed/refunded).
 
@@ -953,3 +760,69 @@ node scripts/seed.mjs
 ```
 
 > Note: `src/scripts/seedPermissions.js` is the original version but can't run standalone due to the `@/config` path alias. Use `scripts/seed.mjs` instead.
+
+
+---
+
+## Root Configs
+
+### `next.config.mjs` — Next.js configuration.
+
+- `nextConfig (default export)` — Enables the React Compiler (`reactCompiler: true`).
+
+### `postcss.config.mjs` — PostCSS configuration.
+
+- `config (default export)` — Registers the `@tailwindcss/postcss` plugin for Tailwind CSS v4.
+
+### `eslint.config.mjs` — ESLint flat config.
+
+- `default export` — Extends `eslint-config-next` lint rules for the app.
+
+### `jsconfig.json` — JS project config providing the `@/*` → `src/*` path alias.
+
+
+---
+
+## Automation Archive (`automation/`) — removed from active site 2026-08-21
+
+The whole job-automation feature and API-key management UI were moved here unchanged for
+reference (nothing deleted). Structure mirrors the original repo paths — see
+`automation/README.md` for the full mapping and restore steps.
+
+- `automation/src/app/automation/` — Automation UI pages (dashboard, jobs, jobs/[id], applications, settings/*).
+- `automation/src/app/api/automation/` — Automation REST routes (applications, apply-instructions, criteria, daily-count, gatekeeper-rules, jobs, jobs/[id], jobs/[id]/apply, notifications, scheduler, sessions, trigger-scrape).
+- `automation/src/app/api/gatekeeper/evaluate/route.js` — Worker-only AI gatekeeper endpoint.
+- `automation/src/app/api-keys/`, `automation/src/app/api/api-keys/` — API key management page + CRUD routes.
+- `automation/src/models/` — Application, ApplyInstructions, JobCriteria, JobListing, GatekeeperDecision, GatekeeperRules, NotificationPrefs, PlatformSession, SchedulerSettings models.
+- `automation/worker/` — Node.js Express + BullMQ scraper/applier service (LinkedIn/Indeed scrapers, DeepSeek apply agent, cron scheduler; full file/function inventory preserved in git history and in this doc's history).
+- `automation/job_automation_system_spec_v2.md` — Original automation system design spec, moved from the repo root.
+
+**Kept live on purpose:** `src/lib/apiKeyAuth.js`, `src/models/ApiKey.js`, `src/models/DailyCount.js`
+(`resolveUserId()` from apiKeyAuth authenticates every active resume / cover-letter / generate /
+profile route via its JWT path; the Bearer-key and rate-limit functions are dormant but stay to keep
+the library intact), automation permission strings in
+`constants.js` (inert), and all MongoDB collections (historical data intact).
+
+
+---
+
+## Environment Variables
+
+### Next.js App (`.env.local`, accessed via `src/config/env.js`)
+
+| Variable | Purpose | Referenced in |
+|---|---|---|
+| `ACCESS_TOKEN_SECRET` | JWT access token signing secret | `src/config/env.js` → auth/utils |
+| `REFRESH_TOKEN_SECRET` | JWT refresh token signing secret | `src/config/env.js` → auth/utils |
+| `MONGODB_URI` | MongoDB connection string | `src/config/env.js` → `src/lib/mongodb.js`, `scripts/seed.mjs` |
+| `GEMINI_API_KEY` | Gemini AI provider key | `src/config/env.js` → `src/lib/ai/runners/gemini.js` |
+| `STRIPE_SECRET_KEY` | Stripe SDK key | `src/config/env.js` → `src/lib/stripe.js` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification | `src/config/env.js` → stripe webhook route |
+| `BREVO_API_KEY` | Brevo transactional email API key | `src/config/env.js` → OTP email sending |
+| `BREVO_SENDER_EMAIL` | Verified sender address for emails | `src/config/env.js` → OTP email sending |
+| `NEXT_PUBLIC_APP_URL` | Public app base URL (default localhost:3000) | `src/config/env.js` |
+| `COOKIE_ENCRYPTION_KEY` | AES-256-GCM key for platform cookie encryption | `src/config/env.js` → `src/lib/encryption.js` (only used by archived automation now) |
+| `WORKER_URL` | Base URL of the automation worker (default localhost:3001) | `src/config/env.js` (only consumer was archived) |
+| `AI_TASK_<KEY>` | Optional per-task AI override (`provider:model`) | `src/lib/ai/config.js` |
+
+> Worker env vars (`RESUME_BUILDER_*`, `REDIS_*`, `DEEPSEEK_API_KEY`, `RESEND_API_KEY`, etc.) are no longer used by the site — they belong to the archived worker in `automation/worker/.env.example`.
