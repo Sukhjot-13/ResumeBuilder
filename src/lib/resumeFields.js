@@ -161,6 +161,10 @@ export const RESUME_FIELD_SCHEMA = {
         label: 'End Date',
         type: FIELD_TYPES.MONTH,
       },
+      is_current: {
+        label: 'I currently study here',
+        type: FIELD_TYPES.CHECKBOX,
+      },
       relevant_coursework: {
         label: 'Relevant Coursework',
         type: FIELD_TYPES.TEXT,
@@ -261,6 +265,32 @@ export function buildEmptyArrayItem(sectionKey) {
     }
   }
   return item;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: normalize skills into an array of strings
+// ---------------------------------------------------------------------------
+/**
+ * Skills data exists in several historical shapes:
+ *   - Array of strings            (legacy)
+ *   - [{ skill_name, category }]  (current schema — RESUME_FIELD_SCHEMA)
+ *   - { list_of_skills: [...] }   (legacy object shape some old docs/AI output used)
+ *   - "React, Node, SQL"          (raw string)
+ * PDF templates and display views must call this so every shape renders.
+ */
+export function normalizeSkills(skills) {
+  if (Array.isArray(skills)) {
+    return skills.map((s) => (typeof s === 'string' ? s : s?.skill_name || '')).filter(Boolean);
+  }
+  if (skills && Array.isArray(skills.list_of_skills)) {
+    return skills.list_of_skills
+      .map((s) => (typeof s === 'string' ? s : s?.skill_name || ''))
+      .filter(Boolean);
+  }
+  if (typeof skills === 'string') {
+    return skills.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
 }
 
 // ---------------------------------------------------------------------------

@@ -32,8 +32,9 @@ export async function generatePdf(resumeData, template) {
     throw new Error(`Unknown template: ${template}`);
   }
 
+  // Import the VALIDATED id — never the raw client-controlled string
   const TemplateComponent = (await import(
-    `@/components/resume-templates/pdf-templates/${template}`
+    `@/components/resume-templates/pdf-templates/${templateId}`
   )).default;
 
   const PdfResumeRenderer = (await import(

@@ -62,6 +62,19 @@ export async function proxy(req) {
     } catch (error) {
       console.error('Token rotation failed in proxy:', error);
     }
+
+    // If rotation failed but the refresh token's JWT is still structurally valid
+    // and unexpired, this was likely a concurrent-rotation race (another request
+    // is mid-rotation). Don't clear cookies — the winner of the race will set new
+    // cookies. Only clear when the refresh token itself is dead.
+    if (!authResult.ok) {
+      try {
+        await verifyTokenEdge(refreshToken, 'refresh');
+        authResult.staleButRecoverable = true;
+      } catch {
+        authResult.staleButRecoverable = false;
+      }
+    }
   }
 
   // Check for expired subscriptions periodically (not on every request)
@@ -115,9 +128,10 @@ export async function proxy(req) {
       response = NextResponse.next();
     }
 
-    // Set subscription check timestamp
+    // Set subscription check timestamp (httpOnly+secure — client JS must not
+    // be able to forge/postpone the periodic downgrade check)
     if (subscriptionChecked) {
-      response.cookies.set('subCheckedAt', String(Date.now()), { path: '/', maxAge: 600, httpOnly: false, secure: false, sameSite: 'lax' });
+      response.cookies.set('subCheckedAt', String(Date.now()), { path: '/', maxAge: 600, httpOnly: true, secure: env.isProduction, sameSite: 'lax' });
     }
 
     // Set new cookies if rotation happened
@@ -139,8 +153,10 @@ export async function proxy(req) {
       response = NextResponse.next();
     }
     
-    // Clear cookies if they exist but failed
-    if (accessToken || refreshToken) {
+    // Clear cookies only when the session is definitively dead. If the refresh
+    // token is still valid but lost a rotation race, keep cookies so the next
+    // request can succeed once the winning request sets fresh cookies.
+    if (!authResult.staleButRecoverable && (accessToken || refreshToken)) {
         response.cookies.delete('accessToken');
         response.cookies.delete('refreshToken');
     }

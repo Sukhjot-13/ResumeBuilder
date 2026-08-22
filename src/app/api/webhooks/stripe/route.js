@@ -55,6 +55,12 @@ export async function POST(req) {
           break;
         }
 
+        // Only PRO upgrades are honored — never grant Pro for other/unknown plans
+        if (planName !== 'PRO') {
+          logger.warn('Checkout completed for non-PRO plan — ignoring upgrade', { userId, planName });
+          break;
+        }
+
         const planDetails = PLANS[planName];
         const expiryDate = await computeExpiry(subscriptionId);
 

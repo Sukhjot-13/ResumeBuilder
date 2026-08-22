@@ -20,7 +20,7 @@ export function sha256Buffer(string) {
 
 export async function generateAccessToken(userId, role) {
   const secret = new TextEncoder().encode(env.accessTokenSecret);
-  return await new SignJWT({ userId: userId.toString(), role })
+  return await new SignJWT({ type: TOKEN_CONFIG.TYPE_ACCESS, userId: userId.toString(), role })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime(TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY) // Single source of truth
     .sign(secret);
@@ -28,7 +28,7 @@ export async function generateAccessToken(userId, role) {
 
 export async function generateRefreshToken(userId) {
   const secret = new TextEncoder().encode(env.refreshTokenSecret);
-  return await new SignJWT({ userId: userId.toString() })
+  return await new SignJWT({ type: TOKEN_CONFIG.TYPE_REFRESH, userId: userId.toString() })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('15d')
     .sign(secret);
@@ -39,7 +39,15 @@ export async function verifyToken(token, tokenType) {
     ? env.accessTokenSecret
     : env.refreshTokenSecret;
   if (!secret) throw new Error(`Secret for ${tokenType} token is not defined.`);
-  
+
   const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+
+  // Assert the embedded token type matches what the caller expects — guards
+  // against access/refresh tokens becoming interchangeable if secrets coincide.
+  const expectedType = tokenType === 'access' ? TOKEN_CONFIG.TYPE_ACCESS : TOKEN_CONFIG.TYPE_REFRESH;
+  if (payload.type && payload.type !== expectedType) {
+    throw new Error(`Invalid token type: expected ${expectedType}, got ${payload.type}`);
+  }
+
   return payload;
 }

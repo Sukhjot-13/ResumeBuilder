@@ -36,7 +36,10 @@ const UserSchema = new mongoose.Schema({
   },
   subscriptionStatus: {
     type: String,
-    enum: ['active', 'expired', 'canceled', 'none'],
+    // Includes the statuses the Stripe webhook writes ('past_due', 'unpaid',
+    // 'inactive') so findByIdAndUpdate writes never poison documents into
+    // failing later save() validation.
+    enum: ['active', 'trialing', 'past_due', 'unpaid', 'inactive', 'expired', 'canceled', 'none'],
     default: 'none',
   },
   plan: {

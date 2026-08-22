@@ -12,7 +12,7 @@ export const POST = withErrorHandler(async (req) => {
   if (error) return error;
 
   try {
-    const { planName } = await req.json(); // e.g., 'PRO'
+    const { planName } = await req.json(); // plan KEY, e.g. 'PRO' (display names like 'Pro' also accepted)
 
     await dbConnect();
     const user = await User.findById(userId);
@@ -20,11 +20,24 @@ export const POST = withErrorHandler(async (req) => {
       return fail('User not found', 404);
     }
 
-    const selectedPlan = PLANS[planName];
-    if (!selectedPlan) {
+    // Resolve the plan from either its key ('PRO') or display name ('Pro'), case-insensitively
+    const requested = typeof planName === 'string' ? planName.trim() : '';
+    const planKey = Object.keys(PLANS).find(
+      (key) =>
+        key.toLowerCase() === requested.toLowerCase() ||
+        PLANS[key].name.toLowerCase() === requested.toLowerCase()
+    );
+
+    if (!planKey) {
       return fail('Invalid plan', 400);
     }
 
+    // Only PRO is purchasable — FREE is the default tier, never a checkout product
+    if (planKey !== 'PRO') {
+      return fail('This plan is not available for purchase', 400);
+    }
+
+    const selectedPlan = PLANS[planKey];
     const appUrl = env.appUrl;
 
     // Create Stripe Checkout Session

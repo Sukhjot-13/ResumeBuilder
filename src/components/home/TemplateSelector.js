@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getTemplates } from "@/app/actions/getTemplates";
 
 /**
  * A component for selecting a resume template.
+ * Lists templates from /api/resume/templates (the single canonical listing —
+ * friendly names + ids accepted by the PDF generator).
  * @param {object} props - The component's props.
  * @param {string} props.selectedTemplate - The currently selected template.
  * @param {function} props.setSelectedTemplate - The function to call when the template changes.
@@ -21,8 +22,10 @@ export default function TemplateSelector({
   useEffect(() => {
     async function loadTemplates() {
       try {
-        const fetchedTemplates = await getTemplates();
-        setTemplates(fetchedTemplates);
+        const res = await fetch("/api/resume/templates");
+        if (!res.ok) throw new Error("Failed to load templates");
+        const data = await res.json();
+        setTemplates(Array.isArray(data) ? data : []);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -59,7 +62,7 @@ export default function TemplateSelector({
         className="w-full bg-gray-700 text-white p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         {templates.map((template) => (
-          <option key={template.path} value={template.path}>
+          <option key={template.id} value={template.id}>
             {template.name}
           </option>
         ))}

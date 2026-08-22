@@ -15,6 +15,11 @@ const refreshTokenSchema = new mongoose.Schema({
     type: Date, 
     required: true 
   },
+  // When this token was rotated out. Superseded tokens stay valid for a short
+  // grace window so parallel requests carrying the same token aren't logged out.
+  supersededAt: { 
+    type: Date 
+  },
   createdAt: { 
     type: Date, 
     default: Date.now 

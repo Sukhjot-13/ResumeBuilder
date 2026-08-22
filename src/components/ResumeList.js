@@ -45,10 +45,6 @@ export default function ResumeList({
       });
 
       if (response.ok) {
-        // Ideally, we should update the local state here or trigger a refetch
-        // For simplicity, let's just reload the page or assume the parent component handles data refresh
-        // Update local state or trigger refresh
-        // Ideally, we should call a callback to refresh the list
         if (onUpdateResume) {
           onUpdateResume();
         }
@@ -219,7 +215,10 @@ export default function ResumeList({
                   </button>
                   <PermissionGate user={user} permission={PERMISSIONS.DELETE_OWN_RESUME} fallback="hidden">
                     <button
-                      onClick={() => onDeleteResume(resume._id)}
+                      onClick={() => {
+                        if (!confirm("Delete this resume? This cannot be undone.")) return;
+                        onDeleteResume(resume._id);
+                      }}
                       disabled={deletingId === resume._id}
                       className="flex-1 bg-red-500/10 hover:bg-red-600 text-red-400 hover:text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm disabled:opacity-50"
                     >

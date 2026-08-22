@@ -3,7 +3,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useApiClient } from '@/hooks/useApiClient';
+import { useProfile } from '@/hooks/useProfile';
 import ResumeList from '@/components/ResumeList';
+import ResumeDisplayView from '@/components/preview/ResumeDisplayView';
 
 export default function ResumeHistoryPage() {
   const [resumes, setResumes] = useState([]);
@@ -13,6 +15,7 @@ export default function ResumeHistoryPage() {
   const [error, setError] = useState('');
   const [tailoredResume, setTailoredResume] = useState(null);
   const apiClient = useApiClient();
+  const { profile } = useProfile();
 
   const fetchResumes = useCallback(async () => {
     setLoading(true);
@@ -98,8 +101,9 @@ export default function ResumeHistoryPage() {
           onDeleteResume={handleDeleteResume}
           onViewResume={setTailoredResume}
           loading={loading}
-          masterResume={masterResume}
+          masterResume={masterResume || profile?.mainResume || null}
           onUpdateResume={fetchResumes}
+          user={profile}
         />
 
         {tailoredResume && (
@@ -113,23 +117,25 @@ export default function ResumeHistoryPage() {
               if (e.key === 'Escape') setTailoredResume(null);
             }}
           >
-            <div className="bg-slate-900 rounded-2xl p-8 max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-white">Resume Preview</h2>
-                <button
-                  onClick={() => setTailoredResume(null)}
-                  className="text-slate-400 hover:text-white transition-colors"
-                  aria-label="Close preview"
-                >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+              <div className="bg-slate-100 rounded-2xl p-8 max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">Resume Preview</h2>
+                  <button
+                    onClick={() => setTailoredResume(null)}
+                    className="text-gray-500 hover:text-gray-900 transition-colors"
+                    aria-label="Close preview"
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                {tailoredResume ? (
+                  <ResumeDisplayView resumeData={tailoredResume} />
+                ) : (
+                  <p className="text-gray-500">No content available for this resume.</p>
+                )}
               </div>
-              <div className="prose prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap text-sm">{JSON.stringify(tailoredResume, null, 2)}</pre>
-              </div>
-            </div>
           </div>
         )}
       </div>

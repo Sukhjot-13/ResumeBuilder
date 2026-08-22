@@ -3,12 +3,16 @@ import { generatePdf, generateCoverLetterPdf } from '@/lib/pdf-generator';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
-import { readJson } from '@/lib/apiResponse';
+import { fail, readJson } from '@/lib/apiResponse';
+import { rateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
 
 // PDF payloads can be large — allow up to 1MB (resume JSON + formatting)
 const MAX_BODY_BYTES = 1024 * 1024;
+// CPU-heavy rendering — cap bursts per user (per instance)
+const PDF_RATE_LIMIT = 10;          // renders
+const PDF_RATE_WINDOW_MS = 60_000;  // per minute
 
 export async function POST(request) {
   const { userId, error } = await resolveUserId(request);
@@ -19,6 +23,13 @@ export async function POST(request) {
   const permResult = await requirePermission(userId, PERMISSIONS.DOWNLOAD_PDF);
   if (isPermissionError(permResult)) {
     return permResult.error;
+  }
+
+  // Rate limit BEFORE doing any expensive work
+  const rl = rateLimit(`pdf:${userId}`, PDF_RATE_LIMIT, PDF_RATE_WINDOW_MS);
+  if (!rl.allowed) {
+    logger.info('PDF generation rate limited', { userId });
+    return fail('Too many PDF generations. Please wait a moment and try again.', 429);
   }
 
   const parsed = await readJson(request, MAX_BODY_BYTES);

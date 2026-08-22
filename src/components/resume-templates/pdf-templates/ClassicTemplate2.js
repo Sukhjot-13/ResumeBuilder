@@ -8,6 +8,7 @@ import {
   Font,
   Link,
 } from "@react-pdf/renderer";
+import { normalizeSkills } from "@/lib/resumeFields";
 
 // NOTE: React-PDF does not ship with the system Arial font by default in all environments.
 // If you need a byte-for-byte match to an Arial-rendered HTML, register an Arial font file with Font.register.
@@ -190,23 +191,7 @@ export default function ClassicTemplate2({ resumeData = {} }) {
     ? resumeData.education
     : [];
 
-  const skillsArr = Array.isArray(resumeData.skills)
-    ? resumeData.skills
-    : resumeData.skills && Array.isArray(resumeData.skills.list_of_skills)
-    ? resumeData.skills.list_of_skills
-    : [];
-
-  const normalizedSkills =
-    Array.isArray(skillsArr) && skillsArr.length > 0
-      ? skillsArr
-          .map((s) => (typeof s === "string" ? s : s.skill_name || ""))
-          .filter(Boolean)
-      : resumeData.skills && typeof resumeData.skills === "string"
-      ? resumeData.skills
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : [];
+  const normalizedSkills = normalizeSkills(resumeData.skills);
 
   const languages =
     (resumeData.additional_info && resumeData.additional_info.languages) || [];

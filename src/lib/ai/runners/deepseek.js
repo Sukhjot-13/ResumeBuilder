@@ -5,6 +5,9 @@
 import env from '@/config/env';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
+// Hard caps so a hung/looping provider call can't pin a route forever
+export const AI_TIMEOUT_MS = 60_000;
+export const AI_MAX_TOKENS = 4096;
 
 function getApiKey() {
   const key = env.deepseekApiKey;
@@ -19,25 +22,34 @@ function getApiKey() {
  * @returns {Promise<string>} Raw response text
  */
 export async function callDeepSeek(modelName, prompt) {
-  const res = await fetch(DEEPSEEK_API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${getApiKey()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: modelName,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`DeepSeek API error (${res.status}): ${text}`);
+  try {
+    const res = await fetch(DEEPSEEK_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getApiKey()}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: AI_MAX_TOKENS,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`DeepSeek API error (${res.status}): ${text}`);
+    }
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || '';
+  } finally {
+    clearTimeout(timer);
   }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || '';
 }
 
 /**

@@ -3,8 +3,9 @@ import { stripe } from '@/lib/stripe';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongodb';
-import { ROLES, PLANS } from '@/lib/constants';
+import { ROLES } from '@/lib/constants';
 import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
+import { logger } from '@/lib/logger';
 
 export const POST = withErrorHandler(async (req) => {
   const { userId, error } = await resolveUserId(req);
@@ -38,6 +39,11 @@ export const POST = withErrorHandler(async (req) => {
   }
 
   const planName = session.metadata.planName;
+  if (planName !== 'PRO') {
+    // Only PRO subscriptions can be activated — never upgrade for other/unknown plans
+    logger.warn('Session verified for non-PRO plan — refusing upgrade', { userId, planName });
+    return fail('Invalid plan', 400);
+  }
   const subscriptionId = session.subscription;
   const customerId = session.customer;
 

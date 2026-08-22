@@ -23,10 +23,13 @@ export const POST = withErrorHandler(async (req) => {
     return fail('Email and OTP are required', 400);
   }
 
+  // Normalize casing/whitespace to match the OTP request path
+  const normalizedEmail = email.trim().toLowerCase();
+
   await dbConnect();
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
 
     // Generic failure — no user enumeration
     const invalidResponse = () => fail('Invalid or expired OTP', 400);

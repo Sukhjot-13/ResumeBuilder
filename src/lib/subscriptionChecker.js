@@ -21,6 +21,7 @@ export async function checkAndDowngradeExpiredSubscription(user) {
     // Subscription has expired, downgrade user
     user.role = ROLES.USER; // Downgrade to 100
     user.subscriptionStatus = 'expired';
+    user.subscriptionId = undefined; // Clear so credit limits no longer treat them as PRO
     await user.save();
 
     logger.info('User subscription expired, downgraded to USER', { userId: user._id });

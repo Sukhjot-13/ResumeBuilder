@@ -30,6 +30,18 @@ export default function ProfilePage() {
 
   const [createNewResume, setCreateNewResume] = useState(false);
   const [userRole, setUserRole] = useState(ROLES.USER);
+  const [subscriptionInfo, setSubscriptionInfo] = useState(null);
+
+  // Format a date string using LOCAL calendar parts (avoids UTC off-by-one-day)
+  const formatLocalDate = (value) => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
   
   const hasAiEditAccess = checkPermission({ role: userRole }, PERMISSIONS.EDIT_RESUME_WITH_AI);
   const hasCreateNewResumeAccess = checkPermission({ role: userRole }, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT);
@@ -47,10 +59,14 @@ export default function ProfilePage() {
           setName(data.name || "");
           setUserRole(data.role !== undefined ? data.role : 100);
           if (data.dateOfBirth) {
-            setDateOfBirth(
-              new Date(data.dateOfBirth).toISOString().split("T")[0]
-            );
+            setDateOfBirth(formatLocalDate(data.dateOfBirth));
           }
+          setSubscriptionInfo({
+            status: data.subscriptionStatus || "none",
+            expiresAt: data.subscriptionExpiresAt || null,
+            creditsRemaining: data.creditsRemaining,
+            creditsUsed: data.creditsUsed || 0,
+          });
           if (data.mainResume) {
             setMasterResume(data.mainResume.content);
           }
@@ -205,7 +221,7 @@ export default function ProfilePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          planName: PLANS.PRO.name,
+          planName: 'PRO',
         }),
       });
 
@@ -399,7 +415,13 @@ export default function ProfilePage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Credits</span>
                       <span className="font-medium text-white">
-                        {userRole === ROLES.ADMIN ? 'Unlimited' : (userRole === ROLES.SUBSCRIBER ? `${PLANS.PRO.credits} / month` : `${PLANS.FREE.credits} / day`)}
+                        {userRole === ROLES.ADMIN
+                          ? 'Unlimited'
+                          : subscriptionInfo?.creditsRemaining != null
+                            ? `${subscriptionInfo.creditsRemaining} remaining (${subscriptionInfo.creditsUsed} used)`
+                            : userRole === ROLES.SUBSCRIBER
+                              ? `${PLANS.PRO.credits} / month`
+                              : `${PLANS.FREE.credits} / day`}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -408,6 +430,22 @@ export default function ProfilePage() {
                         {userRole === ROLES.ADMIN ? 'N/A' : (userRole === ROLES.SUBSCRIBER ? 'Monthly' : 'Daily')}
                       </span>
                     </div>
+                    {subscriptionInfo?.expiresAt && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Renews / Expires</span>
+                        <span className="font-medium text-white">
+                          {formatLocalDate(subscriptionInfo.expiresAt)}
+                        </span>
+                      </div>
+                    )}
+                    {subscriptionInfo && !['active', 'none'].includes(subscriptionInfo.status) && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Status</span>
+                        <span className={`font-medium ${subscriptionInfo.status === 'past_due' || subscriptionInfo.status === 'unpaid' ? 'text-yellow-400' : 'text-gray-300'}`}>
+                          {subscriptionInfo.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {userRole !== ROLES.SUBSCRIBER && userRole !== ROLES.ADMIN && (

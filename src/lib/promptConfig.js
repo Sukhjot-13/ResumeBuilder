@@ -57,10 +57,11 @@ ${jobDescription}
 [INSTRUCTIONS]
 1. Rewrite "generic_summary" to a 2-3 sentence tailored summary relevant to the job.
 2. For each work experience, rewrite "responsibilities" into 3-5 achievement-oriented bullet points aligned with the job.
-3. Keep only the most relevant skills.
-4. Extract "jobTitle" and "companyName" from the job description for the metadata.
-5. If company name is not found, use "Unknown Company".
-6. Output valid JSON only — no markdown, no explanation.
+3. Keep only the most relevant skills, prioritizing keywords that appear in the job description (the user plausibly has them).
+4. Use clear section headers, standard job titles, and action verbs — the output must remain ATS-parseable (no tables, no graphics, no columns).
+5. Extract "jobTitle" and "companyName" from the job description for the metadata.
+6. If company name is not found, use "Unknown Company".
+7. Output valid JSON only — no markdown, no explanation.
 
 ${OUTPUT_SCHEMA_INSTRUCTION}
   `.trim();

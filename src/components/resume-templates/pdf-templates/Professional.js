@@ -8,6 +8,7 @@ import {
   Font,
   Link,
 } from "@react-pdf/renderer";
+import { normalizeSkills } from "@/lib/resumeFields";
 
 // A professional and widely used font
 // Font.register({
@@ -139,7 +140,7 @@ const ProfessionalTemplate = ({ resumeData }) => {
     certifications = [],
     awards_activities = [],
   } = additional_info;
-  const skillList = skills.list_of_skills || [];
+  const skillList = normalizeSkills(skills);
 
   return (
     <Document>

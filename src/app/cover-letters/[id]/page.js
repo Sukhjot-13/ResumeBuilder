@@ -25,6 +25,9 @@ export default function CoverLetterDetailPage({ params }) {
   // Existing letter state
   const [coverLetter, setCoverLetter] = useState(null);
   const [letterLoading, setLetterLoading] = useState(!isNew);
+  const [loadError, setLoadError] = useState("");
+  // Regeneration panel on an EXISTING letter (H7 fix)
+  const [regeneratingPanelOpen, setRegeneratingPanelOpen] = useState(false);
 
   // Fetch existing cover letter
   useEffect(() => {
@@ -36,10 +39,10 @@ export default function CoverLetterDetailPage({ params }) {
           const data = await res.json();
           setCoverLetter(data);
         } else {
-          setError("Cover letter not found");
+          setLoadError("Cover letter not found");
         }
       } catch (err) {
-        setError("Failed to load cover letter");
+        setLoadError("Failed to load cover letter");
       } finally {
         setLetterLoading(false);
       }
@@ -112,11 +115,12 @@ export default function CoverLetterDetailPage({ params }) {
     );
   }
 
-  if (error && !generating) {
+  // Only load failures replace the page; generation errors show inline in the form
+  if (loadError) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-red-400 mb-4">{loadError}</p>
           <button
             onClick={() => router.push("/cover-letters")}
             className="text-blue-400 hover:text-blue-300"
@@ -127,6 +131,8 @@ export default function CoverLetterDetailPage({ params }) {
       </div>
     );
   }
+
+  const showForm = isNew || regeneratingPanelOpen;
 
   return (
     <div className="min-h-screen pb-20">
@@ -150,8 +156,12 @@ export default function CoverLetterDetailPage({ params }) {
               <>
                 <button
                   onClick={() => {
+                    setRegeneratingPanelOpen(true);
                     setJobDescription("");
-                    setRecipientName("");
+                    // Pre-fill recipient from the existing letter when available
+                    if (coverLetter?.content?.recipientName) {
+                      setRecipientName(coverLetter.content.recipientName);
+                    }
                     // Scroll to top to show generation form
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
@@ -172,8 +182,8 @@ export default function CoverLetterDetailPage({ params }) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left: Input Form (shown for new or when regenerating) */}
-          {(isNew) && (
+          {/* Left: Input Form (new letters, or when regenerating an existing one) */}
+          {showForm && (
             <div className="lg:col-span-5 space-y-6">
               <div className="glass-card p-6 rounded-2xl border border-white/5">
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
@@ -233,7 +243,7 @@ export default function CoverLetterDetailPage({ params }) {
           )}
 
           {/* Right: Preview */}
-          <div className={isNew ? "lg:col-span-7" : "lg:col-span-12"}>
+          <div className={showForm ? "lg:col-span-7" : "lg:col-span-12"}>
             {coverLetter ? (
               <CoverLetterPreview coverLetterData={coverLetter.content} />
             ) : (

@@ -2,6 +2,7 @@ import { parseResume } from '../../../services/resumeParsingService';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
+import { SubscriptionService } from '@/services/subscriptionService';
 import { logger } from '@/lib/logger';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 import dbConnect from '@/lib/mongodb';
@@ -63,7 +64,20 @@ export const POST = withErrorHandler(async (request) => {
     return fail('File content is not a valid PDF or DOCX document.', 415);
   }
 
-  const parsedData = await parseResume(buffer);
-  logger.info("Resume parsed successfully", { userId });
-  return ok(parsedData);
+  // Deduct credit BEFORE the AI call (atomic); refund on failure below.
+  // Parsing burns AI tokens just like generation — it must not be a free lane.
+  const tracked = await SubscriptionService.trackUsage(userId, 1);
+  if (!tracked) {
+    logger.info('User attempted to parse resume without credits', { userId });
+    return fail('Insufficient credits. Please upgrade your plan.', 403);
+  }
+
+  try {
+    const parsedData = await parseResume(buffer);
+    logger.info("Resume parsed successfully", { userId });
+    return ok(parsedData);
+  } catch (error) {
+    await SubscriptionService.refundUsage(userId, 1);
+    throw error;
+  }
 });

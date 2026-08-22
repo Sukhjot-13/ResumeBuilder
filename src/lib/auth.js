@@ -34,8 +34,17 @@ async function handleStolenToken(userId) {
 }
 
 /**
+ * Grace window during which a just-superseded refresh token is still honored.
+ * Prevents random logouts when parallel requests race the rotation
+ * (all carry the same expired access token + old refresh token).
+ */
+const ROTATION_GRACE_MS = 60 * 1000;
+
+/**
  * Verifies a refresh token, rotates it, and returns new tokens.
- * This implements secure refresh token rotation.
+ * This implements secure refresh token rotation with a short grace period:
+ * re-presenting a just-superseded token within the grace window rotates again
+ * instead of failing, so concurrent requests don't kill each other's session.
  * @param {string} refreshToken - The refresh token to rotate.
  * @param {object} reqInfo - Request info { ip, userAgent }.
  * @returns {Promise<{newAccessToken: string, newRefreshToken: string, userId: string}>}
@@ -54,6 +63,16 @@ export async function rotateRefreshToken(refreshToken, reqInfo) {
     await handleStolenToken(userId);
   }
 
+  // Superseded tokens are only valid within the grace window.
+  if (
+    tokenDoc.supersededAt &&
+    Date.now() - new Date(tokenDoc.supersededAt).getTime() > ROTATION_GRACE_MS
+  ) {
+    logger.warn("Superseded refresh token presented after grace period", { userId });
+    await RefreshToken.findByIdAndDelete(tokenDoc._id);
+    throw new Error("Invalid refresh token");
+  }
+
   // Check if the token from the DB has expired
   if (tokenDoc.expiresAt < new Date()) {
     logger.info("Refresh token expired", { userId });
@@ -62,8 +81,13 @@ export async function rotateRefreshToken(refreshToken, reqInfo) {
   }
 
   // --- ROTATION ---
-  // Delete the used token
-  await RefreshToken.findByIdAndDelete(tokenDoc._id);
+  // Mark the used token as superseded (kept briefly for racing requests),
+  // and shorten its life so MongoDB TTL cleanup removes it after the grace window.
+  const supersededExpiry = new Date(Date.now() + ROTATION_GRACE_MS + 60 * 1000);
+  await RefreshToken.findByIdAndUpdate(tokenDoc._id, {
+    supersededAt: new Date(),
+    expiresAt: supersededExpiry,
+  });
 
   // Fetch user to get current role
   const user = await User.findById(userId);

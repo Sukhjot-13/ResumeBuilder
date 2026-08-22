@@ -7,6 +7,14 @@ Covers the Next.js app (`src/`) and root configs. The job-automation feature (UI
 
 ## Docs
 
+### `docs/audit.md` — Deep-dive site audit report
+
+Latest full-codebase audit (2026-08-22): critical/high/medium/low findings with file:line references,
+what's-solid notes, and a suggested fix order. **All C1–C2, H1–H8, M1–M15 findings were fixed on
+2026-08-22** (see ✅ markers inline); low items fixed unless marked accepted. Carried-over open items
+from the 2026-08-21 audit are preserved at the bottom. Superseded findings from older audits remain
+in git history (`docs/audit.md` at commit `4a5b2a3`).
+
 ### `docs/to-do.md` — Consolidated master task list
 
 Single source of truth for all pending work. Organized by priority: 🔴 Critical (security/integrity), 🟠 High (auth, permissions, features), 🟡 Medium (UX, infrastructure, architecture), ⬜ Pending (deploy/future). Supersedes the now-deleted `audit.md`, `suggested_changes.md`, `auth.md`, `a1.md`, `README.md`, `plan.md`.
@@ -20,11 +28,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/resume-history/page.js` — Page route displaying the user's resume history, including master resume and all generated tailored resumes, with delete and preview capabilities.
 
-- `ResumeHistoryPage (default export)` — Page component that fetches user profile/mainResume and all generated resumes on mount, renders a ResumeList, and includes a modal overlay for viewing tailored resume content as JSON.
-
-### `src/app/test/page.js` — Test page that displays the master resume rendered via React-PDF for visual comparison/testing.
-
-- `TestPage (default export)` — Page component that fetches the user profile's mainResume content and renders it using a dynamically imported ReactPdfView component.
+- `ResumeHistoryPage (default export)` — Page component that fetches user profile/mainResume and all generated resumes on mount, renders a ResumeList (passing the shared `profile` as `user` so permission-gated Edit/Delete render), and includes a modal overlay rendering the tailored resume via ResumeDisplayView (no more raw JSON).
 
 ### `src/components/common/AccessDenied.js` — A simple access denied UI component that shows a restriction message without an upgrade/upsell prompt.
 
@@ -63,9 +67,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `SpecialInstructionsInput (default export)` — Component that renders a special instructions textarea and a generate resume button. For users lacking USE_SPECIAL_INSTRUCTIONS permission, the textarea is locked with an overlay badge. For users lacking GENERATE_RESUME permission, the generate button is disabled with an upgrade prompt. Shows skeleton while loading.
 
-### `src/components/home/TemplateSelector.js` — A dropdown component for selecting a resume template, loaded asynchronously from the server.
+### `src/components/home/TemplateSelector.js` — A dropdown component for selecting a resume template, loaded from the canonical `/api/resume/templates` endpoint (friendly names + generator-accepted ids).
 
-- `TemplateSelector (default export)` — Component that fetches available templates via the getTemplates server action on mount, renders a select dropdown with loading/error states, and calls setSelectedTemplate on change.
+- `TemplateSelector (default export)` — Component that fetches available templates via GET /api/resume/templates on mount, renders a select dropdown with loading/error states, and calls setSelectedTemplate on change.
 
 ### `src/components/layout/Footer.js` — Application footer with branding, product links, legal links, and copyright.
 
@@ -123,7 +127,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/components/ResumeList.js` — Displays the master resume card and a grid of all generated/saved resumes with view, edit, and delete actions.
 
-- `ResumeList (default export)` — Component that renders a loading spinner, empty state, master resume card, and a grid of generated resumes. Supports inline editing of resume metadata (name, job title, company) via PATCH API, delete via callback, and view via callback. Uses PermissionGate to conditionally show edit/delete buttons.
+- `ResumeList (default export)` — Component that renders a loading spinner, empty state, master resume card, and a grid of generated resumes. Supports inline editing of resume metadata (name, job title, company) via PATCH API, delete via callback (with confirm() guard), and view via callback. Uses PermissionGate to conditionally show edit/delete buttons.
 - `startEditing` — Internal function that sets the editing state to a specific resume and populates the edit form with its current metadata.
 - `cancelEditing` — Internal function that resets the editing state and clears the edit form.
 - `saveEditing` — Internal async function that sends a PATCH request to update resume metadata, then triggers onUpdateResume callback on success.
@@ -133,35 +137,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ## app
 
-### `src/app/actions/adminActions.js` — Server actions for admin operations — user management, analytics, and transaction listing with permission checks.
-
-- `getAllUsers` — Get all users with pagination, search, and role filter support
-- `getUserDetails` — Get a specific user's details with populated resume references
-- `updateUserCredits` — Update a user's credits value
-- `resetUserUsage` — Reset a user's usage/credits back to zero
-- `changeUserRole` — Change a user's role
-- `toggleUserBan` — Ban or unban a user
-- `deleteUser` — Permanently delete a user (prevents self-deletion)
-- `getAdminAnalytics` — Get admin analytics including total users, active subscribers, and recent transactions
-- `getTransactions` — Get all transactions with pagination
-
-### `src/app/actions/getTemplates.js` — Server action that reads the resume PDF template directory and returns available template names.
-
-- `getTemplates` — Read the pdf-templates directory and return a list of template objects with name and path
-
-### `src/app/actions/profileActions.js` — Server actions for user profile operations — reading/updating profile, uploading main resume, and checking subscription status.
-
-- `updateProfile` — Update user profile data (email, name) from FormData
-- `uploadMainResume` — Upload or create a new main resume from parsed resume data
-- `getProfile` — Get the authenticated user's profile with main resume data
-- `checkSubscriptionStatus` — Check the authenticated user's subscription status and role
-
-### `src/app/actions/resumeActions.js` — Server actions for resume CRUD operations — metadata updates, deletion, listing, and setting main resume.
-
-- `updateResumeMetadata` — Update resume metadata fields like job title and company name
-- `deleteResume` — Delete a resume and its metadata, remove from user's generatedResumes array
-- `getUserResumes` — Get all resumes for the authenticated user
-- `setAsMainResume` — Set a resume as the main resume, archiving the previous main resume
+> **Note:** The entire `src/app/actions/` server-actions directory was **deleted on 2026-08-22**
+> (`adminActions.js`, `profileActions.js`, `resumeActions.js`, `getTemplates.js`). Nothing imported
+> them except `getTemplates` (now replaced by `/api/resume/templates`); the others were unscoped
+> IDOR-class RPC surfaces. All operations live in the hardened API routes instead.
 
 ### `src/app/admin/dashboard/page.js` — Admin dashboard page component displaying a user table with role management, reset usage, and delete actions. Updated with navigation tabs linking to Users and Permissions pages.
 
@@ -171,11 +150,12 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `AdminPermissionsPage` — Default export — fetches roles and permissions from API, renders permission grid grouped by category with toggle buttons per role. Gated server-side: API routes enforce MANAGE_ROLES permission; page handles 403 responses by redirecting to /dashboard. Admin role displayed as immutable (uses ALL wildcard).
 
-### `src/app/ai-edit/page.js` — AI Editor page that lets users select a resume or cover letter, enter AI instructions, and generate AI-powered edits with a live preview.
+### `src/app/ai-edit/page.js` — AI Editor page that lets users select a resume or cover letter, enter AI instructions, and generate AI-powered edits with a live preview. Reads the shared AuthContext profile (no duplicate /api/user/profile fetch); refetches the profile after in-place master edits so the preview stays fresh; preserves the selected cover letter across list refreshes.
 
 - `AIEditPage` — Default export — renders AI editor with resume/cover letter toggle, selection dropdowns, instruction textarea, save-as-new checkbox, and preview panel
 - `getResumeLabel` — Formats resume display names with priority: `resumeName` > `jobTitle` > `profile.headline` > `profile.name` > fallback, plus master badge and date
 - `getCoverLetterLabel` — Formats cover letter display names from `coverLetterName` or `companyName` with date
+- `fetchResumes` / `fetchCoverLetters` — Load the respective lists; cover-letter refresh keeps the current selection when it still exists
 
 ### `src/app/api/admin/permissions/route.js` — API route to list all available permissions from the database (seeded from constants). Requires MANAGE_ROLES permission.
 
@@ -214,21 +194,21 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Check subscription, auto-downgrade if expired, and return current role and subscription status
 
-### `src/app/api/auth/logout/route.js` — API route to log out by clearing auth cookies.
+### `src/app/api/auth/logout/route.js` — API route to log out: revokes the refresh token server-side, then clears auth cookies.
 
-- `POST` — Clear accessToken and refreshToken cookies to log the user out
+- `POST` — Reads the refreshToken cookie, deletes the matching hashed RefreshToken document(s) from the DB (so a captured token can't outlive logout; never blocks on DB errors), then clears accessToken and refreshToken cookies.
 
-### `src/app/api/auth/otp/route.js` — Generates and emails a one-time password. Rate-limited: 60s resend cooldown via lastOtpSentAt; resets attempt counter on new code.
+### `src/app/api/auth/otp/route.js` — Generates and emails a one-time password. Rate-limited: 60s resend cooldown via lastOtpSentAt plus a uniform per-IP+email in-memory throttle (identical responses whether or not an account exists — no enumeration oracle); resets attempt counter on new code. Emails are normalized to lowercase+trim so casing can't split accounts.
 
-- `POST` — Validates email format, enforces cooldown (429), stores hashed OTP + expiry atomically, clears otpAttempts, sends via Brevo.
+- `POST` — Validates email format, normalizes it, enforces cooldown (429), stores hashed OTP + expiry atomically, clears otpAttempts, sends a branded HTML email with expiry notice via Brevo.
 
-### `src/app/api/auth/verify-otp/route.js` — Verifies OTP and issues tokens. Brute-force hardened: max 5 attempts (atomic $inc counter) then lockout forcing a fresh code request.
+### `src/app/api/auth/verify-otp/route.js` — Verifies OTP and issues tokens. Brute-force hardened: max 5 attempts (atomic $inc counter) then lockout forcing a fresh code request. Email normalized to match the request path.
 
-- `POST` — Generic invalid-OTP response (no user enumeration); on success clears OTP state, rotates refresh token into DB, sets HttpOnly cookies, returns newUser flag
+- `POST` — Normalizes email casing, generic invalid-OTP response (no user enumeration); on success clears OTP state, rotates refresh token into DB, sets HttpOnly cookies, returns newUser flag
 
 ### `src/app/api/auth/verify-token/route.js` — API route to rotate a refresh token and issue new access/refresh tokens.
 
-- `POST` — Accept refresh token, rotate it, and return new access and refresh tokens with userId
+- `POST` — Accept refresh token, rotate it (with a 60s grace window so parallel requests carrying the same token aren't logged out — see `src/lib/auth.js`), and return new access and refresh tokens with userId
 
 ### `src/app/api/checkout/create-portal-session/route.js` — Creates a Stripe Billing Portal session so the user can manage their subscription.
 
@@ -236,11 +216,11 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/checkout/create-session/route.js` — Creates a Stripe Checkout Session for a new subscription purchase.
 
-- `POST` — Reads x-user-id from header (set by middleware), looks up the requested planName in PLANS constants, creates a Stripe Checkout Session with subscription mode, and returns the checkout URL. Includes userId and planName in both session and subscription metadata.
+- `POST` — Reads x-user-id from header (set by middleware), resolves the requested plan from either its KEY ('PRO') or display name ('Pro') case-insensitively, and **rejects any plan other than PRO** (FREE is never a checkout product). Creates a Stripe Checkout Session with subscription mode and returns the checkout URL. Includes userId and planName='PRO' in both session and subscription metadata.
 
 ### `src/app/api/checkout/verify-session/route.js` — Verifies a completed Stripe Checkout Session and activates the user's subscription.
 
-- `POST` — sessionId read via readJson guard; verifies payment_status 'paid' and that the session belongs to the requesting user. Expiry derived from the Stripe subscription's current_period_end (fallback +1 month). Updates the user to SUBSCRIBER (response whitelisted via select('-otp -otpExpires')) and upserts the Transaction idempotently.
+- `POST` — sessionId read via readJson guard; verifies payment_status 'paid', that the session belongs to the requesting user, **and that metadata.planName === 'PRO'** (refuses to activate anything else). Expiry derived from the Stripe subscription's current_period_end (fallback +1 month). Updates the user to SUBSCRIBER (response whitelisted via select('-otp -otpExpires')) and upserts the Transaction idempotently.
 
 ### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID. Uses CoverLetterService for all database operations, resolveUserId() for dual auth (JWT/API key). Uses `ok()` for GET (unwrapped response) and `success()` for DELETE/PATCH (enveloped).
 
@@ -253,7 +233,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `GET` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.getCoverLettersByUserId() to return the user's cover letters sorted by createdAt descending, limited to 50.
 - `POST` — Requires GENERATE_COVER_LETTER permission. Uses resolveUserId() for auth, then CoverLetterService.createCoverLetter() to accept content and optional metadata, returns the created document with a 201 status.
 
-### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking, plan-gated features, proper resume naming with incrementing suffixes ("Name" → "Name 1"), and multi-resume support. Hardened 2026-08-21: all cover-letter/resume reads & writes are scoped by userId (IDOR fix) and credits are deducted BEFORE the AI call with automatic refund on failure.
+### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking, plan-gated features, proper resume naming with incrementing suffixes ("Name" → "Name 1"), and multi-resume support. Hardened 2026-08-21: all cover-letter/resume reads & writes are scoped by userId (IDOR fix) and credits are deducted BEFORE the AI call with automatic refund on failure. Fixed 2026-08-22: CREATE_NEW_RESUME_ON_EDIT check now passes the user object (was passing the numeric role — always denied); the name-suffix heuristic only bumps 1–2 digit suffixes so "Resume 2024" no longer becomes "Resume 2025".
 
 - `POST` — Requires EDIT_RESUME_WITH_AI permission. Verifies ownership (`{ _id, userId }`) of any requested coverLetterId/resumeId BEFORE spending AI tokens (404 otherwise). Deducts a credit atomically first; refunds it if the AI edit throws. For type='cover-letter', edits content via AI and saves only via `findOneAndUpdate({ _id, userId })`. For resume editing: accepts `resumeId` for multi-resume support; if `createNewResume`, names the source resume with an incrementing suffix ("Name" → "Name 1") using metadata, gives the new resume the original name, and only sets it as main if editing the master. Sanitizes Mongo _id fields from the AI output before saving.
 
@@ -263,23 +243,23 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with deduct-first/refund-on-failure credit handling. Supports JWT auth via resolveUserId().
 
-- `POST` — Requires GENERATE_COVER_LETTER permission. Resolves user identity via resolveUserId(), sanitizes the job description, loads the user's main resume content, deducts a credit atomically BEFORE generation (refunds on failure), calls generateCoverLetter() with resume data and user info (name, email, phone from resume content's profile.phone), optionally saves the result as a CoverLetter document. Returns the generated content with a coverLetterId if saved.
+- `POST` — Requires GENERATE_COVER_LETTER permission. Resolves user identity, sanitizes the job description, **rejects an empty/missing master resume before spending a credit**, deducts a credit atomically BEFORE generation (refunds on failure), calls generateCoverLetter(). Persists by default; callers may pass `save:false` for preview-only generation. Returns the generated content with a coverLetterId if saved.
 
 ### `src/app/api/health/route.js` — Simple health-check endpoint for monitoring.
 
 - `GET` — Returns { status: 'ok', uptime, timestamp } to indicate the server is running.
 
-### `src/app/api/parse-resume/route.js` — Parses an uploaded resume file (PDF/DOCX) and extracts structured data. Hardened 2026-08-21: 5MB size cap (413), MIME allowlist, PDF/ZIP magic-byte verification (415), dead Pages-Router bodyParser directive removed.
+### `src/app/api/parse-resume/route.js` — Parses an uploaded resume file (PDF/DOCX) and extracts structured data. Hardened 2026-08-21: 5MB size cap (413), MIME allowlist, PDF/ZIP magic-byte verification (415). Metered 2026-08-22: deducts a credit before the AI call, refunds on failure.
 
-- `POST` — Requires PARSE_RESUME permission. Resolves user identity via resolveUserId(). Accepts a multipart form upload with field 'resumeFile', validates size/type/content signature, then passes the verified Buffer to parseResume() and returns parsed JSON via ok().
+- `POST` — Requires PARSE_RESUME permission. Resolves user identity via resolveUserId(). Accepts a multipart form upload with field 'resumeFile', validates size/type/content signature, deducts 1 credit (refund on failure), then passes the verified Buffer to parseResume() and returns parsed JSON via ok().
 
 ### `src/app/api/render-pdf-react/route.js` — Generates a downloadable PDF for a resume or cover letter using React PDF renderer.
 
-- `POST` — Requires DOWNLOAD_PDF permission. For type='cover-letter', generates a cover letter PDF via generateCoverLetterPdf(). Otherwise generates a resume PDF via generatePdf() using the provided resumeData and template. Returns the PDF buffer as an attachment response.
+- `POST` — Requires DOWNLOAD_PDF permission. Rate-limited to 10 renders/user/minute (in-memory sliding window) before any expensive work; missing `fail` import fixed. For type='cover-letter', generates a cover letter PDF via generateCoverLetterPdf(). Otherwise generates a resume PDF via generatePdf() using the provided resumeData and template. Returns the PDF buffer as an attachment response.
 
-### `src/app/api/resume/templates/route.js` — Returns the list of available resume PDF templates, with a 1-hour in-memory cache so the mapped result is reused across requests.
+### `src/app/api/resume/templates/route.js` — Returns the list of available resume PDF templates, with a 1-hour in-memory cache so the mapped result is reused across requests. **Single canonical listing** — TemplateSelector now uses this endpoint (the fs-based getTemplates server action was deleted).
 
-- `GET` — Returns an array of { id, name } objects for each available template: Professional, Modern, Classic, Classic 2, Creative, Simple. Results are cached in-memory for 1 hour (CACHE_TTL_MS) and recomputed on first request or cache expiry.
+- `GET` — Returns an array of { id, name } where `id` is the component name accepted by pdf-generator's ALLOWED_TEMPLATES and `name` is the friendly label: Professional, Modern, Classic, Classic 2, Creative, Simple. Results are cached in-memory for 1 hour (CACHE_TTL_MS) and recomputed on first request or cache expiry.
 
 ### `src/app/api/resumes/[id]/route.js` — Fetch, delete, or update metadata for a single resume by ID. Uses resolveUserId() for dual auth (JWT/API key).
 
@@ -298,14 +278,14 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `GET` — Requires VIEW_OWN_RESUMES permission. Loads the user with populated generatedResumes (each with populated metadata) and returns the array.
 - `POST` — Requires CREATE_RESUME permission. Accepts content and optional metadata, deducts a credit via SubscriptionService.trackUsage(), creates the resume via ResumeService, and adds it to the user's generatedResumes list.
 
-### `src/app/api/user/profile/route.js` — Get and update the authenticated user's profile. Uses DB-backed `requirePermission`, validates input shapes, and returns a server-computed `creditsRemaining` field (single source of truth for billing UI).
+### `src/app/api/user/profile/route.js` — Get and update the authenticated user's profile. Uses DB-backed `requirePermission`, validates input shapes, and returns a server-computed `creditsRemaining` field (single source of truth for billing UI). GET also returns real billing fields (subscriptionId, subscriptionStatus, subscriptionExpiresAt) so the UI never guesses.
 
-- `GET` — Requires VIEW_OWN_PROFILE permission (DB-backed). Returns whitelisted fields incl. `creditsRemaining` computed via SubscriptionService.getLimit().
-- `PUT` — Body parsed via readJson size guard; name/dateOfBirth format-validated; requires EDIT_OWN_PROFILE permission (DB-backed). Creates a new Resume document if mainResume is provided (structure checked against RESUME_FIELD_SCHEMA sections). Returns the updated profile.
+- `GET` — Requires VIEW_OWN_PROFILE permission (DB-backed). Returns whitelisted fields incl. `creditsRemaining` computed via SubscriptionService.getLimit() plus subscription status/expiry.
+- `PUT` — Body parsed via readJson size guard; name/dateOfBirth format-validated; requires EDIT_OWN_PROFILE permission (DB-backed). Creates a new Resume document if mainResume is provided (structure strictly validated against RESUME_FIELD_SCHEMA section types + must contain some resume signal) **and deletes the superseded master Resume + its metadata unless it's still in generatedResumes** (no more orphan accumulation). Returns the updated profile.
 
 ### `src/app/api/webhooks/stripe/route.js` — Handles incoming Stripe webhook events for subscription lifecycle management.
 
-- `POST` — Verifies the Stripe signature (generic error on failure). Handles five event types via switch: checkout.session.completed (upgrade + idempotent transaction upsert), invoice.payment_succeeded (renewal; expiry derived from the Stripe subscription's current_period_end), invoice.payment_failed (marks past_due), customer.subscription.updated (syncs status/expiry), customer.subscription.deleted (marks canceled and honors paid-through period; periodic checker downgrades later), plus checkout.session.expired no-op. All writes use idempotent upserts keyed on stripePaymentId; structured logging; 500 returned on internal errors so Stripe retries.
+- `POST` — Verifies the Stripe signature (generic error on failure). Handles five event types via switch: checkout.session.completed (upgrade + idempotent transaction upsert; **only honors metadata.planName === 'PRO'** — other plans are logged and ignored), invoice.payment_succeeded (renewal; expiry derived from the Stripe subscription's current_period_end), invoice.payment_failed (marks past_due), customer.subscription.updated (syncs status/expiry), customer.subscription.deleted (marks canceled and honors paid-through period; periodic checker downgrades later), plus checkout.session.expired no-op. All writes use idempotent upserts keyed on stripePaymentId; structured logging; 500 returned on internal errors so Stripe retries.
 
 ### `src/app/checkout/cancel/page.js` — Displays a payment-cancelled confirmation page after a user cancels a Stripe checkout session, with links to view plans or return to dashboard.
 
@@ -315,7 +295,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `CheckoutSuccess` — Default export. Client component rendering a success card with a 5-second auto-redirect to the dashboard.
 
-### `src/app/cover-letters/[id]/page.js` — Cover letter detail page for viewing, generating, regenerating, and deleting cover letters. Uses a job description input and AI generation to produce tailored cover letters.
+### `src/app/cover-letters/[id]/page.js` — Cover letter detail page for viewing, generating, regenerating, and deleting cover letters. Uses a job description input and AI generation to produce tailored cover letters. The generation panel also renders on EXISTING letters when "Regenerate" is clicked (pre-fills recipient from the letter).
 
 - `CoverLetterDetailPage` — Default export. Client component handling cover letter display and generation with job description input, recipient name, preview via CoverLetterPreview component, and delete functionality.
 - `handleGenerate` — Async function that calls POST /api/generate-cover-letter to generate a new cover letter from job description and recipient name, then navigates to the result.
@@ -330,8 +310,8 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/dashboard/page.js` — Main application dashboard providing resume generation from a job description with live preview, resume list, special instructions, and subscription session verification.
 
 - `DashboardPage` — Default export. Client component wrapping DashboardContent in a Suspense boundary.
-- `DashboardContent` — Default export (via re-export). Client component with the full dashboard UI: job description input, special instructions, resume generation, live preview, save checkbox, Stripe session verification, and resume list via ResumeList component.
-- `handleGenerateResume` — Async callback that calls POST to the generate endpoint with resume content, job description, special instructions, and save flag, then updates the tailored resume preview.
+- `DashboardContent` — Default export (via re-export). Client component with the full dashboard UI: job description input, special instructions, resume generation, live preview, save checkbox, Stripe session verification (inline dismissible status banner instead of alert()), and resume list via ResumeList component.
+- `handleGenerateResume` — Async callback that calls POST to the generate endpoint with resume content, job description, special instructions, and save flag; when the server saves (`resumeId` returned) it refetches the saved-resumes list so the new resume appears immediately.
 
 ### `src/app/layout.js` — Root layout for the entire application, setting up fonts, global CSS, auth context, navigation bar, and footer.
 
@@ -369,22 +349,24 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/pricing/page.js` — Pricing page displaying Free and Pro subscription plans with feature comparisons and upgrade buttons that trigger Stripe checkout.
 
 - `PricingPage` — Client component rendering Free/Pro tiers; Free-tier label adapts to the viewer's role (Start Free / Your Plan / Included) via useAuth.
-- `handleUpgrade(planName)` — POSTs PLANS.PRO.name to /api/checkout/create-session and redirects to Stripe.
+- `handleUpgrade(planKey)` — POSTs the plan KEY (`'PRO'`) to /api/checkout/create-session and redirects to Stripe.
 
 ### `src/app/profile/page.js` — User profile page with tabs for personal details (name, date of birth, AI resume editing, manual resume form, resume upload/parse) and subscription management (plan info, upgrade, manage billing).
 
-- `ProfilePage` — Full profile experience: tabs, editing, AI edit, manual form, upload/parse, master delete, subscription display, upgrade + billing portal. Stripe buttons have pending/disabled double-submit guards; plan labels derive from PLANS constants; role compares use ROLES enum.
+- `ProfilePage` — Full profile experience: tabs, editing, AI edit, manual form, upload/parse, master delete, subscription display (renders real `subscriptionStatus` / `subscriptionExpiresAt` / `creditsRemaining` from the API instead of static guesses), upgrade + billing portal. Stripe buttons have pending/disabled double-submit guards; plan labels derive from PLANS constants; role compares use ROLES enum; DOB round-trips through local-date formatting (no UTC off-by-one).
 - `handleSubmit` — Async function that saves profile name and date of birth via PUT /api/user/profile.
 - `handleFileUpload` — Async function that uploads a resume file to POST /api/parse-resume for AI parsing, then saves the parsed result as the master resume.
 - `handleAiEdit` — Async function that sends a natural-language edit query to POST /api/edit-resume-with-ai to modify the master resume content via AI.
 - `handleDeleteMasterResume` — Async function that deletes the master resume via DELETE /api/resumes/master.
-- `handleUpgrade` — Async function that initiates a Stripe checkout session for the Pro plan.
+- `handleUpgrade` — Async function that initiates a Stripe checkout session sending planName 'PRO'.
 - `handleManageSubscription` — Async function that opens the Stripe billing portal for subscription management.
 
 
 ---
 
 ## components
+
+> All six PDF templates render Skills via the shared `normalizeSkills()` helper from `src/lib/resumeFields.js` (added 2026-08-22 — previously 4 of 6 templates read a legacy shape and rendered Skills blank for schema-conformant resumes).
 
 ### `src/components/profile/ManualResumeForm.js` — Multi-section form for manually entering resume data. Driven entirely by RESUME_FIELD_SCHEMA -- add a field there, it appears here. Available to all users (no AI parsing required).
 
@@ -436,9 +418,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ## config
 
-### `src/config/env.js` — Single source of truth for environment variable access. Centralizes all process.env references so renaming a variable only requires a change here.
+### `src/config/env.js` — Single source of truth for environment variable access. Centralizes all process.env references so renaming a variable only requires a change here. Also exports `validateEnv()` for boot-time validation of required vars (see `src/instrumentation.js`).
 
 - `env (default export)` — Object mapping config keys to environment variables for auth secrets, MongoDB URI, AI keys (Gemini + DeepSeek), Stripe keys, Brevo email config, and app URL. Legacy automation keys (`workerUrl`, `cookieEncryptionKey`) are still defined but their only consumers were archived on 2026-08-21.
+- `validateEnv(opts)` — Returns `{ missing, warnings }`; throws when `opts.throwOnError` and required vars are absent.
 
 
 ---
@@ -459,9 +442,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `useApiClient` — Hook returning an apiClient function that wraps fetch() with credentials: 'include' to send cookies on every request
 
-### `src/hooks/useProfile.js` — Hook to fetch and provide the authenticated user's profile data from the API.
+### `src/hooks/useProfile.js` — Provides the authenticated user's profile WITHOUT a duplicate network request. Reads from AuthContext (which already GETs /api/user/profile once per page load).
 
-- `useProfile` — Hook returning { profile, loading, refetch } -- fetches profile from API endpoint on mount and provides a refetch function
+- `useProfile` — Hook returning { profile, loading, refetch } — profile comes from AuthContext state; refetch delegates to the auth context's fetch
 
 ### `src/hooks/useResumes.js` — Hook providing all resume CRUD operations (list, create, delete) for the current user, with permission checks.
 
@@ -484,24 +467,29 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `checkPermissionDB` — ASYNC: Server-side variant of checkPermission that tries DB first. Use in API routes and server actions.
 - `getPermissionMetadata` — Retrieves metadata (name, description, requiredPlan) for a given permission key from PERMISSION_METADATA
 
-### `src/lib/ai/client.js` — Unified AI client that routes AI calls to the configured provider (Gemini or DeepSeek) for any task, with optional JSON parsing.
+### `src/lib/ai/client.js` — Unified AI client that routes AI calls to the configured provider (Gemini or DeepSeek) for any task, with optional JSON parsing and automatic retry/backoff for transient provider failures (429/5xx, timeouts, network errors — max 3 attempts).
 
-- `callAI` — Calls the AI provider configured for a taskKey with a prompt, optionally parses the response as JSON, and returns the result
+- `callAI` — Calls the AI provider configured for a taskKey with a prompt (with retry), optionally parses the response as JSON, and returns the result
+- `runWithRetry` — Internal helper implementing exponential backoff (500ms, 1s); non-retryable errors fail fast
 
 ### `src/lib/ai/config.js` — AI task configuration mapping each task to a provider and model. Supports environment variable overrides per task.
 
 - `AI_TASKS` — Object mapping task keys (RESUME_GENERATION, COVER_LETTER_GENERATION, AI_EDIT, RESUME_PARSING, GATEKEEPER) to { provider, model } -- all currently routed to DeepSeek. The GATEKEEPER key is now referenced only by the archived gatekeeper endpoint (2026-08-21).
 - `getEffectiveConfig` — Returns the effective { provider, model } for a task key, checking for environment variable overrides (format: AI_TASK_<KEY>=provider:model) before falling back to AI_TASKS defaults
 
-### `src/lib/ai/runners/deepseek.js` — DeepSeek AI API runner implementing the OpenAI-compatible chat completions endpoint.
+### `src/lib/ai/runners/deepseek.js` — DeepSeek AI API runner implementing the OpenAI-compatible chat completions endpoint. Requests carry `max_tokens: 4096` and a 60s AbortController timeout.
 
 - `callDeepSeek` — Calls the DeepSeek API (deepseek.com/v1/chat/completions) with model name and prompt, returns raw response text
 - `parseDeepSeekJson` — Parses JSON from DeepSeek response text, stripping markdown code block markers and extracting the last valid JSON object
 
-### `src/lib/ai/runners/gemini.js` — Gemini AI runner using the @google/generative-ai SDK.
+### `src/lib/ai/runners/gemini.js` — Gemini AI runner using the @google/generative-ai SDK. Generation is capped at `maxOutputTokens: 4096` with a 60s Promise-race timeout (via `withTimeout`).
 
 - `callGemini` — Calls the Gemini API with model name and prompt using the Google Generative AI SDK, returns response text
 - `parseGeminiJson` — Parses JSON from Gemini response text, stripping markdown code block markers and extracting the last valid JSON object
+
+### `src/lib/ai/withTimeout.js` — Small helper rejecting a wrapped promise if it doesn't settle within N ms.
+
+- `withTimeout(promise, ms, label)` — Promise.race-based deadline; clears its timer on settle
 
 ### `src/lib/apiKeyAuth.js` — API key authentication library. **Kept live only for `resolveUserId()`,** which active resume / cover-letter / generate / parse routes call for auth (JWT path). The Bearer API-key side is dormant since the key-management UI/routes were archived on 2026-08-21 — no new keys can be created, though pre-existing DB keys would still validate.
 
@@ -527,21 +515,23 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `ValidationError` — AppError subclass defaulting to 400
 - `AuthError` — AppError subclass defaulting to 401
 - `ForbiddenError` — AppError subclass defaulting to 403
-- `readJson(request, maxBytes)` — Reads a JSON body with a hard size cap (default 256KB), returning `{ok, body}` or `{ok:false, response}` with 400/413 errors. Used by AI/PDF routes to bound payload size.
+- `readJson(request, maxBytes)` — Reads a JSON body with a hard size cap (default 256KB) **measured in actual UTF-8 bytes**, returning `{ok, body}` or `{ok:false, response}` with 400/413 errors. Used by AI/PDF routes to bound payload size.
 - `withErrorHandler` — Higher-order function that wraps a route handler, catching AppError subclasses for status-specific responses and generic errors for a 500 response
 
-### `src/lib/sanitize.js` — Shared utility for sanitizing user-provided text (e.g. job descriptions) against prompt injection patterns.
+### `src/lib/sanitize.js` — Shared utility for sanitizing user-provided text (e.g. job descriptions) against prompt injection patterns. The identity-override pattern only matches AI/system targets ("act as the system"), so legitimate job text like "act as a mentor" survives.
 
-- `sanitizeJobDescription` — Strips prompt injection patterns from text and truncates to 8000 characters
+- `sanitizeJobDescription` — Strips prompt injection patterns from text and truncates to 8000 characters (logs a warning when truncation occurs)
+- `sanitizeJobDescriptionWithInfo` — Same sanitization, returns `{ text, wasTruncated }` for callers that want to surface a notice
+- `MAX_JOB_DESCRIPTION_LENGTH` — Exported truncation limit (8000)
 
-### `src/lib/auth-edge.js` — Edge-runtime JWT verification using the jose library. Used in middleware/edge functions for fast token validation without database access.
+### `src/lib/auth-edge.js` — Edge-runtime JWT verification using the jose library. Used in middleware/edge functions for fast token validation without database access. Asserts the embedded `type` claim matches the expected token type.
 
 - `verifyTokenEdge` — Verifies a JWT token (access or refresh) using jose and the appropriate secret key, returns the decoded payload
 - `verifyAuthEdge` — Verifies authentication from access/refresh token cookies at the edge; returns { ok, userId, role } on success, or { ok: false } if invalid (cannot rotate at edge)
 
-### `src/lib/auth.js` — Server-side authentication with JWT access/refresh token verification and secure refresh token rotation (supports multi-device — no longer wipes all sessions on single token miss).
+### `src/lib/auth.js` — Server-side authentication with JWT access/refresh token verification and secure refresh token rotation. Rotation uses a 60-second grace window: superseded tokens stay briefly valid (marked `supersededAt`, TTL-shortened) so parallel requests carrying the same just-rotated token rotate again instead of failing — fixes random logouts from concurrent refreshes.
 
-- `rotateRefreshToken` — Verifies a refresh token, checks for expiry, rotates it (deletes old, creates new pair), supports multi-device by only failing the rotating device if its token is missing rather than wiping all sessions
+- `rotateRefreshToken` — Verifies a refresh token, rejects superseded tokens past the grace window, marks the used token superseded instead of hard-deleting, and issues a new pair
 - `verifyAuth` — Main auth verification function: tries the access token first; if invalid/expired, attempts refresh token rotation; returns auth result with optional new tokens or cookie-clear signal
 
 ### `src/lib/constants.js` — Application-wide constants including role/permission enums, plan definitions, token config, routes, and API endpoints.
@@ -592,7 +582,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `ALLOWED_TEMPLATES` — Allowlist of template ids that may be dynamically imported (client-controlled values are validated against it; `.js` suffix normalized).
 
-- `generatePdf` — Validates the requested template against ALLOWED_TEMPLATES, dynamically imports the component + PdfResumeRenderer, renders to a PDF blob Buffer.
+- `generatePdf` — Validates the requested template against ALLOWED_TEMPLATES, dynamically imports the component **using the validated id (never the raw client string)** + PdfResumeRenderer, renders to a PDF blob Buffer.
 - `generateCoverLetterPdf` — Dynamically imports the cover letter template, renders it to a PDF blob, and returns it as a Buffer.
 
 ### `src/lib/promptConfig.js` — Single source of truth for AI prompt strategies — maps user roles to prompt tiers and provides builder functions for each tier.
@@ -601,6 +591,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `PROMPT_TEMPLATES` — Registry of prompt builder functions keyed by template name: basic, standard, premium.
 - `buildPromptForRole` — Public API that looks up the prompt strategy for a given user role and invokes the corresponding builder function to produce the final prompt string.
 
+### `src/lib/rateLimit.js` — Simple in-memory sliding-window rate limiter (per server instance) used to protect CPU/AI-heavy endpoints.
+
+- `rateLimit(key, limit, windowMs)` — Tracks hit timestamps per key; returns `{ allowed }` (+ `retryAfterMs` when denied). Opportunistically prunes stale buckets.
+
 ### `src/lib/resume-generator.js` — Shared core for resume generation via AI. Builds a role-appropriate prompt and calls the AI client.
 
 - `generateResume` — Generates a tailored resume by building a prompt via buildPromptForRole and calling the AI client. Returns { resume, metadata }.
@@ -608,7 +602,8 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/lib/resumeFields.js` — Single source of truth for the resume content structure. Defines every section and field and provides helpers to derive Mongoose schemas, AI prompt schemas, and blank form state.
 
 - `FIELD_TYPES` — Constants for field types: TEXT, EMAIL, URL, MONTH, TEXTAREA, CHECKBOX, BULLET_LIST, TAG_LIST.
-- `RESUME_FIELD_SCHEMA` — Master schema definition describing all resume sections (profile, work_experience, education, skills, additional_info) and their fields.
+- `RESUME_FIELD_SCHEMA` — Master schema definition describing all resume sections (profile, work_experience, education — now with `is_current` checkbox so "Present" logic works — skills, additional_info) and their fields.
+- `normalizeSkills(skills)` — Normalizes every historical skills shape (array of strings, [{skill_name, category}], {list_of_skills: []}, raw string) into an array of strings. Used by all PDF templates and display views.
 - `buildEmptyResume` — Returns a blank resume content object matching the structure of RESUME_FIELD_SCHEMA.
 - `buildEmptyArrayItem` — Returns a blank item object for a given array-type section (e.g. work_experience entry).
 - `generateMongooseContentSchema` — Generates a Mongoose Schema definition for the resume content field by mapping field types to Mongoose types.
@@ -629,7 +624,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/subscriptionChecker.js` — Subscription expiration checking and automatic user downgrade logic.
 
-- `checkAndDowngradeExpiredSubscription` — Checks if a user's subscription has expired and downgrades their role to USER if so.
+- `checkAndDowngradeExpiredSubscription` — Checks if a user's subscription has expired and downgrades their role to USER if so; **clears `subscriptionId`** so credit limits no longer treat them as PRO.
 - `isSubscriptionActive` — Returns true if the user's subscription status is active and the expiration date is in the future.
 
 ### `src/lib/utils.js` — Utility functions for SHA-256 hashing (hex string and raw Buffer variants) and JWT access/refresh token generation and verification.
@@ -637,9 +632,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `sha256` — Computes a SHA-256 hex digest of the input string.
 - `hashToken` — Alias for sha256.
 - `sha256Buffer` — SHA-256 hash returning a raw Buffer (for key derivation, encryption, etc.). Used by encryption.js.
-- `generateAccessToken` — Creates and signs a JWT access token containing userId and role, using the configured expiry.
-- `generateRefreshToken` — Creates and signs a JWT refresh token containing userId, with a 15-day expiry.
-- `verifyToken` — Verifies a JWT token (access or refresh) using the corresponding secret and returns the decoded payload.
+- `generateAccessToken` — Creates and signs a JWT access token containing `type: 'access'`, userId and role, using the configured expiry.
+- `generateRefreshToken` — Creates and signs a JWT refresh token containing `type: 'refresh'` and userId, with a 15-day expiry.
+- `verifyToken` — Verifies a JWT token (access or refresh) using the corresponding secret and asserts the embedded `type` claim matches (legacy claim-less tokens tolerated).
 
 
 ---
@@ -670,7 +665,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/models/refreshToken.js` — Mongoose model for authentication refresh tokens with a compound index on userId+token and a TTL index on expiresAt for automatic MongoDB document deletion.
 
-- `default export (RefreshToken model)` — Reuses existing Mongoose model or creates a new 'RefreshToken' model with fields: userId, token (hashed), expiresAt, createdAt, userAgent, ip.
+- `default export (RefreshToken model)` — Reuses existing Mongoose model or creates a new 'RefreshToken' model with fields: userId, token (hashed), expiresAt, supersededAt (rotation grace-window marker — superseded rows are TTL-shortened and rejected after 60s), createdAt, userAgent, ip.
 
 ### `src/models/resume.js` — Mongoose model for resume documents with dynamic content schema generated from src/lib/resumeFields.js, linked to a User and optional ResumeMetadata.
 
@@ -690,7 +685,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/models/User.js` — Mongoose model for users storing authentication, subscription, OTP, and resume reference data, with role-based access control.
 
-- `default export (User model)` — Reuses existing Mongoose model or creates a new 'User' model with fields: email, name, dateOfBirth, role (from ROLES constants), creditsUsed, lastCreditResetDate, subscriptionId, customerId, subscriptionExpiresAt, subscriptionStatus, plan, otp, otpExpires, otpAttempts (brute-force counter), lastOtpSentAt (resend cooldown), createdAt, mainResume, generatedResumes.
+- `default export (User model)` — Reuses existing Mongoose model or creates a new 'User' model with fields: email, name, dateOfBirth, role (from ROLES constants), creditsUsed, lastCreditResetDate, subscriptionId, customerId, subscriptionExpiresAt, subscriptionStatus (**enum extended 2026-08-22** to active/trialing/past_due/unpaid/inactive/expired/canceled/none so webhook writes never poison documents into failing later save() validation), plan, otp, otpExpires, otpAttempts (brute-force counter), lastOtpSentAt (resend cooldown), createdAt, mainResume, generatedResumes.
 
 
 ---
@@ -702,6 +697,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `proxy(req)` — Main middleware handler. Validates authentication via verifyAuthEdge, attempts token rotation using refresh tokens on failure, periodically checks subscription status, enforces role-based routing (redirects unauthenticated users to login, admins-only for /admin, authenticated users away from /login), injects x-user-id header on API requests, and manages cookie setting/clearing for tokens and subscription check timestamps.
 - `config` — Next.js middleware matcher configuration specifying which route patterns trigger the proxy: /api/:path*, /dashboard/:path*, /profile/:path*, /onboarding/:path*, /admin/:path*, /login, /resume-history/:path*, /checkout/:path*.
 - Hardened 2026-08-21: `/api/health` is exempted at the top of the handler so uptime monitors can reach it without auth; the internal subscription-check fetch now forwards the request Cookie header instead of trusting a client-settable x-user-id.
+- Hardened 2026-08-22: on failed rotation the proxy checks whether the refresh JWT is still structurally valid — if so (rotation race in flight) cookies are NOT cleared, preventing random logouts; `subCheckedAt` cookie is now httpOnly+secure so client JS can't postpone periodic downgrade checks.
 
 
 ---
@@ -719,7 +715,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/services/resumeParsingService.js` — Resume file parsing service that extracts text from PDF and DOCX files, then uses AI to parse the text into structured resume data. Type detection is content-based (magic bytes).
 
 - `extractText(fileBuffer, fileType)` — Internal helper that extracts raw text from a file buffer based on MIME type: uses unpdf for PDF and mammoth for DOCX. Throws on unsupported file types.
-- `parseResume(fileBuffer)` — Takes a verified Buffer (type detection via magic bytes: %PDF or ZIP container; never trusts client MIME), extracts raw text via extractText, then sends the text to an AI with a structured JSON schema prompt to parse into profile, work_experience, education, skills, and additional_info fields.
+- `parseResume(fileBuffer)` — Takes a verified Buffer (type detection via magic bytes: %PDF or ZIP container; never trusts client MIME), extracts raw text via extractText, sanitizes + bounds it against prompt injection (8000 chars), then sends the text to an AI with a structured JSON schema prompt (**YYYY-MM dates**, matching FIELD_TYPES.MONTH) to parse into profile, work_experience, education, skills, and additional_info fields.
 
 ### `src/services/resumeService.js` — Centralized CRUD service for all resume-related database operations, handling Resume and ResumeMetadata models with flexible query options.
 
@@ -742,7 +738,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/services/subscriptionService.js` — Subscription and credit usage management service that tracks per-user daily/weekly credit limits, resets usage for free users, and enforces plan boundaries.
 
-- `SubscriptionService.getLimit(user)` — Async; DB-backed UNLIMITED_CREDITS check (checkPermissionDB) so admin revocations apply immediately, then PRO vs FREE limits.
+- `SubscriptionService.getLimit(user)` — Async; DB-backed UNLIMITED_CREDITS check (checkPermissionDB with the full user object) so admin revocations apply immediately; PRO limits require role SUBSCRIBER **and a live subscription status** — a stale subscriptionId alone no longer grants Pro (downgrade leak closed).
 - `SubscriptionService.trackUsage(userId, amount)` — Atomically increments a user's creditsUsed counter only if it would not exceed the limit. Automatically checks/resets daily limits for free users. Returns true on success, false if limit would be exceeded.
 - `SubscriptionService.hasCredits(userId, amount)` — Checks whether a user has enough remaining credits for a given operation without deducting. Returns boolean.
 - `SubscriptionService.checkAndResetDailyLimits(user)` — Resets a free user's creditsUsed to 0 if the current day differs from lastCreditResetDate. Skips reset for subscriber-role users.
@@ -789,6 +785,10 @@ node scripts/seed.mjs
 ---
 
 ## Root Configs
+
+### `src/instrumentation.js` — Next.js instrumentation hook (runs once at server boot). Fails fast when required environment variables are missing instead of surfacing errors deep inside request handlers.
+
+- `register()` — Skips non-nodejs runtimes; imports validateEnv from src/config/env with throwOnError, logs feature warnings (AI keys, Stripe, Brevo), rethrows on missing required vars.
 
 ### `next.config.mjs` — Next.js configuration.
 

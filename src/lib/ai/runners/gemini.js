@@ -1,7 +1,12 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import env from '@/config/env';
+import { withTimeout } from '../withTimeout';
 
 let client = null;
+
+// Hard caps so a hung/looping provider call can't pin a route forever
+export const AI_TIMEOUT_MS = 60_000;
+export const AI_MAX_TOKENS = 4096;
 
 function getClient() {
   if (!client) {
@@ -19,8 +24,15 @@ function getClient() {
  * @returns {Promise<string>} Raw response text
  */
 export async function callGemini(modelName, prompt) {
-  const model = getClient().getGenerativeModel({ model: modelName });
-  const result = await model.generateContent(prompt);
+  const model = getClient().getGenerativeModel({
+    model: modelName,
+    generationConfig: { maxOutputTokens: AI_MAX_TOKENS },
+  });
+  const result = await withTimeout(
+    model.generateContent(prompt),
+    AI_TIMEOUT_MS,
+    'Gemini'
+  );
   return result.response.text();
 }
 

@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PERMISSIONS } from '@/lib/constants';
 import { checkPermission, getPermissionMetadata } from '@/lib/accessControl';
+import { useAuth } from '@/context/AuthContext';
 import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
 import TemplateViewer from "@/components/preview/TemplateViewer";
 import CoverLetterPreview from "@/components/preview/CoverLetterPreview";
 
 export default function AIEditPage() {
   const router = useRouter();
+  const { loading: authLoading, isAuthenticated, user: authUser, refetch: refetchProfile } = useAuth();
   const [editType, setEditType] = useState('resume'); // 'resume' | 'cover-letter'
 
   // Resume state
@@ -28,45 +30,27 @@ export default function AIEditPage() {
   const [createNew, setCreateNew] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
-  const [accessError, setAccessError] = useState('');
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
+  // Sync profile from AuthContext (single shared fetch — no duplicate requests)
   useEffect(() => {
-    checkAccess();
-  }, []);
+    if (authLoading) return;
+    if (!isAuthenticated || !authUser) {
+      router.push('/login');
+      return;
+    }
+    setUserProfile(authUser);
+    setIsCheckingAccess(false);
+    if (!selectedResumeId && authUser.mainResume?._id) {
+      setSelectedResumeId(authUser.mainResume._id.toString());
+    }
+  }, [authLoading, isAuthenticated, authUser, router, selectedResumeId]);
 
   useEffect(() => {
     if (!userProfile) return;
     if (editType === 'resume') fetchResumes();
     if (editType === 'cover-letter') fetchCoverLetters();
   }, [userProfile, editType]);
-
-  const checkAccess = async () => {
-    let profile = null;
-    try {
-      const res = await fetch('/api/user/profile');
-      if (res.ok) {
-        const data = await res.json();
-        profile = data;
-        setUserProfile(data);
-        if (data.mainResume?._id) {
-          setSelectedResumeId(data.mainResume._id.toString());
-        }
-      } else {
-        router.push('/login');
-      }
-    } catch (err) {
-      console.error('Error checking access:', err);
-      setAccessError('Could not load your profile. Check your connection and try again.');
-    } finally {
-      setIsCheckingAccess(false);
-      // Only mark data as loaded if we never got a profile (error/redirect).
-      // Otherwise, fetchResumes/fetchCoverLetters will mark it when they finish.
-      if (!profile) {
-        setInitialDataLoaded(true);
-      }
-    }
-  };
 
   const fetchResumes = async () => {
     try {
@@ -88,9 +72,13 @@ export default function AIEditPage() {
       if (res.ok) {
         const data = await res.json();
         setCoverLetters(Array.isArray(data) ? data : []);
-        if (data.length > 0) {
-          setSelectedCoverLetterId(data[0]._id);
-        }
+        // Keep the current selection if it still exists — don't jump to the first item
+        setSelectedCoverLetterId((prev) => {
+          if (prev && Array.isArray(data) && data.some((cl) => cl._id === prev)) {
+            return prev;
+          }
+          return data[0]?._id || '';
+        });
       }
     } catch (err) {
       console.error('Error fetching cover letters:', err);
@@ -187,9 +175,14 @@ export default function AIEditPage() {
       setQuery('');
 
       if (editType === 'resume') {
-        fetchResumes();
+        await fetchResumes();
+        // If the MASTER resume was edited in place, refetch the profile (via the
+        // shared AuthContext) so the preview and dropdown reflect the new content.
+        if (!createNew && selectedResumeId && selectedResumeId === masterResumeId) {
+          await refetchProfile();
+        }
       } else {
-        fetchCoverLetters();
+        await fetchCoverLetters();
       }
     } catch (err) {
       setError(err.message);
@@ -214,19 +207,7 @@ export default function AIEditPage() {
   if (!userProfile) {
     return (
       <div className="min-h-screen bg-slate-900 text-center mt-20 px-6">
-        {accessError ? (
-          <>
-            <p className="text-red-400 mb-4">{accessError}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-            >
-              Retry
-            </button>
-          </>
-        ) : (
-          <div className="text-white">Loading...</div>
-        )}
+        <div className="text-white">Loading...</div>
       </div>
     );
   }

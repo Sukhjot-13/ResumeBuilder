@@ -13,12 +13,17 @@ export const SubscriptionService = {
    */
   async getLimit(user) {
     // If admin or has unlimited permission (DB-first with constants fallback)
-    if (await checkPermissionDB(user.role, PERMISSIONS.UNLIMITED_CREDITS)) {
+    if (await checkPermissionDB(user, PERMISSIONS.UNLIMITED_CREDITS)) {
       return Infinity;
     }
 
-    // Check if user is PRO (subscriber role or subscriptionId present)
-    if (user.role === ROLES.SUBSCRIBER || user.subscriptionId) {
+    // PRO only when the role says so AND the subscription is genuinely live.
+    // A stale subscriptionId alone must NOT grant Pro credits (downgrade leak).
+    const isPro =
+      user.role === ROLES.SUBSCRIBER &&
+      (!user.subscriptionStatus || user.subscriptionStatus === 'active');
+
+    if (isPro) {
       return PLANS.PRO.credits;
     }
 

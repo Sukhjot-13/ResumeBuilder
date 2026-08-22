@@ -53,7 +53,8 @@ export async function readJson(request, maxBytes = 256 * 1024) {
     return { ok: false, response: fail('Invalid request body', 400) };
   }
 
-  if (text.length > maxBytes) {
+  // Measure actual BYTES — multibyte chars make length undercount
+  if (Buffer.byteLength(text, 'utf8') > maxBytes) {
     return { ok: false, response: fail('Request body too large', 413) };
   }
 

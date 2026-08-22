@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Link,
 } from "@react-pdf/renderer";
+import { normalizeSkills } from "@/lib/resumeFields";
 
 const styles = StyleSheet.create({
   page: {
@@ -109,7 +110,7 @@ const SimpleTemplate = ({ resumeData }) => {
     certifications = [],
     awards_activities = [],
   } = additional_info;
-  const skillList = skills.list_of_skills || [];
+  const skillList = normalizeSkills(skills);
 
   return (
     <Document>

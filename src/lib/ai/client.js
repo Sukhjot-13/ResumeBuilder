@@ -22,6 +22,37 @@ const RUNNERS = {
   },
 };
 
+// Retry policy for transient provider failures (network blips, 429/5xx).
+const MAX_ATTEMPTS = 3;
+const RETRYABLE_STATUS = [429, 500, 502, 503, 504];
+
+function isRetryable(error) {
+  const msg = error?.message || '';
+  if (msg.startsWith('DeepSeek API error (')) {
+    const status = parseInt(msg.match(/\((\d+)\)/)?.[1] || '0', 10);
+    return RETRYABLE_STATUS.includes(status);
+  }
+  // Timeouts and network errors are worth one more shot; JSON parse errors are not
+  return /timed out|fetch failed|network|ECONN|aborted/i.test(msg) && !msg.includes('parse');
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function runWithRetry(runner, model, prompt, taskKey) {
+  let lastError;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await runner.run(model, prompt);
+    } catch (error) {
+      lastError = error;
+      const isLast = attempt === MAX_ATTEMPTS;
+      if (isLast || !isRetryable(error)) break;
+      await sleep(500 * Math.pow(2, attempt - 1)); // 500ms, 1s
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Call the AI for a given task.
  *
@@ -39,7 +70,7 @@ export async function callAI(taskKey, prompt, opts = {}) {
     throw new Error(`Unknown AI provider: ${provider} (task: ${taskKey})`);
   }
 
-  const text = await runner.run(model, prompt);
+  const text = await runWithRetry(runner, model, prompt, taskKey);
 
   if (opts.parseJson) {
     if (runner.parseJson) {

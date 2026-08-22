@@ -26,7 +26,7 @@ export const POST = withErrorHandler(async (request) => {
   if (!parsed.ok) return parsed.response;
   const body = parsed.body || {};
 
-  const { jobDescription, recipientName } = body;
+  const { jobDescription, recipientName, save } = body;
   const cleanJobDescription = sanitizeJobDescription(jobDescription);
 
   if (!cleanJobDescription.trim()) {
@@ -38,6 +38,16 @@ export const POST = withErrorHandler(async (request) => {
     return fail('User not found', 404);
   }
 
+  // Reject an empty/missing master resume BEFORE spending a credit
+  const resumeData = user.mainResume?.content || {};
+  const hasContent =
+    Boolean(user.mainResume) &&
+    (Boolean(resumeData.profile?.full_name) ||
+      (Array.isArray(resumeData.work_experience) && resumeData.work_experience.length > 0));
+  if (!hasContent) {
+    return fail('Please save a master resume in your Profile before generating a cover letter.', 400);
+  }
+
   // Deduct credit BEFORE generating (atomic); refund on failure below
   const tracked = await SubscriptionService.trackUsage(userId, 1);
   if (!tracked) {
@@ -45,7 +55,6 @@ export const POST = withErrorHandler(async (request) => {
     return fail('Insufficient credits. Please upgrade your plan.', 403);
   }
 
-  const resumeData = user.mainResume?.content || {};
   const userName = user.name || '';
   const userEmail = user.email || '';
   const userPhone = user.mainResume?.content?.profile?.phone || '';
@@ -57,23 +66,27 @@ export const POST = withErrorHandler(async (request) => {
       { recipientName, userName, userEmail, userPhone }
     );
 
+    // Default is to persist; callers may pass save:false for preview-only use
+    const shouldSave = save !== false;
     let coverLetterId = null;
-    try {
-      const doc = await CoverLetter.create({
-        userId: user._id,
-        content: coverLetterData,
-        metadata: {
-          jobTitle: coverLetterData.jobTitle || '',
-          companyName: coverLetterData.companyName || '',
-          coverLetterName: `Cover Letter - ${coverLetterData.companyName || 'Unknown'}`,
-        },
-      });
-      coverLetterId = doc._id.toString();
-    } catch (saveErr) {
-      logger.error('Failed to save cover letter document', saveErr, { userId });
+    if (shouldSave) {
+      try {
+        const doc = await CoverLetter.create({
+          userId: user._id,
+          content: coverLetterData,
+          metadata: {
+            jobTitle: coverLetterData.jobTitle || '',
+            companyName: coverLetterData.companyName || '',
+            coverLetterName: `Cover Letter - ${coverLetterData.companyName || 'Unknown'}`,
+          },
+        });
+        coverLetterId = doc._id.toString();
+      } catch (saveErr) {
+        logger.error('Failed to save cover letter document', saveErr, { userId });
+      }
     }
 
-    logger.info('Cover letter generated successfully', { userId });
+    logger.info('Cover letter generated successfully', { userId, saved: shouldSave });
     return ok({ coverLetterId, ...coverLetterData });
   } catch (error) {
     await SubscriptionService.refundUsage(userId, 1);

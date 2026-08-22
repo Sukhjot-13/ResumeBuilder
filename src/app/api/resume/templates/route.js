@@ -17,7 +17,9 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 export const GET = withErrorHandler(async () => {
   const now = Date.now();
   if (!cachedResult || now - cacheTimestamp > CACHE_TTL_MS) {
-    cachedResult = TEMPLATES.map(({ id, name }) => ({ id, name }));
+    // id = component name accepted by pdf-generator's ALLOWED_TEMPLATES;
+    // name = friendly display label. Single source of template listing.
+    cachedResult = TEMPLATES.map(({ component, name }) => ({ id: component, name }));
     cacheTimestamp = now;
   }
   return ok(cachedResult);

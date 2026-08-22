@@ -1,39 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useApiClient } from '@/hooks/useApiClient';
-import { API_ENDPOINTS } from '@/lib/constants';
+import { useAuth } from '@/context/AuthContext';
 
 /**
- * useProfile — fetches the authenticated user's profile.
+ * useProfile — provides the authenticated user's profile WITHOUT a duplicate
+ * network request. Reads from AuthContext (which already GETs /api/user/profile
+ * once per page load) instead of fetching again.
  *
  * Returns: { profile, loading, refetch }
  */
 export function useProfile() {
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const apiClient = useApiClient();
-
-  const fetchProfile = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient(API_ENDPOINTS.USER.PROFILE);
-      if (res.ok) {
-        const data = await res.json();
-        setProfile(data);
-      } else {
-        setProfile(null);
-      }
-    } catch {
-      setProfile(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [apiClient]);
-
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
-
-  return { profile, loading, refetch: fetchProfile };
+  const { loading, isAuthenticated, user, refetch } = useAuth();
+  return {
+    profile: isAuthenticated ? user : null,
+    loading,
+    refetch,
+  };
 }

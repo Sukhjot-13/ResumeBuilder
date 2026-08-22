@@ -1,6 +1,7 @@
 import mammoth from 'mammoth';
 import { extractText as extractPdfText } from 'unpdf';
 import { callAI } from '@/lib/ai/client';
+import { sanitizeJobDescription } from '@/lib/sanitize';
 
 /**
  * Extracts text from a file buffer.
@@ -48,6 +49,9 @@ export async function parseResume(fileBuffer) {
   }
 
   const rawText = await extractText(fileBuffer, fileType);
+  // Sanitize + bound the extracted text before it enters the prompt
+  // (self-targeted injection hardening, caps token usage)
+  const safeText = sanitizeJobDescription(rawText);
 
   const prompt = `
     [TASK]
@@ -55,10 +59,10 @@ export async function parseResume(fileBuffer) {
     Your output MUST be a JSON object in the exact schema provided.
     If a field is not present, return an empty array or null.
     - 'responsibilities' should be an array of strings.
-    - 'start_date' and 'end_date' should be in YYYY-MM-DD format if possible, otherwise just text.
+    - 'start_date' and 'end_date' MUST be in YYYY-MM format (e.g. "2023-07"); use YYYY-MM for all dates.
 
     [RAW RESUME TEXT]
-    ${rawText}
+    ${safeText}
 
     [OUTPUT JSON SCHEMA]
     {
@@ -75,8 +79,8 @@ export async function parseResume(fileBuffer) {
         {
           "job_title": "...",
           "company": "...",
-          "start_date": "YYYY-MM-DD",
-          "end_date": "YYYY-MM-DD",
+          "start_date": "YYYY-MM",
+          "end_date": "YYYY-MM",
           "is_current": false,
           "responsibilities": ["...", "..."]
         }
@@ -86,8 +90,8 @@ export async function parseResume(fileBuffer) {
           "institution": "...",
           "degree": "...",
           "field_of_study": "...",
-          "start_date": "YYYY-MM-DD",
-          "end_date": "YYYY-MM-DD",
+          "start_date": "YYYY-MM",
+          "end_date": "YYYY-MM",
           "relevant_coursework": "...",
           "bullets": ["...", "..."]
         }

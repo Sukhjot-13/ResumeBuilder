@@ -19,6 +19,10 @@ const PROFILE_FIELDS = (user) => ({
   mainResume: user.mainResume,
   creditsUsed: user.creditsUsed || 0,
   role: user.role,
+  // Real billing fields so the UI never has to guess
+  subscriptionId: user.subscriptionId || null,
+  subscriptionStatus: user.subscriptionStatus || 'none',
+  subscriptionExpiresAt: user.subscriptionExpiresAt || null,
 });
 
 async function buildProfilePayload(user) {
@@ -58,12 +62,28 @@ export const GET = withErrorHandler(async (req) => {
   return ok(await buildProfilePayload(fullUser));
 });
 
-// Basic shape validation for the resume content sections
+// Structural validation for resume content: every present section must match
+// its schema type, and there must be some real resume signal (not just {}).
 function isValidResumeContent(content) {
   if (typeof content !== 'object' || content === null || Array.isArray(content)) return false;
-  const sectionKeys = Object.keys(RESUME_FIELD_SCHEMA);
-  // Must contain at least one known section and only string/array values in them
-  return sectionKeys.some((k) => content[k] !== undefined);
+
+  for (const [sectionKey, section] of Object.entries(RESUME_FIELD_SCHEMA)) {
+    const value = content[sectionKey];
+    if (value === undefined || value === null) continue;
+    if (section.type === 'object') {
+      if (typeof value !== 'object' || Array.isArray(value)) return false;
+    } else if (section.type === 'array') {
+      if (!Array.isArray(value)) return false;
+      if (value.some((item) => typeof item !== 'object' || item === null)) return false;
+    }
+  }
+
+  const p = content.profile || {};
+  const hasProfile = Boolean(p.full_name || p.generic_summary);
+  const hasExperience = Array.isArray(content.work_experience) && content.work_experience.length > 0;
+  const hasEducation = Array.isArray(content.education) && content.education.length > 0;
+  const hasSkills = Array.isArray(content.skills) && content.skills.length > 0;
+  return hasProfile || hasExperience || hasEducation || hasSkills;
 }
 
 export const PUT = withErrorHandler(async (req) => {
@@ -103,12 +123,26 @@ export const PUT = withErrorHandler(async (req) => {
     if (!isValidResumeContent(mainResume)) {
       return fail('Invalid resume content structure', 400);
     }
+    const previousMasterId = user.mainResume;
     const newResume = new Resume({
       userId: user._id,
       content: mainResume,
     });
     await newResume.save();
     user.mainResume = newResume._id;
+
+    // Clean up the superseded master doc so repeated uploads don't accumulate
+    // garbage — unless it also lives in the user's generated-resumes list.
+    if (previousMasterId && String(previousMasterId) !== String(newResume._id)) {
+      const stillReferenced = (user.generatedResumes || []).some(
+        (id) => String(id) === String(previousMasterId)
+      );
+      if (!stillReferenced) {
+        await Resume.deleteOne({ _id: previousMasterId, userId: user._id });
+        await ResumeMetadata.deleteMany({ resumeId: previousMasterId });
+        logger.info('Deleted superseded master resume', { userId, previousMasterId });
+      }
+    }
   }
 
   if (name !== undefined) user.name = name.trim();

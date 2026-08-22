@@ -24,14 +24,6 @@ export default function PricingPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Add Authorization header if you have the token in localStorage or cookie
-          // For now, we assume the API handles cookie-based auth or we need to pass it
-          // If using cookies, fetch automatically sends them if same-origin.
-          // But our API checks Authorization header in one place.
-          // Let's assume we need to pass it if we stored it.
-          // If we rely on cookies, we should update API to check cookies too.
-          // The API I wrote checks header. I should update it to check cookie too or pass header here.
-          // For simplicity, let's assume we rely on cookies and I'll update API to check cookie if header missing.
         },
         body: JSON.stringify({ planName }),
       });
@@ -108,7 +100,7 @@ export default function PricingPage() {
               <span className="text-base font-medium text-gray-500">/{PLANS.PRO.interval}</span>
             </p>
             <button
-              onClick={() => handleUpgrade(PLANS.PRO.name)}
+              onClick={() => handleUpgrade('PRO')}
               disabled={loading}
               className="mt-8 block w-full bg-indigo-600 border border-transparent rounded-md py-2 text-sm font-semibold text-white text-center hover:bg-indigo-700"
             >

@@ -8,8 +8,7 @@ import {
   Font,
   Link,
 } from "@react-pdf/renderer";
-
-// // Using a modern, clean, sans-serif font
+import { normalizeSkills } from "@/lib/resumeFields";
 // Font.register({
 //   family: 'Lato',
 //   fonts: [
@@ -152,7 +151,7 @@ const ModernTemplate = ({ resumeData }) => {
     certifications = [],
     awards_activities = [],
   } = additional_info;
-  const skillList = skills.list_of_skills || [];
+  const skillList = normalizeSkills(skills);
 
   return (
     <Document>

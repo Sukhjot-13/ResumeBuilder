@@ -89,7 +89,7 @@ export const POST = withErrorHandler(async (req) => {
   }
 
   if (createNewResume) {
-    const allowed = await checkPermissionDB(user.role, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT);
+    const allowed = await checkPermissionDB(user, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT);
     if (!allowed) {
       logger.info("Permission denied: CREATE_NEW_RESUME_ON_EDIT", { userId, role: user.role });
       return fail('This feature requires a higher plan.', 403);
@@ -156,9 +156,10 @@ export const POST = withErrorHandler(async (req) => {
         }
 
         // Increment number on the old resume's name (e.g. "Software Engineer" → "Software Engineer 1")
+        // Only treat SMALL trailing numbers as version suffixes — years ("Resume 2024") get " 1"
         const incrementSuffix = (name) => {
-          const match = name.match(/^(.*?)\s*(\d+)$/);
-          if (match) {
+          const match = name.match(/^(.*?)\s*(\d{1,2})$/);
+          if (match && match[1].trim()) {
             return `${match[1]} ${parseInt(match[2], 10) + 1}`;
           }
           return `${name} 1`;

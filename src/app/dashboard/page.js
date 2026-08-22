@@ -19,6 +19,7 @@ function DashboardContent() {
   const [generateError, setGenerateError] = useState('');
   const [tailoredResume, setTailoredResume] = useState(null);
   const [saveResume, setSaveResume] = useState(true);
+  const [checkoutStatus, setCheckoutStatus] = useState(null); // { type: 'success'|'error', message }
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,16 +43,22 @@ function DashboardContent() {
           body: JSON.stringify({ sessionId }),
         });
         if (res.ok) {
+          setCheckoutStatus({ type: 'success', message: 'Subscription activated successfully. Welcome to Pro!' });
           router.replace(ROUTES.DASHBOARD);
-          alert('Subscription activated successfully!');
         } else {
           const data = await res.json().catch(() => ({}));
-          alert(data.error || 'Could not verify your payment. If you were charged, please contact support.');
+          setCheckoutStatus({
+            type: 'error',
+            message: data.error || 'Could not verify your payment. If you were charged, please contact support.',
+          });
           router.replace(ROUTES.DASHBOARD);
         }
       } catch (err) {
         console.error('Verification failed', err);
-        alert('Could not verify your payment. Please check your subscription status in your profile.');
+        setCheckoutStatus({
+          type: 'error',
+          message: 'Could not verify your payment. Please check your subscription status in your profile.',
+        });
       }
     };
 
@@ -86,7 +93,10 @@ function DashboardContent() {
       if (res.ok) {
         const { resume, metadata, resumeId } = await res.json();
         setTailoredResume(resume);
-        if (saveResume && !resumeId) {
+        if (saveResume && resumeId) {
+          // Server already saved it — refresh so it appears in "Your Saved Resumes"
+          await fetchResumes();
+        } else if (saveResume) {
           await createResume(resume, metadata);
         }
       } else {
@@ -98,7 +108,7 @@ function DashboardContent() {
     } finally {
       setGenerating(false);
     }
-  }, [apiClient, profile, jobDescription, specialInstructions, saveResume, createResume]);
+  }, [apiClient, profile, jobDescription, specialInstructions, saveResume, createResume, fetchResumes]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -112,6 +122,26 @@ function DashboardContent() {
             <p className="text-slate-400 text-sm mt-1">Manage your resumes and create new ones</p>
           </div>
         </div>
+
+        {checkoutStatus && (
+          <div
+            className={`mb-6 px-4 py-3 rounded-lg text-sm flex items-center justify-between ${
+              checkoutStatus.type === 'success'
+                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+                : 'bg-red-500/10 border border-red-500/30 text-red-300'
+            }`}
+            role="status"
+          >
+            <span>{checkoutStatus.message}</span>
+            <button
+              onClick={() => setCheckoutStatus(null)}
+              className="ml-4 opacity-70 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Inputs */}
