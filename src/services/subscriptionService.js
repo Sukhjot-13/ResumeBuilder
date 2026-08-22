@@ -1,26 +1,27 @@
 import User from '@/models/User';
 import { PLANS, PERMISSIONS, ROLES } from '@/lib/constants';
-import { checkPermission } from '@/lib/accessControl';
-import { isSameDay, now } from '@/lib/dateUtils';
+import { checkPermissionDB } from '@/lib/accessControl';
+import { now } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 
 export const SubscriptionService = {
   /**
    * Determines the credit limit for a user based on their role and subscription.
-   * @param {object} user 
-   * @returns {number} The credit limit
+   * Uses DB-backed permission check so admin revocations apply immediately.
+   * @param {object} user
+   * @returns {Promise<number>} The credit limit
    */
-  getLimit(user) {
-    // If admin or has unlimited permission
-    if (checkPermission(user, PERMISSIONS.UNLIMITED_CREDITS)) {
+  async getLimit(user) {
+    // If admin or has unlimited permission (DB-first with constants fallback)
+    if (await checkPermissionDB(user.role, PERMISSIONS.UNLIMITED_CREDITS)) {
       return Infinity;
     }
-    
+
     // Check if user is PRO (subscriber role or subscriptionId present)
-    if (user.role === ROLES.SUBSCRIBER || user.subscriptionId) { 
+    if (user.role === ROLES.SUBSCRIBER || user.subscriptionId) {
       return PLANS.PRO.credits;
     }
-    
+
     return PLANS.FREE.credits;
   },
 
@@ -40,7 +41,7 @@ export const SubscriptionService = {
     // Check and reset limits if needed (handles daily reset logic)
     await this.checkAndResetDailyLimits(user);
 
-    const limit = this.getLimit(user);
+    const limit = await this.getLimit(user);
 
     if (limit === Infinity) {
       return true;
@@ -82,7 +83,7 @@ export const SubscriptionService = {
     // Check and reset limits if needed
     await this.checkAndResetDailyLimits(user);
 
-    const limit = this.getLimit(user);
+    const limit = await this.getLimit(user);
 
     if (limit === Infinity) {
       return true;
@@ -117,7 +118,7 @@ export const SubscriptionService = {
   },
 
   /**
-   * Reset usage (daily/monthly) if applicable.
+   * Reset usage (daily) if applicable — atomic, cannot clobber concurrent $inc deductions.
    * @param {object} user Mongoose document
    */
   async checkAndResetDailyLimits(user) {
@@ -129,34 +130,44 @@ export const SubscriptionService = {
       return;
     }
 
-    // For FREE users, check if we need to reset
     const currentDate = now();
-    const lastReset = user.lastCreditResetDate ? new Date(user.lastCreditResetDate) : new Date(0);
-    
-    if (!isSameDay(currentDate, lastReset)) {
+    const startOfToday = new Date(currentDate);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    // Atomic: only resets when the last reset happened before today
+    const result = await User.updateOne(
+      {
+        _id: user._id,
+        $or: [
+          { lastCreditResetDate: { $lt: startOfToday } },
+          { lastCreditResetDate: null },
+          { lastCreditResetDate: { $exists: false } },
+        ],
+      },
+      { $set: { creditsUsed: 0, lastCreditResetDate: currentDate } }
+    );
+
+    if (result.modifiedCount > 0) {
       logger.info("Resetting daily credits", { userId: user._id });
-      user.creditsUsed = 0;
-      user.lastCreditResetDate = currentDate;
-      await user.save();
     }
   },
-  
+
   /**
    * Manually reset usage for a user.
-   * @param {string} userId 
+   * @param {string} userId
    * @returns {Promise<boolean>}
    */
   async resetUsage(userId) {
-      const user = await User.findById(userId);
-      if (!user) {
-        logger.error("User not found in resetUsage", null, { userId });
-        throw new Error('User not found');
-      }
-      
-      user.creditsUsed = 0;
-      user.lastCreditResetDate = now();
-      await user.save();
-      logger.info("Manually reset usage", { userId });
-      return true;
+    const result = await User.findOneAndUpdate(
+      { _id: userId },
+      { $set: { creditsUsed: 0, lastCreditResetDate: now() } },
+      { new: true }
+    );
+    if (!result) {
+      logger.error("User not found in resetUsage", null, { userId });
+      throw new Error('User not found');
+    }
+    logger.info("Manually reset usage", { userId });
+    return true;
   }
 };

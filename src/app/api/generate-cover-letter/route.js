@@ -8,7 +8,7 @@ import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import CoverLetter from '@/models/CoverLetter';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (request) => {
   await dbConnect();
@@ -22,12 +22,9 @@ export const POST = withErrorHandler(async (request) => {
     return permResult.error;
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return fail('Invalid JSON body', 400);
-  }
+  const parsed = await readJson(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body || {};
 
   const { jobDescription, recipientName } = body;
   const cleanJobDescription = sanitizeJobDescription(jobDescription);
@@ -81,6 +78,6 @@ export const POST = withErrorHandler(async (request) => {
   } catch (error) {
     await SubscriptionService.refundUsage(userId, 1);
     logger.error('Error generating cover letter', error, { userId });
-    return fail(error.message || 'Error generating cover letter', 500);
+    return fail('Error generating cover letter. Please try again.', 500);
   }
 });

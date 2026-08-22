@@ -34,6 +34,37 @@ export function fail(message, status = 400) {
 }
 
 // ---------------------------------------------------------------------------
+// Body reading with size guard
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads a JSON request body with a hard size cap (M4 fix — prevents oversized
+ * payloads from reaching AI/PDF engines).
+ *
+ * @param {Request} request
+ * @param {number} maxBytes - Maximum accepted body size (default 256KB)
+ * @returns {Promise<{ok: true, body: object} | {ok: false, response: NextResponse}>}
+ */
+export async function readJson(request, maxBytes = 256 * 1024) {
+  let text;
+  try {
+    text = await request.text();
+  } catch {
+    return { ok: false, response: fail('Invalid request body', 400) };
+  }
+
+  if (text.length > maxBytes) {
+    return { ok: false, response: fail('Request body too large', 413) };
+  }
+
+  try {
+    return { ok: true, body: JSON.parse(text) };
+  } catch {
+    return { ok: false, response: fail('Invalid JSON body', 400) };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Custom error classes for use with withErrorHandler
 // ---------------------------------------------------------------------------
 

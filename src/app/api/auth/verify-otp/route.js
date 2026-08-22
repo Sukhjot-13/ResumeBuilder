@@ -10,12 +10,16 @@ import {
 } from '@/lib/utils';
 import { TOKEN_CONFIG } from '@/lib/constants';
 import env from '@/config/env';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
+
+const MAX_OTP_ATTEMPTS = 5;
 
 export const POST = withErrorHandler(async (req) => {
-  const { email, otp } = await req.json();
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
+  const { email, otp } = parsed.body || {};
 
-  if (!email || !otp) {
+  if (!email || !otp || typeof otp !== 'string') {
     return fail('Email and OTP are required', 400);
   }
 
@@ -24,8 +28,24 @@ export const POST = withErrorHandler(async (req) => {
   try {
     const user = await User.findOne({ email });
 
-    if (!user || user.otp !== sha256(otp) || Date.now() > user.otpExpires) {
-      return fail('Invalid or expired OTP', 400);
+    // Generic failure — no user enumeration
+    const invalidResponse = () => fail('Invalid or expired OTP', 400);
+
+    if (!user || !user.otp) return invalidResponse();
+
+    // Lockout after too many failed attempts — force a fresh code request
+    if ((user.otpAttempts || 0) >= MAX_OTP_ATTEMPTS) {
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { otp: undefined, otpExpires: undefined }, $unset: { otpAttempts: 1 } }
+      );
+      return fail('Too many attempts. Please request a new code.', 429);
+    }
+
+    if (user.otp !== sha256(otp) || Date.now() > new Date(user.otpExpires).getTime()) {
+      // Atomic attempt counter — race-safe against parallel guesses
+      await User.updateOne({ _id: user._id }, { $inc: { otpAttempts: 1 } });
+      return invalidResponse();
     }
 
     let newUser = !user.name;
@@ -46,10 +66,11 @@ export const POST = withErrorHandler(async (req) => {
       userAgent: req.headers.get('user-agent'),
     });
 
-    // Remove OTP fields from user
-    user.otp = undefined;
-    user.otpExpires = undefined;
-    await user.save();
+    // Clear OTP state on success
+    await User.updateOne(
+      { _id: user._id },
+      { $unset: { otp: 1, otpExpires: 1, otpAttempts: 1 } }
+    );
 
     const response = ok({ newUser });
 

@@ -17,6 +17,9 @@ export const GET = withErrorHandler(async (req) => {
     return permResult.error;
   }
 
-  const users = await User.find({}).select('-otp -otpExpires').sort({ createdAt: -1 });
+  // Whitelist fields — safer than a deny-list that can silently rot
+  const users = await User.find({})
+    .select('email name role creditsUsed lastCreditResetDate subscriptionId subscriptionStatus subscriptionExpiresAt customerId createdAt')
+    .sort({ createdAt: -1 });
   return ok({ users });
 });

@@ -7,6 +7,11 @@ import env from '@/config/env';
 export async function proxy(req) {
   const { pathname } = req.nextUrl;
 
+  // Public health check — must stay reachable by uptime monitors without auth
+  if (pathname === '/api/health') {
+    return NextResponse.next();
+  }
+
   // Define routes that need authentication
   const isApiRoute = pathname.startsWith('/api/');
   const PUBLIC_API_ROUTES = ['/api/auth', '/api/webhooks'];
@@ -68,13 +73,14 @@ export async function proxy(req) {
       try {
         const protocol = req.headers.get('x-forwarded-proto') || 'http';
         const host = req.headers.get('host');
-        const checkRes = await fetch(`${protocol}://${host}/api/auth/check-subscription`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-id': authResult.userId,
-          },
-        });
+      const checkRes = await fetch(`${protocol}://${host}/api/auth/check-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Forward cookies — the endpoint authenticates via JWT, not headers
+          Cookie: req.headers.get('cookie') || '',
+        },
+      });
 
         if (checkRes.ok) {
           const data = await checkRes.json();

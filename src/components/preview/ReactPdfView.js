@@ -102,17 +102,18 @@ export default function ReactPdfView({ resumeData, template }) {
       {pdfUrl && !loading && (
         <>
           <div className="pdf-controls bg-gray-500 p-2 flex justify-center items-center space-x-4">
-            <button onClick={zoomOut} className="p-1 bg-gray-300 rounded">
+            <button onClick={zoomOut} className="p-1 bg-gray-300 rounded" aria-label="Zoom out">
               <MagnifyingGlassMinusIcon className="h-5 w-5" />
             </button>
             <span className="text-white">{(zoomLevel * 100).toFixed(0)}%</span>
-            <button onClick={zoomIn} className="p-1 bg-gray-300 rounded">
+            <button onClick={zoomIn} className="p-1 bg-gray-300 rounded" aria-label="Zoom in">
               <MagnifyingGlassPlusIcon className="h-5 w-5" />
             </button>
             <a
               href={pdfUrl}
               download="resume.pdf"
               className="p-1 bg-blue-500 text-white rounded"
+              aria-label="Download resume PDF"
             >
               <ArrowDownTrayIcon className="h-5 w-5" />
             </a>

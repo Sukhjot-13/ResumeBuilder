@@ -1,13 +1,11 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { API_ENDPOINTS, ROUTES } from '@/lib/constants';
 
 export default function LoginPage() {
-  console.log('LoginPage component rendered');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -16,14 +14,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { refetch } = useAuth();
 
-  useEffect(() => {
-    // This effect will run on mount and redirect if the middleware logic
-    // determines the user is already logged in.
-  }, []);
-
   const handleSendOtp = async (e) => {
     e.preventDefault();
-    console.log('handleSendOtp called');
     setLoading(true);
     setError('');
 
@@ -35,15 +27,12 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
-        console.log('OTP sent successfully');
         setOtpSent(true);
       } else {
         const data = await response.json();
-        console.error('Failed to send OTP:', data.error);
         setError(data.error || 'Failed to send OTP');
       }
     } catch (err) {
-      console.error('An unexpected error occurred while sending OTP:', err);
       setError('An unexpected error occurred.');
     }
 
@@ -52,7 +41,6 @@ export default function LoginPage() {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    console.log('handleVerifyOtp called');
     setLoading(true);
     setError('');
 
@@ -65,25 +53,20 @@ export default function LoginPage() {
 
       if (response.ok) {
         const { newUser } = await response.json();
-        console.log('OTP verified successfully');
         
         // Update auth state immediately
         await refetch();
 
         if (newUser) {
-          console.log('New user, redirecting to onboarding...');
           router.push('/onboarding');
         } else {
-          console.log('Existing user, redirecting to dashboard...');
           router.push('/dashboard');
         }
       } else {
         const data = await response.json();
-        console.error('Failed to verify OTP:', data.error);
         setError(data.error || 'Failed to verify OTP');
       }
     } catch (err) {
-      console.error('An unexpected error occurred while verifying OTP:', err);
       setError('An unexpected error occurred.');
     }
 

@@ -44,10 +44,15 @@ export default function DownloadReactPdfButton({
 
         window.URL.revokeObjectURL(url);
       } else {
-        console.error("Error downloading React PDF:", await response.text());
+        let message = "Failed to download PDF. Please try again.";
+        try {
+          const data = await response.json();
+          if (data?.error) message = data.error;
+        } catch {}
+        alert(message);
       }
     } catch (error) {
-      console.error("Error downloading React PDF:", error);
+      alert("Failed to download PDF. Please check your connection and try again.");
     }
     setDownloading(false);
   };

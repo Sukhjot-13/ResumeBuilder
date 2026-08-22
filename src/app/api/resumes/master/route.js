@@ -10,6 +10,7 @@
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import Resume from '@/models/resume';
+import ResumeMetadata from '@/models/resumeMetadata';
 import { logger } from '@/lib/logger';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
@@ -123,8 +124,16 @@ export const DELETE = withErrorHandler(async (req) => {
 
   const resumeId = user.mainResume;
   await Resume.findByIdAndDelete(resumeId);
-  user.mainResume = null;
-  await user.save();
+
+  // Full cleanup — remove orphaned metadata + references (L3 fix)
+  await ResumeMetadata.deleteOne({ resumeId });
+  await User.updateOne(
+    { _id: userId },
+    {
+      $set: { mainResume: null },
+      $pull: { generatedResumes: resumeId },
+    }
+  );
 
   logger.info('Master resume deleted', { userId, resumeId });
   return ok(null);

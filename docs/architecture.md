@@ -69,11 +69,11 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/components/layout/Footer.js` — Application footer with branding, product links, legal links, and copyright.
 
-- `Footer (default export)` — Stateless component rendering a footer with ResumeAI branding, Product links (Features → `/#features`, Templates → `/templates`, Pricing → `/pricing`), Legal links (Privacy Policy → `/privacy`, Terms of Service → `/terms`), and a dynamic copyright year. Uses next/link for client-side navigation.
+- `Footer (default export)` — Stateless footer: Product links (Features → `/#features`, Templates → `/templates`, Pricing → `/pricing`) and Legal links (`/privacy`, `/terms`), next/link client-side navigation, dynamic copyright year.
 
 ### `src/components/layout/Navbar.js` — Top navigation bar with authentication-aware links, credit badge, role-based navigation items, and mobile menu.
 
-- `Navbar (default export)` — Component that renders a fixed header with ResumeAI logo, desktop nav links (public or authenticated based on auth state), a credit badge showing remaining credits, role/permission-gated navigation items (Dashboard, Cover Letters, AI Edit, Admin), Profile link, Logout button, and a toggleable mobile hamburger menu. Automation links removed 2026-08-21 when the feature was archived.
+- `Navbar (default export)` — Renders fixed header with logo, auth-aware nav links, credit badge, permission-gated items (Dashboard, Cover Letters, AI Edit, Admin), Profile link, Logout button, and mobile menu with aria-expanded toggle. Uses AuthContext user directly (no duplicate fetch); credit badge prefers server-computed `creditsRemaining` with ROLES-based fallback.
 - `handleLogout` — Internal async function that POSTs to /api/auth/logout, refreshes auth state, and redirects to /login.
 
 ### `src/components/preview/CoverLetterDisplayView.js` — An HTML/text view of a cover letter for on-screen display.
@@ -190,27 +190,27 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `GET` — Return a paginated list of transactions filtered by userId and/or status
 
-### `src/app/api/admin/users/[id]/credits/route.js` — API route to atomically adjust a user's credit count.
+### `src/app/api/admin/users/[id]/credits/route.js` — Atomically adjusts a user's credit count.
 
-- `POST` — Atomically increment or decrement a user's creditsUsed by a specified amount
+- `POST` — Amount must be a bounded non-zero integer (±10 000). Atomic aggregation clamps creditsUsed at ≥0 (negative-credit exploit closed). Positive amount increases usage; negative frees credits.
 
 ### `src/app/api/admin/users/[id]/reset-usage/route.js` — API route to reset a user's usage counter to zero.
 
 - `POST` — Reset a specific user's creditsUsed to 0
 
-### `src/app/api/admin/users/[id]/role/route.js` — API route to change a user's role.
+### `src/app/api/admin/users/[id]/role/route.js` — Changes a user's role.
 
-- `PATCH` — Update a user's role to a new numeric value
+- `PATCH` — Role must be an integer present in the ROLES enum; self-demotion blocked; response whitelisted (-otp/-otpExpires); body parsed via readJson.
 
-### `src/app/api/admin/users/[id]/route.js` — API route to permanently delete a user account.
+### `src/app/api/admin/users/[id]/route.js` — Permanently deletes a user account with full cleanup.
 
-- `DELETE` — Delete a user by ID, with a guard against self-deletion
+- `DELETE` — Self-deletion guarded. Cancels the target's active Stripe subscription, then cascade-deletes their resumes, resume metadata, cover letters, refresh tokens, and API keys before removing the user.
 
 ### `src/app/api/admin/users/route.js` — API route to list all users for the admin panel. Supports both JWT and API-key auth via resolveUserId().
 
 - `GET` — Return all users sorted by creation date, excluding sensitive OTP fields
 
-### `src/app/api/auth/check-subscription/route.js` — API route to check a user's subscription status and downgrade if expired.
+### `src/app/api/auth/check-subscription/route.js` — API route to check a user's subscription status and downgrade if expired. Authenticates via HttpOnly JWT cookies (serverAuth) — client-supplied headers are never trusted.
 
 - `POST` — Check subscription, auto-downgrade if expired, and return current role and subscription status
 
@@ -218,13 +218,13 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Clear accessToken and refreshToken cookies to log the user out
 
-### `src/app/api/auth/otp/route.js` — API route to generate and email a one-time password for authentication.
+### `src/app/api/auth/otp/route.js` — Generates and emails a one-time password. Rate-limited: 60s resend cooldown via lastOtpSentAt; resets attempt counter on new code.
 
-- `POST` — Generate a 6-digit OTP, hash it, store on the user record, and send via Brevo email
+- `POST` — Validates email format, enforces cooldown (429), stores hashed OTP + expiry atomically, clears otpAttempts, sends via Brevo.
 
-### `src/app/api/auth/verify-otp/route.js` — API route to verify OTP, authenticate the user, and issue access/refresh tokens.
+### `src/app/api/auth/verify-otp/route.js` — Verifies OTP and issues tokens. Brute-force hardened: max 5 attempts (atomic $inc counter) then lockout forcing a fresh code request.
 
-- `POST` — Verify OTP hash, generate access and refresh tokens, set auth cookies, and return newUser flag
+- `POST` — Generic invalid-OTP response (no user enumeration); on success clears OTP state, rotates refresh token into DB, sets HttpOnly cookies, returns newUser flag
 
 ### `src/app/api/auth/verify-token/route.js` — API route to rotate a refresh token and issue new access/refresh tokens.
 
@@ -240,7 +240,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/checkout/verify-session/route.js` — Verifies a completed Stripe Checkout Session and activates the user's subscription.
 
-- `POST` — Accepts a sessionId, retrieves the Stripe session and confirms payment_status is 'paid', verifies the session's userId matches the requesting user, then updates the user to SUBSCRIBER role. Upserts the Transaction record idempotently (safe when racing the webhook handler).
+- `POST` — sessionId read via readJson guard; verifies payment_status 'paid' and that the session belongs to the requesting user. Expiry derived from the Stripe subscription's current_period_end (fallback +1 month). Updates the user to SUBSCRIBER (response whitelisted via select('-otp -otpExpires')) and upserts the Transaction idempotently.
 
 ### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID. Uses CoverLetterService for all database operations, resolveUserId() for dual auth (JWT/API key). Uses `ok()` for GET (unwrapped response) and `success()` for DELETE/PATCH (enveloped).
 
@@ -298,14 +298,14 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `GET` — Requires VIEW_OWN_RESUMES permission. Loads the user with populated generatedResumes (each with populated metadata) and returns the array.
 - `POST` — Requires CREATE_RESUME permission. Accepts content and optional metadata, deducts a credit via SubscriptionService.trackUsage(), creates the resume via ResumeService, and adds it to the user's generatedResumes list.
 
-### `src/app/api/user/profile/route.js` — Get and update the authenticated user's profile.
+### `src/app/api/user/profile/route.js` — Get and update the authenticated user's profile. Uses DB-backed `requirePermission`, validates input shapes, and returns a server-computed `creditsRemaining` field (single source of truth for billing UI).
 
-- `GET` — Resolves userId via API key auth or x-user-id header. Requires VIEW_OWN_PROFILE permission. Returns user id, email, name, dateOfBirth, mainResume (populated with metadata), creditsUsed, and role.
-- `PUT` — Resolves userId via API key auth or x-user-id header. Requires EDIT_OWN_PROFILE permission. Accepts mainResume (content to create a new resume from), name, and dateOfBirth. Creates a new Resume document if mainResume is provided. Returns the updated profile with populated mainResume.
+- `GET` — Requires VIEW_OWN_PROFILE permission (DB-backed). Returns whitelisted fields incl. `creditsRemaining` computed via SubscriptionService.getLimit().
+- `PUT` — Body parsed via readJson size guard; name/dateOfBirth format-validated; requires EDIT_OWN_PROFILE permission (DB-backed). Creates a new Resume document if mainResume is provided (structure checked against RESUME_FIELD_SCHEMA sections). Returns the updated profile.
 
 ### `src/app/api/webhooks/stripe/route.js` — Handles incoming Stripe webhook events for subscription lifecycle management.
 
-- `POST` — Verifies the Stripe webhook signature. Handles checkout.session.completed (upgrades user to SUBSCRIBER, upserts transaction idempotently), invoice.payment_succeeded (renews subscription, resets credits, upserts renewal transaction), and customer.subscription.deleted (cancels + downgrades to USER). Transaction writes use findOneAndUpdate+upsert keyed on stripePaymentId so Stripe retries never duplicate rows.
+- `POST` — Verifies the Stripe signature (generic error on failure). Handles five event types via switch: checkout.session.completed (upgrade + idempotent transaction upsert), invoice.payment_succeeded (renewal; expiry derived from the Stripe subscription's current_period_end), invoice.payment_failed (marks past_due), customer.subscription.updated (syncs status/expiry), customer.subscription.deleted (marks canceled and honors paid-through period; periodic checker downgrades later), plus checkout.session.expired no-op. All writes use idempotent upserts keyed on stripePaymentId; structured logging; 500 returned on internal errors so Stripe retries.
 
 ### `src/app/checkout/cancel/page.js` — Displays a payment-cancelled confirmation page after a user cancels a Stripe checkout session, with links to view plans or return to dashboard.
 
@@ -368,12 +368,12 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/pricing/page.js` — Pricing page displaying Free and Pro subscription plans with feature comparisons and upgrade buttons that trigger Stripe checkout.
 
-- `PricingPage` — Default export. Client component rendering two pricing tiers (Free and Pro) with feature lists, pricing from constants, and an upgrade flow that initiates Stripe checkout via POST /api/checkout/create-session.
-- `handleUpgrade` — Async function that POSTs to /api/checkout/create-session with the selected plan name and redirects to the Stripe checkout URL.
+- `PricingPage` — Client component rendering Free/Pro tiers; Free-tier label adapts to the viewer's role (Start Free / Your Plan / Included) via useAuth.
+- `handleUpgrade(planName)` — POSTs PLANS.PRO.name to /api/checkout/create-session and redirects to Stripe.
 
 ### `src/app/profile/page.js` — User profile page with tabs for personal details (name, date of birth, AI resume editing, manual resume form, resume upload/parse) and subscription management (plan info, upgrade, manage billing).
 
-- `ProfilePage` — Default export. Client component managing the full user profile experience with tab navigation (Details/Subscription), profile editing, AI-powered resume editing with natural language queries, manual resume form, file upload with parsing, master resume delete, subscription display, upgrade flow, and billing portal access.
+- `ProfilePage` — Full profile experience: tabs, editing, AI edit, manual form, upload/parse, master delete, subscription display, upgrade + billing portal. Stripe buttons have pending/disabled double-submit guards; plan labels derive from PLANS constants; role compares use ROLES enum.
 - `handleSubmit` — Async function that saves profile name and date of birth via PUT /api/user/profile.
 - `handleFileUpload` — Async function that uploads a resume file to POST /api/parse-resume for AI parsing, then saves the parsed result as the master resume.
 - `handleAiEdit` — Async function that sends a natural-language edit query to POST /api/edit-resume-with-ai to modify the master resume content via AI.
@@ -447,7 +447,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/context/AuthContext.js` — React context providing authentication state (loading, isAuthenticated, user) across the app.
 
-- `AuthProvider` — Context provider component that fetches /api/user/profile on mount and exposes loading, isAuthenticated, user state, and a refetch function
+- `AuthProvider` — Context provider that fetches /api/user/profile on mount via an async effect with cancelled-flag cleanup (lint-clean); exposes loading, isAuthenticated, user state, and a useCallback-stable refetch
 - `useAuth` — Hook to consume the AuthContext, returning { loading, isAuthenticated, user, refetch }
 
 
@@ -517,6 +517,8 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/apiResponse.js` — Standardized API response helpers for Next.js route handlers, providing success/error responses, enveloped success, custom error classes, and error wrapping.
 
+**Response envelope convention (documented 2026-08-21, deliberate):** list/detail GETs on resumes & cover letters return *unwrapped* data via `ok()` (the clients destructure the array/object directly), while mutations return the enveloped `{ success, data, message }` shape via `success()`. Binary endpoints (render-pdf) return raw buffers with JSON errors via `fail()`. Do not mix shapes within a single resource without updating its client.
+
 - `ok(data, status=200)` — Returns a success NextResponse.json with raw data (unwrapped) and optional status. **Signature: `(data, status)` — second arg is an HTTP status number, NOT a message string.** For responses with both a message and a custom status, use `success()` instead.
 - `success(data, message?, status=200)` — Returns a success NextResponse.json with a standard envelope (`{ success: true, data, message? }`) for consistent API contracts. Unlike `ok()`, the second arg is a string message and the third is the status code.
 - `fail(message, status=400)` — Returns an error NextResponse.json with { success: false, error: message } and given status (default 400)
@@ -525,6 +527,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `ValidationError` — AppError subclass defaulting to 400
 - `AuthError` — AppError subclass defaulting to 401
 - `ForbiddenError` — AppError subclass defaulting to 403
+- `readJson(request, maxBytes)` — Reads a JSON body with a hard size cap (default 256KB), returning `{ok, body}` or `{ok:false, response}` with 400/413 errors. Used by AI/PDF routes to bound payload size.
 - `withErrorHandler` — Higher-order function that wraps a route handler, catching AppError subclasses for status-specific responses and generic errors for a 500 response
 
 ### `src/lib/sanitize.js` — Shared utility for sanitizing user-provided text (e.g. job descriptions) against prompt injection patterns.
@@ -587,7 +590,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/pdf-generator.js` — Shared core for PDF generation — produces PDF blobs for resumes (using named templates) and cover letters.
 
-- `generatePdf` — Dynamically imports a resume template component and PdfResumeRenderer, renders them to a PDF blob, and returns it as a Buffer.
+- `ALLOWED_TEMPLATES` — Allowlist of template ids that may be dynamically imported (client-controlled values are validated against it; `.js` suffix normalized).
+
+- `generatePdf` — Validates the requested template against ALLOWED_TEMPLATES, dynamically imports the component + PdfResumeRenderer, renders to a PDF blob Buffer.
 - `generateCoverLetterPdf` — Dynamically imports the cover letter template, renders it to a PDF blob, and returns it as a Buffer.
 
 ### `src/lib/promptConfig.js` — Single source of truth for AI prompt strategies — maps user roles to prompt tiers and provides builder functions for each tier.
@@ -685,7 +690,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/models/User.js` — Mongoose model for users storing authentication, subscription, OTP, and resume reference data, with role-based access control.
 
-- `default export (User model)` — Reuses existing Mongoose model or creates a new 'User' model with fields: email, name, dateOfBirth, role (from ROLES constants), creditsUsed, lastCreditResetDate, subscriptionId, customerId, subscriptionExpiresAt, subscriptionStatus, plan, otp, otpExpires, createdAt, mainResume, generatedResumes.
+- `default export (User model)` — Reuses existing Mongoose model or creates a new 'User' model with fields: email, name, dateOfBirth, role (from ROLES constants), creditsUsed, lastCreditResetDate, subscriptionId, customerId, subscriptionExpiresAt, subscriptionStatus, plan, otp, otpExpires, otpAttempts (brute-force counter), lastOtpSentAt (resend cooldown), createdAt, mainResume, generatedResumes.
 
 
 ---
@@ -696,6 +701,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `proxy(req)` — Main middleware handler. Validates authentication via verifyAuthEdge, attempts token rotation using refresh tokens on failure, periodically checks subscription status, enforces role-based routing (redirects unauthenticated users to login, admins-only for /admin, authenticated users away from /login), injects x-user-id header on API requests, and manages cookie setting/clearing for tokens and subscription check timestamps.
 - `config` — Next.js middleware matcher configuration specifying which route patterns trigger the proxy: /api/:path*, /dashboard/:path*, /profile/:path*, /onboarding/:path*, /admin/:path*, /login, /resume-history/:path*, /checkout/:path*.
+- Hardened 2026-08-21: `/api/health` is exempted at the top of the handler so uptime monitors can reach it without auth; the internal subscription-check fetch now forwards the request Cookie header instead of trusting a client-settable x-user-id.
 
 
 ---
@@ -736,7 +742,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/services/subscriptionService.js` — Subscription and credit usage management service that tracks per-user daily/weekly credit limits, resets usage for free users, and enforces plan boundaries.
 
-- `SubscriptionService.getLimit(user)` — Determines the credit limit for a user: Infinity for admin/unlimited permission, PRO plan credits for subscribers or users with subscriptionId, FREE plan credits otherwise.
+- `SubscriptionService.getLimit(user)` — Async; DB-backed UNLIMITED_CREDITS check (checkPermissionDB) so admin revocations apply immediately, then PRO vs FREE limits.
 - `SubscriptionService.trackUsage(userId, amount)` — Atomically increments a user's creditsUsed counter only if it would not exceed the limit. Automatically checks/resets daily limits for free users. Returns true on success, false if limit would be exceeded.
 - `SubscriptionService.hasCredits(userId, amount)` — Checks whether a user has enough remaining credits for a given operation without deducting. Returns boolean.
 - `SubscriptionService.checkAndResetDailyLimits(user)` — Resets a free user's creditsUsed to 0 if the current day differs from lastCreditResetDate. Skips reset for subscriber-role users.
@@ -758,7 +764,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections.
 
-Populates the database with all 38 permissions and 4 roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) using data from constants.js. **Must be run when switching to a fresh database** — without it, the admin permissions page shows nothing.
+Populates the database with all 38 permissions and 4 roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) using a hand-mirrored copy of constants.js metadata. **Must be run when switching to a fresh database** — without it, the admin permissions page shows nothing.
+
+Includes a **drift guard**: before writing, it parses `src/lib/constants.js` and compares every permission's requiredPlan against the seed map, exiting with an error listing mismatches. (Historical note: a requiredPlan drift for 5 admin permissions was found and fixed on 2026-08-21 — the guard prevents recurrence.)
 
 **⚠️ Dual source of truth:** Permissions live in two places — `constants.js` (compile-time fallback used by `accessControl.js`) and the MongoDB `permissions`/`roles` collections (runtime source read by the admin UI). When adding/modifying a permission:
   1. Edit `src/lib/constants.js` (add to `PERMISSIONS`, `PERMISSION_METADATA`, and the relevant `ROLE_PERMISSIONS` array)

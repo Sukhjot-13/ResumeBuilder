@@ -12,7 +12,6 @@ const ReactPdfView = dynamic(() => import("./ReactPdfView"), {
 
 export default function ResumePreview({ tailoredResume, selectedTemplate, user }) {
   const [view, setView] = useState("display"); // 'display' or 'react-pdf'
-  const [downloading, setDownloading] = useState(false);
 
   if (!tailoredResume) {
     return null;

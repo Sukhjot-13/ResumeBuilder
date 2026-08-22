@@ -2,27 +2,42 @@ import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { PERMISSIONS } from '@/lib/constants';
 import User from '@/models/User';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
+
+const MAX_ADJUSTMENT = 10000;
 
 export const POST = withErrorHandler(async (req, { params }) => {
-  const { userId, error } = await resolveUserId(req);
+  const { userId: adminId, error } = await resolveUserId(req);
   if (error) return error;
   const { id } = await params;
-  const { amount } = await req.json();
 
-  const permResult = await requirePermission(userId, PERMISSIONS.MANAGE_CREDITS);
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
+  const { amount } = parsed.body || {};
+
+  const permResult = await requirePermission(adminId, PERMISSIONS.MANAGE_CREDITS);
   if (isPermissionError(permResult)) {
     return permResult.error;
   }
 
-  if (typeof amount !== 'number') {
-    return fail('Invalid amount', 400);
+  // Bounded integer only — NaN/negatives/huge values could corrupt credit state
+  if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > MAX_ADJUSTMENT) {
+    return fail(`Invalid amount. Must be a non-zero integer between -${MAX_ADJUSTMENT} and ${MAX_ADJUSTMENT}.`, 400);
   }
 
-  // Use $inc for atomic update — safe even with concurrent requests
-  const user = await User.findByIdAndUpdate(
-    id,
-    { $inc: { creditsUsed: amount } },
+  // Atomic adjustment clamped at zero (never allow negative creditsUsed).
+  // Contract: positive amount increments usage; negative amount frees credits.
+  const user = await User.findOneAndUpdate(
+    { _id: id },
+    [
+      {
+        $set: {
+          creditsUsed: {
+            $max: [0, { $add: [{ $ifNull: ['$creditsUsed', 0] }, amount] }],
+          },
+        },
+      },
+    ],
     { new: true }
   );
 

@@ -4,7 +4,7 @@ import User from '@/models/User';
 import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongodb';
 import { ROLES, PLANS } from '@/lib/constants';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (req) => {
   const { userId, error } = await resolveUserId(req);
@@ -14,8 +14,10 @@ export const POST = withErrorHandler(async (req) => {
     return fail('Unauthorized', 401);
   }
 
-  const { sessionId } = await req.json();
-  if (!sessionId) {
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
+  const { sessionId } = parsed.body || {};
+  if (!sessionId || typeof sessionId !== 'string') {
     return fail('Session ID is required', 400);
   }
 
@@ -39,8 +41,19 @@ export const POST = withErrorHandler(async (req) => {
   const subscriptionId = session.subscription;
   const customerId = session.customer;
 
-  const expiryDate = new Date();
+  // Derive expiry from the Stripe subscription (falls back to +1 month)
+  let expiryDate = new Date();
   expiryDate.setMonth(expiryDate.getMonth() + 1);
+  if (subscriptionId) {
+    try {
+      const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      if (sub?.current_period_end) {
+        expiryDate = new Date(sub.current_period_end * 1000);
+      }
+    } catch (err) {
+      // keep fallback
+    }
+  }
 
   const updatedUser = await User.findByIdAndUpdate(userId, {
     subscriptionId,
@@ -50,7 +63,7 @@ export const POST = withErrorHandler(async (req) => {
     subscriptionStatus: 'active',
     creditsUsed: 0,
     lastCreditResetDate: new Date(),
-  }, { new: true });
+  }, { new: true }).select('-otp -otpExpires');
 
   // Idempotent — prevents duplicates when racing the webhook handler
   await Transaction.findOneAndUpdate(

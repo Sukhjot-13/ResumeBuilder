@@ -9,6 +9,7 @@ export default function CoverLettersPage() {
   const [letters, setLetters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [error, setError] = useState("");
   const router = useRouter();
   const apiClient = useApiClient();
 
@@ -33,11 +34,17 @@ export default function CoverLettersPage() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this cover letter?")) return;
     setDeletingId(id);
+    setError("");
     try {
-      await apiClient(`/api/cover-letters/${id}`, { method: "DELETE" });
-      setLetters((prev) => prev.filter((l) => l._id !== id));
+      const res = await apiClient(`/api/cover-letters/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setLetters((prev) => prev.filter((l) => l._id !== id));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to delete the cover letter. Please try again.");
+      }
     } catch (err) {
-      console.error("Failed to delete cover letter:", err);
+      setError("Failed to delete the cover letter. Please try again.");
     } finally {
       setDeletingId(null);
     }
@@ -67,6 +74,12 @@ export default function CoverLettersPage() {
             New Cover Letter
           </Link>
         </div>
+
+        {error && (
+          <div className="mb-6 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+            {error}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20">

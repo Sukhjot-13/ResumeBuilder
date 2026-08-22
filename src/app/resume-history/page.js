@@ -1,22 +1,20 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 import { useApiClient } from '@/hooks/useApiClient';
 import ResumeList from '@/components/ResumeList';
 
 export default function ResumeHistoryPage() {
   const [resumes, setResumes] = useState([]);
-  const [profile, setProfile] = useState(null);
-  const [masterResume, setMasterResume] = useState(null); // Changed from profile to masterResume
+  const [masterResume, setMasterResume] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [error, setError] = useState('');
   const [tailoredResume, setTailoredResume] = useState(null);
-  const router = useRouter();
   const apiClient = useApiClient();
 
-  const fetchResumes = async () => {
+  const fetchResumes = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiClient('/api/resumes');
@@ -24,14 +22,14 @@ export default function ResumeHistoryPage() {
         const data = await response.json();
         setResumes(data);
       } else {
-        console.error('Failed to fetch resumes');
+        setError('Failed to load your resumes. Please try again.');
       }
     } catch (error) {
-      console.error('Error fetching resumes:', error);
+      setError('Failed to load your resumes. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiClient]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,22 +39,22 @@ export default function ResumeHistoryPage() {
         const profileResponse = await apiClient('/api/user/profile');
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
-          setMasterResume(profileData.mainResume); // Set masterResume directly
+          setMasterResume(profileData.mainResume);
         } else {
-          console.error('Failed to fetch profile');
+          setError('Failed to load your profile. Please refresh the page.');
         }
 
         // Fetch generated resumes
-        await fetchResumes(); // Call the extracted function
+        await fetchResumes();
       } catch (err) {
-        console.error('An unexpected error occurred while fetching data.');
+        setError('Something went wrong while loading this page.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [apiClient]);
+  }, [apiClient, fetchResumes]);
 
   const handleDeleteResume = async (resumeId) => {
     setDeletingId(resumeId);
@@ -68,10 +66,10 @@ export default function ResumeHistoryPage() {
       if (response.ok) {
         setResumes(resumes.filter((resume) => resume._id !== resumeId));
       } else {
-        console.error('Error deleting resume:', await response.text());
+        setError('Could not delete that resume. Please try again.');
       }
     } catch (error) {
-      console.error('Error deleting resume:', error);
+      setError('Could not delete that resume. Please try again.');
     }
     setDeletingId(null);
   };
@@ -88,6 +86,12 @@ export default function ResumeHistoryPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="mb-6 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+            {error}
+          </div>
+        )}
+
         <ResumeList
           resumes={resumes}
           deletingId={deletingId}
@@ -99,13 +103,23 @@ export default function ResumeHistoryPage() {
         />
 
         {tailoredResume && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setTailoredResume(null)}>
+          <div
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            onClick={() => setTailoredResume(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Resume preview"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setTailoredResume(null);
+            }}
+          >
             <div className="bg-slate-900 rounded-2xl p-8 max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-white">Resume Preview</h2>
                 <button
                   onClick={() => setTailoredResume(null)}
                   className="text-slate-400 hover:text-white transition-colors"
+                  aria-label="Close preview"
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

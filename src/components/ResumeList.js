@@ -120,7 +120,7 @@ export default function ResumeList({
           )}
           
           {/* Generated Resumes */}
-          {resumes
+          {[...resumes]
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .map((resume) => (
               <div
@@ -143,6 +143,7 @@ export default function ResumeList({
                           onClick={() => startEditing(resume)}
                           className="text-slate-400 hover:text-blue-400 transition-colors"
                           title="Edit Details"
+                          aria-label={`Edit details for ${resume.metadata?.resumeName || resume.metadata?.jobTitle || 'this resume'}`}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />

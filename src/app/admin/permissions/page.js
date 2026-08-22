@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PERMISSIONS } from '@/lib/constants';
 
 export default function AdminPermissionsPage() {
   const [roles, setRoles] = useState([]);

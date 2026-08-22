@@ -4,9 +4,12 @@ import { useState } from "react";
 import ResumePreview from "@/components/preview/ResumePreview";
 import TemplateSelector from "@/components/home/TemplateSelector";
 
+// Default template id — matches TemplateSelector option values (filename with extension)
+const DEFAULT_TEMPLATE_ID = "ClassicTemplate.js";
+
 export default function TemplateViewer({ resume, user }) {
   const [selectedTemplate, setSelectedTemplate] =
-    useState("ClassicTemplate.js");
+    useState(DEFAULT_TEMPLATE_ID);
 
   return (
     <div>

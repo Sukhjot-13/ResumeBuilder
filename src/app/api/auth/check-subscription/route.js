@@ -1,15 +1,14 @@
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
-import { resolveUserId } from '@/lib/apiKeyAuth';
+import { getAuthenticatedUser } from '@/lib/serverAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { checkAndDowngradeExpiredSubscription } from '@/lib/subscriptionChecker';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
-export const POST = withErrorHandler(async (req) => {
-  const { userId, error } = await resolveUserId(req);
-  if (error) return error;
-
+// Authenticates via HttpOnly JWT cookies (serverAuth) — never trusts client headers.
+export const POST = withErrorHandler(async () => {
+  const { userId } = await getAuthenticatedUser();
   if (!userId) {
     return fail('Unauthorized', 401);
   }

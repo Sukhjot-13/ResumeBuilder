@@ -7,6 +7,17 @@
 
 import { pdf } from '@react-pdf/renderer';
 
+// Allowlist of template ids that may be dynamically imported (M5 fix —
+// never interpolate client-controlled values into import() unchecked)
+export const ALLOWED_TEMPLATES = [
+  'ClassicTemplate',
+  'ClassicTemplate2',
+  'Creative',
+  'Modern',
+  'Professional',
+  'Simple',
+];
+
 /**
  * Generate a PDF blob from resume data using a named template.
  *
@@ -15,6 +26,12 @@ import { pdf } from '@react-pdf/renderer';
  * @returns {Promise<Buffer>}  - PDF as Buffer
  */
 export async function generatePdf(resumeData, template) {
+  // Accept both "ClassicTemplate" and "ClassicTemplate.js" forms
+  const templateId = String(template || '').replace(/\.js$/, '');
+  if (!ALLOWED_TEMPLATES.includes(templateId)) {
+    throw new Error(`Unknown template: ${template}`);
+  }
+
   const TemplateComponent = (await import(
     `@/components/resume-templates/pdf-templates/${template}`
   )).default;

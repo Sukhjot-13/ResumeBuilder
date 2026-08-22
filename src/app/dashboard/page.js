@@ -44,9 +44,14 @@ function DashboardContent() {
         if (res.ok) {
           router.replace(ROUTES.DASHBOARD);
           alert('Subscription activated successfully!');
+        } else {
+          const data = await res.json().catch(() => ({}));
+          alert(data.error || 'Could not verify your payment. If you were charged, please contact support.');
+          router.replace(ROUTES.DASHBOARD);
         }
       } catch (err) {
         console.error('Verification failed', err);
+        alert('Could not verify your payment. Please check your subscription status in your profile.');
       }
     };
 
@@ -93,7 +98,7 @@ function DashboardContent() {
     } finally {
       setGenerating(false);
     }
-  }, [apiClient, profile, jobDescription, specialInstructions, createResume]);
+  }, [apiClient, profile, jobDescription, specialInstructions, saveResume, createResume]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (

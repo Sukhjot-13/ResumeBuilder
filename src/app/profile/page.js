@@ -7,7 +7,7 @@ import ManualResumeForm from "@/components/profile/ManualResumeForm";
 import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
 import PermissionGate from "@/components/common/PermissionGate";
 import TemplateViewer from "@/components/preview/TemplateViewer";
-import { ROLES, PLANS, PERMISSIONS, API_ENDPOINTS } from "@/lib/constants";
+import { ROLES, PLANS, PERMISSIONS } from "@/lib/constants";
 import { checkPermission, getPermissionMetadata } from "@/lib/accessControl";
 
 export default function ProfilePage() {
@@ -29,7 +29,7 @@ export default function ProfilePage() {
   const apiClient = useApiClient();
 
   const [createNewResume, setCreateNewResume] = useState(false);
-  const [userRole, setUserRole] = useState(100); // Default to USER role
+  const [userRole, setUserRole] = useState(ROLES.USER);
   
   const hasAiEditAccess = checkPermission({ role: userRole }, PERMISSIONS.EDIT_RESUME_WITH_AI);
   const hasCreateNewResumeAccess = checkPermission({ role: userRole }, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT);
@@ -194,13 +194,6 @@ export default function ProfilePage() {
 
   const [activeTab, setActiveTab] = useState("details");
   const [subscription, setSubscription] = useState(null);
-
-  useEffect(() => {
-    if (userRole === 99) { // Subscriber
-      // Fetch subscription details if needed, or just use user data
-      // For now, we'll derive from user data we already have or fetch if missing
-    }
-  }, [userRole]);
 
   const handleUpgrade = async () => {
     if (checkoutLoading) return;

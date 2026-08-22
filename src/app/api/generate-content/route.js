@@ -9,7 +9,7 @@ import dbConnect from '@/lib/mongodb';
 import { checkPermission } from '@/lib/accessControl';
 import User from '@/models/User';
 import Resume from '@/models/resume';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (request) => {
   await dbConnect();
@@ -23,12 +23,9 @@ export const POST = withErrorHandler(async (request) => {
     return permResult.error;
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return fail('Invalid JSON body', 400);
-  }
+  const parsed = await readJson(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body || {};
 
   const { resume: bodyResume, jobDescription, specialInstructions: rawSpecialInstructions, save: shouldSave = true } = body;
   const cleanJobDescription = sanitizeJobDescription(jobDescription);
@@ -94,6 +91,6 @@ export const POST = withErrorHandler(async (request) => {
   } catch (error) {
     await SubscriptionService.refundUsage(userId, 1);
     logger.error('Error generating content', error, { userId });
-    return fail(error.message || 'Error generating content', 500);
+    return fail('Error generating resume content. Please try again.', 500);
   }
 });

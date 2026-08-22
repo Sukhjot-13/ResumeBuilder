@@ -5,30 +5,30 @@ import { SubscriptionService } from '@/services/subscriptionService';
 import { UserService } from '@/services/userService';
 import { ResumeService } from '@/services/resumeService';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
-import { checkPermission } from '@/lib/accessControl';
+import { checkPermissionDB } from '@/lib/accessControl';
 import { PERMISSIONS } from '@/lib/constants';
 import CoverLetter from '@/models/CoverLetter';
 import Resume from '@/models/resume';
 import { logger } from '@/lib/logger';
 import { resolveUserId } from '@/lib/apiKeyAuth';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (req) => {
   const { userId, error } = await resolveUserId(req);
   if (error) return error;
 
-  let body;
-  try {
-    body = await req.json();
-  } catch (e) {
-    logger.warn('Invalid JSON in POST /api/edit-resume-with-ai', { userId });
-    return fail('Invalid JSON', 400);
-  }
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body || {};
 
   const { resume, resumeId, query, createNewResume, type, coverLetterContent, coverLetterId } = body;
 
   if (!query) {
     return fail('Query is required', 400);
+  }
+
+  if (typeof query !== 'string' || query.length > 2000) {
+    return fail('Query must be a string of at most 2000 characters', 400);
   }
 
   await dbConnect();
@@ -89,7 +89,8 @@ export const POST = withErrorHandler(async (req) => {
   }
 
   if (createNewResume) {
-    if (!checkPermission(user, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT)) {
+    const allowed = await checkPermissionDB(user.role, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT);
+    if (!allowed) {
       logger.info("Permission denied: CREATE_NEW_RESUME_ON_EDIT", { userId, role: user.role });
       return fail('This feature requires a higher plan.', 403);
     }

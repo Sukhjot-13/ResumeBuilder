@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { PLANS, PERMISSIONS, API_ENDPOINTS, ROUTES } from "@/lib/constants";
+import { PLANS, ROLES, PERMISSIONS } from "@/lib/constants";
 import { checkPermission } from "@/lib/accessControl";
 
 export default function Navbar() {
@@ -12,6 +12,9 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const auth = useAuth();
+  // Single source of truth: AuthContext already fetches the profile (M12 fix).
+  // No duplicate local fetch — state stays fresh after login/logout/refetch.
+  const user = auth.isAuthenticated ? auth.user : null;
 
   const handleLogout = async () => {
     try {
@@ -22,17 +25,6 @@ export default function Navbar() {
       router.push("/login");
     }
   };
-
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    if (auth.isAuthenticated) {
-      fetch('/api/user/profile')
-        .then(res => res.json())
-        .then(data => setUser(data))
-        .catch(err => console.error('Failed to fetch user profile', err));
-    }
-  }, [auth.isAuthenticated]);
 
   return (
     <header className="fixed top-0 w-full z-50 glass border-b border-white/10">
@@ -55,13 +47,17 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           {!auth.loading && (auth.isAuthenticated ? (
             <div className="hidden md:flex gap-3 items-center">
-              {/* Credit Badge */}
+              {/* Credit Badge — uses server-computed creditsRemaining when available */}
               {user && (
                  <div className="px-3 py-1.5 text-xs font-semibold text-blue-300 bg-blue-500/10 border border-blue-500/20 rounded-full flex items-center gap-1.5">
                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                    </svg>
-                   {checkPermission(user, PERMISSIONS.UNLIMITED_CREDITS) ? 'Unlimited' : `${Math.max(0, (user.role === 99 ? PLANS.PRO.credits : PLANS.FREE.credits) - (user.creditsUsed || 0))} Left`}
+                   {checkPermission(user, PERMISSIONS.UNLIMITED_CREDITS)
+                     ? 'Unlimited'
+                     : `${typeof user.creditsRemaining === 'number'
+                         ? user.creditsRemaining
+                         : Math.max(0, (user.role === ROLES.SUBSCRIBER ? PLANS.PRO.credits : PLANS.FREE.credits) - (user.creditsUsed || 0))} Left`}
                  </div>
               )}
               
@@ -120,6 +116,8 @@ export default function Navbar() {
           <button 
             className="md:hidden text-slate-300 hover:text-white"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMenuOpen}
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
               <path strokeLinecap="round" strokeLinejoin="round" d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"} />

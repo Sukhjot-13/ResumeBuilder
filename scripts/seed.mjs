@@ -24,6 +24,27 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
+// ── Drift guard source: parse src/lib/constants.js (no import needed —
+// avoids ESM/CJS alias issues). Compared against the seed map below.
+function parseConstantsMetadata() {
+  const constSrc = fs.readFileSync('src/lib/constants.js', 'utf8');
+
+  // enum map: MANAGE_USERS -> manage_users
+  const enumMatch = constSrc.match(/export const PERMISSIONS = \{([\s\S]*?)\n\};/);
+  if (!enumMatch) { console.error('Could not parse PERMISSIONS from constants.js'); process.exit(1); }
+  const enumMap = {};
+  for (const m of enumMatch[1].matchAll(/([A-Z_]+):\s*'(\w+)'/g)) enumMap[m[1]] = m[2];
+
+  // metadata map: [PERMISSIONS.MANAGE_USERS]: { ... requiredPlan: "ADMIN" }
+  const metaMatch = constSrc.match(/export const PERMISSION_METADATA = \{([\s\S]*?)\n\};/);
+  if (!metaMatch) { console.error('Could not parse PERMISSION_METADATA from constants.js'); process.exit(1); }
+  const meta = {};
+  for (const m of metaMatch[1].matchAll(/\[PERMISSIONS\.([A-Z_]+)\]:\s*\{[\s\S]*?requiredPlan:\s*"(\w+)"[\s\S]*?\}/g)) {
+    meta[enumMap[m[1]]] = m[2];
+  }
+  return meta;
+}
+
 await mongoose.connect(MONGODB_URI);
 console.log('Connected to DB');
 
@@ -134,6 +155,26 @@ function deriveGroup(key) {
   if (automationKeys.includes(key)) return 'Automation';
   return 'General';
 }
+
+// ── Drift check: seed map vs constants.js (fails loudly on mismatch) ──────
+const CONST_META = parseConstantsMetadata();
+const drift = [];
+for (const [key, meta] of Object.entries(PERMISSION_METADATA)) {
+  if (!CONST_META[key]) { drift.push(`${key}: missing in constants.js`); continue; }
+  if (CONST_META[key] !== meta.requiredPlan) {
+    drift.push(`${key}: seed=${meta.requiredPlan} constants=${CONST_META[key]}`);
+  }
+}
+for (const key of Object.keys(CONST_META)) {
+  if (!PERMISSION_METADATA[key]) drift.push(`${key}: missing in seed`);
+}
+if (drift.length > 0) {
+  console.error('❌ DRIFT between scripts/seed.mjs and src/lib/constants.js:');
+  for (const d of drift) console.error('   -', d);
+  console.error('Fix scripts/seed.mjs to mirror constants.js, then re-run.');
+  process.exit(1);
+}
+console.log('✓ Seed metadata matches constants.js (no drift)');
 
 // ── Seed ──────────────────────────────────────────────────────────────────
 let count = 0;

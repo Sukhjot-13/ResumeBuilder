@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PLANS, API_ENDPOINTS, ROUTES } from '@/lib/constants';
+import { PLANS } from '@/lib/constants';
 import { useAuth } from '@/context/AuthContext';
 
 export default function PricingPage() {
   const [loading, setLoading] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const router = useRouter();
+  // Subscribers/Admins already have the Free tier included
+  const isSubscriber = isAuthenticated && typeof user?.role === 'number' && user.role <= 99;
 
   const handleUpgrade = async (planName) => {
     if (!isAuthenticated) {
@@ -70,10 +72,15 @@ export default function PricingPage() {
               <span className="text-base font-medium text-gray-500">/{PLANS.FREE.interval}</span>
             </p>
             <button
-              disabled
-              className="mt-8 block w-full bg-gray-100 border border-transparent rounded-md py-2 text-sm font-semibold text-gray-400 text-center cursor-not-allowed"
+              disabled={isSubscriber}
+              className={`mt-8 block w-full border border-transparent rounded-md py-2 text-sm font-semibold text-center ${
+                isSubscriber
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-100 text-gray-500 cursor-not-allowed'
+              }`}
+              title={isSubscriber ? '' : 'Create a free account to get started'}
             >
-              Current Plan
+              {isSubscriber ? 'Included' : isAuthenticated ? 'Your Plan' : 'Start Free'}
             </button>
           </div>
           <div className="pt-6 pb-8 px-6">
@@ -101,7 +108,7 @@ export default function PricingPage() {
               <span className="text-base font-medium text-gray-500">/{PLANS.PRO.interval}</span>
             </p>
             <button
-              onClick={() => handleUpgrade('PRO')}
+              onClick={() => handleUpgrade(PLANS.PRO.name)}
               disabled={loading}
               className="mt-8 block w-full bg-indigo-600 border border-transparent rounded-md py-2 text-sm font-semibold text-white text-center hover:bg-indigo-700"
             >

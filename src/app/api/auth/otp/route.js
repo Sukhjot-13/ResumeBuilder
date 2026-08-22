@@ -5,17 +5,21 @@ import User from '@/models/User';
 import { sha256 } from '@/lib/utils';
 import { OTP_CONFIG } from '@/lib/constants';
 import env from '@/config/env';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
+
+const RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute between OTP sends
 
 export const POST = withErrorHandler(async (req) => {
-  const { email } = await req.json();
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
+  const { email } = parsed.body || {};
 
-  if (!email) {
-    return fail('Email is required', 400);
+  if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return fail('A valid email is required', 400);
   }
 
   const otp = crypto.randomInt(100000, 999999).toString();
-  const otpExpires = Date.now() + OTP_CONFIG.EXPIRY_MS;
+  const otpExpires = new Date(Date.now() + OTP_CONFIG.EXPIRY_MS);
 
   await dbConnect();
 
@@ -23,11 +27,25 @@ export const POST = withErrorHandler(async (req) => {
     let user = await User.findOne({ email });
 
     if (user) {
-      user.otp = sha256(otp); // Store hashed OTP, never plaintext
-      user.otpExpires = otpExpires;
-      await user.save();
+      // Resend cooldown — prevents email bombing / scripted requests
+      if (user.lastOtpSentAt && Date.now() - user.lastOtpSentAt.getTime() < RESEND_COOLDOWN_MS) {
+        return fail('Please wait a moment before requesting a new code.', 429);
+      }
+
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $set: { otp: sha256(otp), otpExpires, lastOtpSentAt: new Date() },
+          $unset: { otpAttempts: 1 },
+        }
+      );
     } else {
-      user = await User.create({ email, otp: sha256(otp), otpExpires });
+      user = await User.create({
+        email,
+        otp: sha256(otp),
+        otpExpires,
+        lastOtpSentAt: new Date(),
+      });
     }
 
     const apiInstance = new Brevo.TransactionalEmailsApi();

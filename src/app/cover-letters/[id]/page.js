@@ -19,6 +19,7 @@ export default function CoverLetterDetailPage({ params }) {
   const [jobDescription, setJobDescription] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
   // Existing letter state
@@ -91,11 +92,15 @@ export default function CoverLetterDetailPage({ params }) {
 
   const handleDelete = async () => {
     if (!confirm("Delete this cover letter?")) return;
+    setDeleting(true);
     try {
       const res = await apiClient(`/api/cover-letters/${id}`, { method: "DELETE" });
       if (res.ok) router.push("/cover-letters");
+      else setError("Failed to delete the cover letter. Please try again.");
     } catch (err) {
-      console.error("Failed to delete:", err);
+      setError("Failed to delete the cover letter. Please try again.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -156,9 +161,10 @@ export default function CoverLetterDetailPage({ params }) {
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="px-4 py-2 text-sm font-medium text-red-400 hover:text-red-300 glass rounded-lg transition-colors"
+                  disabled={deleting}
+                  className="px-4 py-2 text-sm font-medium text-red-400 hover:text-red-300 glass rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Delete
+                  {deleting ? "Deleting..." : "Delete"}
                 </button>
               </>
             )}
