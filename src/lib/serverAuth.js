@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers';
 import { verifyAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { COOKIE_NAMES } from '@/lib/constants';
 
 /**
  * Get the authenticated user ID and role from cookies.
@@ -12,8 +13,8 @@ import { logger } from '@/lib/logger';
  */
 export async function getAuthenticatedUser() {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get('accessToken')?.value;
-  const refreshToken = cookieStore.get('refreshToken')?.value;
+  const accessToken = cookieStore.get(COOKIE_NAMES.ACCESS_TOKEN)?.value;
+  const refreshToken = cookieStore.get(COOKIE_NAMES.REFRESH_TOKEN)?.value;
 
   try {
     const authResult = await verifyAuth(

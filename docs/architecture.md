@@ -200,7 +200,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/auth/logout/route.js` — API route to log out: revokes the refresh token server-side, then clears auth cookies.
 
-- `POST` — Reads the refreshToken cookie, deletes the matching hashed RefreshToken document(s) from the DB (so a captured token can't outlive logout; never blocks on DB errors), then clears accessToken and refreshToken cookies.
+- `POST` — Reads the refreshToken cookie (via `COOKIE_NAMES`), deletes the matching hashed RefreshToken document(s) from the DB (so a captured token can't outlive logout; never blocks on DB errors), then clears accessToken and refreshToken cookies.
 
 ### `src/app/api/auth/otp/route.js` — Generates and emails a one-time password. Rate-limited: 60s resend cooldown via lastOtpSentAt plus a uniform per-IP+email in-memory throttle (identical responses whether or not an account exists — no enumeration oracle); resets attempt counter on new code. Emails are normalized to lowercase+trim so casing can't split accounts.
 
@@ -208,7 +208,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/auth/verify-otp/route.js` — Verifies OTP and issues tokens. Brute-force hardened: max 5 attempts (atomic $inc counter) then lockout forcing a fresh code request. Email normalized to match the request path.
 
-- `POST` — Normalizes email casing, generic invalid-OTP response (no user enumeration); on success clears OTP state, rotates refresh token into DB, sets HttpOnly cookies, returns newUser flag
+- `POST` — Normalizes email casing, generic invalid-OTP response (no user enumeration); on success clears OTP state, rotates refresh token into DB, sets HttpOnly cookies (named via `COOKIE_NAMES`), returns newUser flag
 
 ### `src/app/api/auth/verify-token/route.js` — API route to rotate a refresh token and issue new access/refresh tokens.
 
@@ -546,6 +546,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `PERMISSION_METADATA` — Maps all 38 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
 - `PLANS` — Defines Free (2 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
 - `TOKEN_CONFIG` — JWT token configuration: access token expiry (15m), refresh token expiry (15 days), and type identifiers
+- `COOKIE_NAMES` — App-specific auth cookie names (`ats_accessToken`, `ats_refreshToken`, `ats_subCheckedAt`) used by proxy.js, serverAuth.js, verify-otp and logout routes. Added 2026-08-22: cookies are scoped by host (not port), so generic names were being clobbered by another localhost app on a different port, randomly logging users out
 - `DEFAULTS` — Default values such as credits on signup
 - `OTP_CONFIG` — OTP expiry configuration (5 minutes)
 - `ROUTES` — Maps route names to URL paths for all app pages (home, login, onboarding, dashboard, profile, pricing, checkout, resume-history, ai-edit, cover-letters, admin). The AUTOMATION_*/API_KEYS entries are legacy paths pointing at pages archived on 2026-08-21.
@@ -624,7 +625,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/serverAuth.js` — Server action authentication — the single source of truth for retrieving the authenticated user's ID and role from cookies in server actions.
 
-- `getAuthenticatedUser` — Reads access and refresh tokens from cookies, verifies authentication, and returns { userId, role } or null values on failure.
+- `getAuthenticatedUser` — Reads access and refresh tokens from cookies (via `COOKIE_NAMES` constants), verifies authentication, and returns { userId, role } or null values on failure.
 
 ### `src/lib/stripe.js` — Stripe SDK initialization using the STRIPE_SECRET_KEY environment variable.
 
@@ -702,7 +703,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/proxy.js` — Next.js Edge Middleware that handles authentication (JWT verification and token rotation), subscription status checking, route-level access control (admin/protected/public), and cookie management.
 
-- `proxy(req)` — Main middleware handler. Validates authentication via verifyAuthEdge, attempts token rotation using refresh tokens on failure, periodically checks subscription status, enforces role-based routing (redirects unauthenticated users to login, admins-only for /admin, authenticated users away from /login), injects x-user-id header on API requests, and manages cookie setting/clearing for tokens and subscription check timestamps.
+- `proxy(req)` — Main middleware handler. Validates authentication via verifyAuthEdge, attempts token rotation using refresh tokens on failure, periodically checks subscription status, enforces role-based routing (redirects unauthenticated users to login, admins-only for /admin, authenticated users away from /login), injects x-user-id header on API requests, and manages cookie setting/clearing for tokens and subscription check timestamps. All auth cookies are read/written via the `COOKIE_NAMES` constants (`ats_*` prefix — added 2026-08-22 so other localhost apps on different ports can't clobber the session).
 - `config` — Next.js middleware matcher configuration specifying which route patterns trigger the proxy: /api/:path*, /dashboard/:path*, /profile/:path*, /onboarding/:path*, /admin/:path*, /login, /resume-history/:path*, /checkout/:path*.
 - Hardened 2026-08-21: `/api/health` is exempted at the top of the handler so uptime monitors can reach it without auth; the internal subscription-check fetch now forwards the request Cookie header instead of trusting a client-settable x-user-id.
 - Hardened 2026-08-22: on failed rotation the proxy checks whether the refresh JWT is still structurally valid — if so (rotation race in flight) cookies are NOT cleared, preventing random logouts; `subCheckedAt` cookie is now httpOnly+secure so client JS can't postpone periodic downgrade checks.

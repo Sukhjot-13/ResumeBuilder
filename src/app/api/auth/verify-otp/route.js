@@ -8,7 +8,7 @@ import {
   generateAccessToken,
   generateRefreshToken,
 } from '@/lib/utils';
-import { TOKEN_CONFIG } from '@/lib/constants';
+import { TOKEN_CONFIG, COOKIE_NAMES } from '@/lib/constants';
 import env from '@/config/env';
 import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
@@ -79,14 +79,14 @@ export const POST = withErrorHandler(async (req) => {
 
     // Set cookies
     const secure = env.isProduction;
-    response.cookies.set('accessToken', accessToken, {
+    response.cookies.set(COOKIE_NAMES.ACCESS_TOKEN, accessToken, {
       path: '/',
       maxAge: TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY_SECONDS,
       httpOnly: true,
       secure,
       sameSite: 'lax',
     });
-    response.cookies.set('refreshToken', refreshToken, {
+    response.cookies.set(COOKIE_NAMES.REFRESH_TOKEN, refreshToken, {
       path: '/',
       maxAge: refreshTokenExpirationSeconds,
       httpOnly: true,

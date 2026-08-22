@@ -364,6 +364,17 @@ export const TOKEN_CONFIG = {
   TYPE_REFRESH: 'refresh',
 };
 
+// App-specific cookie names. Cookies are scoped by HOST, not port — running
+// another app on localhost:<other-port> that uses generic names like
+// 'accessToken' would clobber these and randomly log users out (each app's
+// JWTs fail the other's signature verification). The 'ats_' prefix keeps
+// this app's session cookies isolated from any other localhost project.
+export const COOKIE_NAMES = {
+  ACCESS_TOKEN: 'ats_accessToken',
+  REFRESH_TOKEN: 'ats_refreshToken',
+  SUB_CHECKED_AT: 'ats_subCheckedAt',
+};
+
 export const DEFAULTS = {
   CREDITS_ON_SIGNUP: 2,
 };

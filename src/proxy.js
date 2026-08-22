@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { verifyAuthEdge } from '@/lib/auth-edge';
-import { ROLES, TOKEN_CONFIG } from '@/lib/constants';
+import { ROLES, TOKEN_CONFIG, COOKIE_NAMES } from '@/lib/constants';
 import env from '@/config/env';
 
 export async function proxy(req) {
@@ -36,8 +36,8 @@ export async function proxy(req) {
   }
 
   // Extract tokens from cookies
-  const accessToken = req.cookies.get('accessToken')?.value;
-  const refreshToken = req.cookies.get('refreshToken')?.value;
+  const accessToken = req.cookies.get(COOKIE_NAMES.ACCESS_TOKEN)?.value;
+  const refreshToken = req.cookies.get(COOKIE_NAMES.REFRESH_TOKEN)?.value;
 
   // Verify authentication (Edge safe)
   let authResult = await verifyAuthEdge({ accessToken });
@@ -80,7 +80,7 @@ export async function proxy(req) {
   // Check for expired subscriptions periodically (not on every request)
   let subscriptionChecked = false;
   if (authResult.ok) {
-    const lastCheck = req.cookies.get('subCheckedAt')?.value;
+    const lastCheck = req.cookies.get(COOKIE_NAMES.SUB_CHECKED_AT)?.value;
     const fiveMin = 5 * 60 * 1000;
     if (!lastCheck || Date.now() - Number(lastCheck) > fiveMin) {
       try {
@@ -131,14 +131,14 @@ export async function proxy(req) {
     // Set subscription check timestamp (httpOnly+secure — client JS must not
     // be able to forge/postpone the periodic downgrade check)
     if (subscriptionChecked) {
-      response.cookies.set('subCheckedAt', String(Date.now()), { path: '/', maxAge: 600, httpOnly: true, secure: env.isProduction, sameSite: 'lax' });
+      response.cookies.set(COOKIE_NAMES.SUB_CHECKED_AT, String(Date.now()), { path: '/', maxAge: 600, httpOnly: true, secure: env.isProduction, sameSite: 'lax' });
     }
 
     // Set new cookies if rotation happened
     if (authResult.newAccessToken && authResult.newRefreshToken) {
       const secure = env.isProduction;
-      response.cookies.set('accessToken', authResult.newAccessToken, { path: '/', maxAge: TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY_SECONDS, httpOnly: true, secure, sameSite: 'lax' });
-      response.cookies.set('refreshToken', authResult.newRefreshToken, { path: '/', maxAge: TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS / 1000, httpOnly: true, secure, sameSite: 'lax' });
+      response.cookies.set(COOKIE_NAMES.ACCESS_TOKEN, authResult.newAccessToken, { path: '/', maxAge: TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY_SECONDS, httpOnly: true, secure, sameSite: 'lax' });
+      response.cookies.set(COOKIE_NAMES.REFRESH_TOKEN, authResult.newRefreshToken, { path: '/', maxAge: TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS / 1000, httpOnly: true, secure, sameSite: 'lax' });
     }
   } else {
     // User is not authenticated
@@ -157,8 +157,8 @@ export async function proxy(req) {
     // token is still valid but lost a rotation race, keep cookies so the next
     // request can succeed once the winning request sets fresh cookies.
     if (!authResult.staleButRecoverable && (accessToken || refreshToken)) {
-        response.cookies.delete('accessToken');
-        response.cookies.delete('refreshToken');
+        response.cookies.delete(COOKIE_NAMES.ACCESS_TOKEN);
+        response.cookies.delete(COOKIE_NAMES.REFRESH_TOKEN);
     }
   }
 
