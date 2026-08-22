@@ -529,9 +529,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/lib/constants.js` — Application-wide constants including role/permission enums, plan definitions, token config, routes, and API endpoints.
 
 - `ROLES` — Enum mapping role names (ADMIN: 0, DEVELOPER: 70, SUBSCRIBER: 99, USER: 100) to numeric levels
-- `PERMISSIONS` — Enum of 36 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, and billing. Includes EDIT_COVER_LETTER (cover letter editing) and MANAGE_ROLES (admin permission management) — both PRO-tier permissions. Automation-related strings (VIEW_AUTOMATION, MANAGE_SCHEDULER, MANAGE_PLATFORM_SESSIONS, MANAGE_API_KEYS, EMERGENCY_STOP, etc.) are inert legacy values kept to avoid touching role/seed logic — their features were archived on 2026-08-21.
+- `PERMISSIONS` — Enum of 38 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, and billing. Includes EDIT_COVER_LETTER (cover letter editing) and MANAGE_ROLES (admin permission management) — both PRO-tier permissions. Automation-related strings (VIEW_AUTOMATION, MANAGE_SCHEDULER, MANAGE_PLATFORM_SESSIONS, MANAGE_API_KEYS, EMERGENCY_STOP, etc.) are inert legacy values kept to avoid touching role/seed logic — their features were archived on 2026-08-21.
 - `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN uses 'ALL' wildcard (any permission check passes), DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base permissions only. No more duplicated arrays.
-- `PERMISSION_METADATA` — Maps all 34 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
+- `PERMISSION_METADATA` — Maps all 38 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
 - `PLANS` — Defines Free (2 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
 - `TOKEN_CONFIG` — JWT token configuration: access token expiry (15m), refresh token expiry (15 days), and type identifiers
 - `DEFAULTS` — Default values such as credits on signup

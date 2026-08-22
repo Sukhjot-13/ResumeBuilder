@@ -2,6 +2,8 @@
 
 ## 🟢 Improvements
 
+- **2026-08-21** — Full site audit completed → see `docs/audit.md` (1 critical IDOR in edit-resume-with-ai, 11 high incl. broken nav links + onboarding auth flow + seed permission drift; fix order at bottom of that file).
+
 - **2026-08-21** — Job automation feature + API key management archived from live site into root `automation/` folder (UI pages, API routes, gatekeeper endpoint, 9 models, worker service). Navbar `/automation` links removed. Kept `apiKeyAuth.js`/`ApiKey`/`DailyCount` models since `resolveUserId()` dual-auth is used by active routes. Build verified passing after removal.
 
 ## 🔴 Vulnerabilities
