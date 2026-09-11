@@ -34,11 +34,11 @@ export const POST = withErrorHandler(async (req) => {
     return fail('Payment not completed', 400);
   }
 
-  if (session.metadata.userId !== userId) {
+  if (session.metadata?.userId !== userId) {
     return fail('Unauthorized session', 403);
   }
 
-  const planName = session.metadata.planName;
+  const planName = session.metadata?.planName;
   if (planName !== 'PRO') {
     // Only PRO subscriptions can be activated — never upgrade for other/unknown plans
     logger.warn('Session verified for non-PRO plan — refusing upgrade', { userId, planName });

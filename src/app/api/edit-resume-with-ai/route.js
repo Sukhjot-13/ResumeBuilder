@@ -98,6 +98,10 @@ export const POST = withErrorHandler(async (req) => {
 
   // Ownership check before reading/writing any resume (H1 fix)
   const requestedResumeId = resumeId || user.mainResume;
+  if (!createNewResume && !requestedResumeId) {
+    return fail('A target resume or master resume is required to edit in place', 400);
+  }
+
   if (requestedResumeId) {
     const owned = await Resume.exists({ _id: requestedResumeId, userId });
     if (!owned) {

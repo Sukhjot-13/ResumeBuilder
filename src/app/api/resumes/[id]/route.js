@@ -48,9 +48,15 @@ export const DELETE = withErrorHandler(async (req, context) => {
     return fail('Resume not found', 404);
   }
 
-  await User.findByIdAndUpdate(userId, {
-    $pull: { generatedResumes: id },
-  });
+  await User.updateOne(
+    { _id: userId },
+    { $pull: { generatedResumes: id } }
+  );
+
+  await User.updateOne(
+    { _id: userId, mainResume: id },
+    { $set: { mainResume: null } }
+  );
 
   await ResumeMetadata.findOneAndDelete({ resumeId: id });
 

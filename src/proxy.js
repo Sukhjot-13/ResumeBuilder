@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { verifyAuthEdge } from '@/lib/auth-edge';
+import { verifyAuthEdge, verifyTokenEdge } from '@/lib/auth-edge';
 import { ROLES, TOKEN_CONFIG, COOKIE_NAMES } from '@/lib/constants';
 import env from '@/config/env';
 

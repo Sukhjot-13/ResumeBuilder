@@ -40,7 +40,7 @@ export const POST = withErrorHandler(async (req) => {
     if ((user.otpAttempts || 0) >= MAX_OTP_ATTEMPTS) {
       await User.updateOne(
         { _id: user._id },
-        { $set: { otp: undefined, otpExpires: undefined }, $unset: { otpAttempts: 1 } }
+        { $unset: { otp: 1, otpExpires: 1, otpAttempts: 1 } }
       );
       return fail('Too many attempts. Please request a new code.', 429);
     }

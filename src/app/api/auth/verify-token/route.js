@@ -16,7 +16,7 @@ export const POST = withErrorHandler(async (req) => {
     userAgent: req.headers.get('user-agent'),
   };
 
-  const { newAccessToken, newRefreshToken, userId } = await rotateRefreshToken(refreshToken, reqInfo);
+  const { newAccessToken, newRefreshToken, userId, role } = await rotateRefreshToken(refreshToken, reqInfo);
 
-  return ok({ newAccessToken, newRefreshToken, userId });
+  return ok({ newAccessToken, newRefreshToken, userId, role });
 });

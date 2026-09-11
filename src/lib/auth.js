@@ -111,7 +111,7 @@ export async function rotateRefreshToken(refreshToken, reqInfo) {
   });
 
   logger.info("Tokens rotated successfully", { userId });
-  return { newAccessToken, newRefreshToken, userId };
+  return { newAccessToken, newRefreshToken, userId, role: user.role };
 }
 
 /**

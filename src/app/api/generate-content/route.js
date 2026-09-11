@@ -52,7 +52,7 @@ export const POST = withErrorHandler(async (request) => {
     PERMISSIONS.USE_SPECIAL_INSTRUCTIONS
   );
   const specialInstructions = hasSpecialInstructionsPermission
-    ? (rawSpecialInstructions || '')
+    ? sanitizeJobDescription(rawSpecialInstructions || '')
     : '';
 
   if (rawSpecialInstructions && !hasSpecialInstructionsPermission) {
