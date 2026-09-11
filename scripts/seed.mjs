@@ -100,14 +100,6 @@ const PERMISSION_METADATA = {
   access_ai_edit_page:     { name: "AI Edit Access", description: "Access the AI-powered editor page.", requiredPlan: "PRO" },
   view_own_subscription:   { name: "View Subscription", description: "Check your subscription status.", requiredPlan: "FREE" },
   manage_own_subscription: { name: "Manage Subscription", description: "Upgrade or cancel your subscription.", requiredPlan: "FREE" },
-  view_automation:         { name: "Automation Dashboard", description: "Access job automation dashboard.", requiredPlan: "PRO" },
-  manage_scheduler:        { name: "Schedule Manager", description: "Configure automation schedule.", requiredPlan: "PRO" },
-  manage_platform_sessions:{ name: "Platform Sessions", description: "Manage LinkedIn/Indeed sessions.", requiredPlan: "PRO" },
-  manage_criteria:         { name: "Job Search Criteria", description: "Configure job search filters.", requiredPlan: "PRO" },
-  manage_gatekeeper_rules: { name: "Gatekeeper Rules", description: "Configure AI gatekeeper rules.", requiredPlan: "PRO" },
-  manage_api_keys:         { name: "Manage API Keys", description: "Create/revoke API keys.", requiredPlan: "PRO" },
-  view_applications:       { name: "View Applications", description: "View application history.", requiredPlan: "PRO" },
-  emergency_stop:          { name: "Emergency Stop", description: "Pause all automation immediately.", requiredPlan: "PRO" },
 };
 
 const ROLES = { ADMIN: 0, DEVELOPER: 70, SUBSCRIBER: 99, USER: 100 };
@@ -119,8 +111,6 @@ const ROLE_PERMISSIONS = {
     'generate_resume','edit_resume_with_ai','create_new_resume_on_edit','use_special_instructions',
     'parse_resume','generate_cover_letter','view_cover_letters','edit_cover_letter','delete_cover_letter',
     'view_own_resumes','edit_resume_metadata','access_ai_edit_page',
-    'view_automation','manage_scheduler','manage_platform_sessions','manage_criteria',
-    'manage_gatekeeper_rules','manage_api_keys','view_applications','emergency_stop',
     'view_users','view_analytics','access_admin_panel','view_all_subscriptions','manage_roles',
   ],
   [ROLES.SUBSCRIBER]: [
@@ -129,8 +119,6 @@ const ROLE_PERMISSIONS = {
     'generate_resume','edit_resume_with_ai','create_new_resume_on_edit','use_special_instructions',
     'parse_resume','generate_cover_letter','view_cover_letters','edit_cover_letter','delete_cover_letter',
     'view_own_resumes','edit_resume_metadata','access_ai_edit_page',
-    'view_automation','manage_scheduler','manage_platform_sessions','manage_criteria',
-    'manage_gatekeeper_rules','manage_api_keys','view_applications','emergency_stop',
   ],
   [ROLES.USER]: [
     'view_own_profile','edit_own_profile','upload_main_resume','create_resume','delete_own_resume',
@@ -145,14 +133,12 @@ function deriveGroup(key) {
   const coverLetterKeys = ['generate_cover_letter','view_cover_letters','edit_cover_letter','delete_cover_letter'];
   const profileKeys = ['view_own_profile','edit_own_profile','upload_main_resume','access_ai_edit_page'];
   const billingKeys = ['view_own_subscription','manage_own_subscription'];
-  const automationKeys = ['view_automation','manage_scheduler','manage_platform_sessions','manage_criteria','manage_gatekeeper_rules','manage_api_keys','view_applications','emergency_stop'];
   if (adminKeys.includes(key)) return 'Admin';
   if (aiKeys.includes(key)) return 'AI & Content';
   if (resumeKeys.includes(key)) return 'Resume';
   if (coverLetterKeys.includes(key)) return 'Cover Letter';
   if (profileKeys.includes(key)) return 'Profile';
   if (billingKeys.includes(key)) return 'Billing';
-  if (automationKeys.includes(key)) return 'Automation';
   return 'General';
 }
 

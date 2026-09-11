@@ -10,8 +10,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Archived automation feature (reference only — not part of the live site):
-    "automation/**",
   ]),
 ]);
 

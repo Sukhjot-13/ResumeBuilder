@@ -31,10 +31,6 @@ const env = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: process.env.NODE_ENV === 'development',
-
-  // Automation
-  cookieEncryptionKey: process.env.COOKIE_ENCRYPTION_KEY,
-  workerUrl: process.env.WORKER_URL || 'http://localhost:3001',
 };
 
 // ---------------------------------------------------------------------------

@@ -24,17 +24,7 @@ function deriveGroup(key) {
   const resumeKeys = ['create_resume', 'view_own_resumes', 'delete_own_resume', 'edit_resume_metadata', 'download_pdf'];
   const coverLetterKeys = ['generate_cover_letter', 'view_cover_letters', 'edit_cover_letter', 'delete_cover_letter'];
   const profileKeys = ['view_own_profile', 'edit_own_profile', 'upload_main_resume', 'access_ai_edit_page'];
-  const billingKeys = ['view_own_subscription', 'manage_own_subscription'];
-  const automationKeys = ['view_automation', 'manage_scheduler', 'manage_platform_sessions',
-    'manage_criteria', 'manage_gatekeeper_rules', 'manage_api_keys', 'view_applications', 'emergency_stop'];
-
-  if (adminKeys.includes(key)) return 'Admin';
-  if (aiKeys.includes(key)) return 'AI & Content';
-  if (resumeKeys.includes(key)) return 'Resume';
-  if (coverLetterKeys.includes(key)) return 'Cover Letter';
-  if (profileKeys.includes(key)) return 'Profile';
   if (billingKeys.includes(key)) return 'Billing';
-  if (automationKeys.includes(key)) return 'Automation';
   return 'General';
 }
 

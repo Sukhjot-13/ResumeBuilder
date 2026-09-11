@@ -60,17 +60,6 @@ export const PERMISSIONS = {
   VIEW_OWN_SUBSCRIPTION: 'view_own_subscription',
   MANAGE_OWN_SUBSCRIPTION: 'manage_own_subscription', // Upgrade, cancel subscription
 
-  // ==========================================
-  // Job Automation
-  // ==========================================
-  VIEW_AUTOMATION: 'view_automation', // Access automation dashboard
-  MANAGE_SCHEDULER: 'manage_scheduler', // Configure automation schedule
-  MANAGE_PLATFORM_SESSIONS: 'manage_platform_sessions', // Add/edit LinkedIn/Indeed cookies
-  MANAGE_CRITERIA: 'manage_criteria', // Job search filters
-  MANAGE_GATEKEEPER_RULES: 'manage_gatekeeper_rules', // Configure gatekeeper AI
-  MANAGE_API_KEYS: 'manage_api_keys', // Create/revoke API keys
-  VIEW_APPLICATIONS: 'view_applications', // View application history
-  EMERGENCY_STOP: 'emergency_stop', // Pause all automation immediately
 };
 
 // ── Base permissions that ALL roles get ──────────────────────────────────
@@ -99,15 +88,6 @@ const PRO_PERMISSIONS = [
   PERMISSIONS.VIEW_OWN_RESUMES,
   PERMISSIONS.EDIT_RESUME_METADATA,
   PERMISSIONS.ACCESS_AI_EDIT_PAGE,
-  // Automation
-  PERMISSIONS.VIEW_AUTOMATION,
-  PERMISSIONS.MANAGE_SCHEDULER,
-  PERMISSIONS.MANAGE_PLATFORM_SESSIONS,
-  PERMISSIONS.MANAGE_CRITERIA,
-  PERMISSIONS.MANAGE_GATEKEEPER_RULES,
-  PERMISSIONS.MANAGE_API_KEYS,
-  PERMISSIONS.VIEW_APPLICATIONS,
-  PERMISSIONS.EMERGENCY_STOP,
 ];
 
 // ── Developer-tier permissions (added on top of pro) ─────────────────────
@@ -242,47 +222,6 @@ export const PERMISSION_METADATA = {
     description: "Access the AI-powered resume editor page.",
     requiredPlan: "PRO"
   },
-  // Automation
-  [PERMISSIONS.VIEW_AUTOMATION]: {
-    name: "Automation Dashboard",
-    description: "Access the job automation dashboard and monitor applications.",
-    requiredPlan: "PRO"
-  },
-  [PERMISSIONS.MANAGE_SCHEDULER]: {
-    name: "Schedule Manager",
-    description: "Configure and manage your automation schedule and timing.",
-    requiredPlan: "PRO"
-  },
-  [PERMISSIONS.MANAGE_PLATFORM_SESSIONS]: {
-    name: "Platform Sessions",
-    description: "Manage LinkedIn, Indeed, and other job platform sessions and cookies.",
-    requiredPlan: "PRO"
-  },
-  [PERMISSIONS.MANAGE_CRITERIA]: {
-    name: "Job Search Criteria",
-    description: "Configure your job search filters, salary range, and preferences.",
-    requiredPlan: "PRO"
-  },
-  [PERMISSIONS.MANAGE_GATEKEEPER_RULES]: {
-    name: "Gatekeeper Rules",
-    description: "Configure AI gatekeeper rules to filter job applications automatically.",
-    requiredPlan: "PRO"
-  },
-  [PERMISSIONS.MANAGE_API_KEYS]: {
-    name: "API Key Management",
-    description: "Create and revoke API keys for external integrations.",
-    requiredPlan: "PRO"
-  },
-  [PERMISSIONS.VIEW_APPLICATIONS]: {
-    name: "Application History",
-    description: "View your complete job application history and status.",
-    requiredPlan: "PRO"
-  },
-  [PERMISSIONS.EMERGENCY_STOP]: {
-    name: "Emergency Stop",
-    description: "Immediately pause all active automation processes.",
-    requiredPlan: "PRO"
-  },
 
   // ── Developer permissions ────────────────────────────────────────────────
   [PERMISSIONS.VIEW_USERS]: {
@@ -400,11 +339,6 @@ export const ROUTES = {
   COVER_LETTERS: '/cover-letters',
   COVER_LETTER: (id) => `/cover-letters/${id}`,
   ADMIN: '/admin',
-  AUTOMATION: '/automation',
-  AUTOMATION_JOBS: '/automation/jobs',
-  AUTOMATION_APPLICATIONS: '/automation/applications',
-  AUTOMATION_SETTINGS: '/automation/settings',
-  API_KEYS: '/api-keys',
 };
 
 // ---------------------------------------------------------------------------
@@ -444,11 +378,6 @@ export const API_ENDPOINTS = {
     USER_ROLE: (id) => `/api/admin/users/${id}/role`,
     USER_RESET_USAGE: (id) => `/api/admin/users/${id}/reset-usage`,
   },
-  AUTOMATION: {
-    GATEKEEPER: '/api/gatekeeper/evaluate',
-    TEMPLATES: '/api/resume/templates',
-    HEALTH: '/api/health',
-    API_KEYS: '/api/api-keys',
-    API_KEY_BY_ID: (id) => `/api/api-keys/${id}`,
-  },
+  TEMPLATES: '/api/resume/templates',
+  HEALTH: '/api/health',
 };
