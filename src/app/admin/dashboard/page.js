@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ROLES, PLANS } from '@/lib/constants';
@@ -13,11 +13,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const toast = useToast();
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/users');
       if (!res.ok) {
@@ -34,7 +30,11 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleRoleChange = async (userId, newRole) => {
     try {
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         toast.success('Role updated.');
-        fetchUsers(); // Refresh list
+        fetchUsers();
       } else {
         toast.error('Failed to update role');
       }
@@ -97,66 +97,70 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-white">Loading users...</div>;
-  if (error) return <div className="p-8 text-center text-red-400">Error: {error}</div>;
+  if (loading) return <div className="p-16 text-center text-slate-400 text-sm">Loading users...</div>;
+  if (error) return <div className="p-16 text-center text-rose-400 text-sm">Error: {error}</div>;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-8">
+    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
-                Admin Dashboard
-              </h1>
-              <p className="text-slate-400 mt-2">Manage users, roles, and subscriptions</p>
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Admin Console</h1>
+                <span className="text-[10px] font-semibold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full">
+                  Privileged
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400">Manage user accounts, privileges, and quotas</p>
             </div>
-            <button onClick={fetchUsers} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
-              Refresh Data
+            <button onClick={fetchUsers} className="btn-secondary text-xs font-semibold px-4 py-2 rounded-xl">
+              Refresh Directory
             </button>
           </div>
-          <nav className="flex gap-4 mt-6 border-b border-white/10 pb-3">
+
+          <nav className="flex gap-2 mt-6 border-b border-white/[0.08] pb-3">
             <Link
               href="/admin/dashboard"
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20"
+              className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25"
             >
-              Users
+              Users Directory
             </Link>
             <Link
               href="/admin/permissions"
-              className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent transition-colors"
+              className="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/[0.04] transition-colors"
             >
-              Permissions
+              Role Matrix
             </Link>
           </nav>
         </header>
 
-        <div className="glass rounded-xl overflow-hidden border border-white/10">
+        <div className="glass-card rounded-2xl overflow-hidden border border-white/[0.08]">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-white/5 text-slate-300">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-white/[0.03] text-slate-400 uppercase tracking-wider text-[11px] border-b border-white/[0.06]">
                 <tr>
-                  <th className="p-4 font-medium">User</th>
-                  <th className="p-4 font-medium">Role</th>
-                  <th className="p-4 font-medium">Credits</th>
-                  <th className="p-4 font-medium">Plan</th>
-                  <th className="p-4 font-medium">Joined</th>
-                  <th className="p-4 font-medium">Actions</th>
+                  <th className="p-4 font-semibold">User</th>
+                  <th className="p-4 font-semibold">Role</th>
+                  <th className="p-4 font-semibold">Credits</th>
+                  <th className="p-4 font-semibold">Plan</th>
+                  <th className="p-4 font-semibold">Joined</th>
+                  <th className="p-4 font-semibold">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-white/[0.04]">
                 {users.map((user) => (
-                  <tr key={user._id} className="hover:bg-white/5 transition-colors">
+                  <tr key={user._id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="p-4">
-                      <div className="font-medium">{user.name || 'No Name'}</div>
-                      <div className="text-sm text-slate-400">{user.email}</div>
-                      <div className="text-xs text-slate-500 font-mono mt-1">{user._id}</div>
+                      <div className="font-semibold text-white">{user.name || 'Anonymous'}</div>
+                      <div className="text-slate-400 text-[11px]">{user.email}</div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">{user._id}</div>
                     </td>
                     <td className="p-4">
                       <select 
                         value={user.role} 
                         onChange={(e) => handleRoleChange(user._id, e.target.value)}
-                        className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
+                        className="bg-slate-900/80 border border-white/[0.1] rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500"
                       >
                         {Object.entries(ROLES).map(([key, value]) => (
                           <option key={key} value={value}>{key} ({value})</option>
@@ -164,32 +168,29 @@ export default function AdminDashboard() {
                       </select>
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <span className={`font-mono ${user.creditsUsed >= (user.role === ROLES.SUBSCRIBER ? PLANS.PRO.credits : PLANS.FREE.credits) ? 'text-red-400' : 'text-green-400'}`}>
-                          {user.creditsUsed || 0} / {user.role === ROLES.ADMIN ? '∞' : (user.role === ROLES.SUBSCRIBER ? PLANS.PRO.credits : PLANS.FREE.credits)}
-                        </span>
-                      </div>
+                      <span className={`font-mono font-semibold ${user.creditsUsed >= (user.role === ROLES.SUBSCRIBER ? PLANS.PRO.credits : PLANS.FREE.credits) ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        {user.creditsUsed || 0} / {user.role === ROLES.ADMIN ? '∞' : (user.role === ROLES.SUBSCRIBER ? PLANS.PRO.credits : PLANS.FREE.credits)}
+                      </span>
                     </td>
                     <td className="p-4">
-                      <span className="px-2 py-1 rounded-full text-xs bg-white/10 border border-white/5">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/[0.05] text-slate-300 border border-white/[0.08]">
                         {user.plan?.name || 'Free'}
                       </span>
                     </td>
-                    <td className="p-4 text-slate-400 text-sm">
+                    <td className="p-4 text-slate-400 text-xs">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
                         <button 
                           onClick={() => handleResetUsage(user._id)}
-                          className="px-3 py-1 text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 rounded transition-colors"
+                          className="px-2.5 py-1 text-[11px] font-semibold bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-lg transition-colors"
                         >
                           Reset Usage
                         </button>
-                        {/* Add more actions here like Ban/Delete */}
                         <button
                           onClick={() => handleDeleteUser(user._id, user.email)}
-                          className="px-3 py-1 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded transition-colors"
+                          className="px-2.5 py-1 text-[11px] font-semibold bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg transition-colors"
                         >
                           Delete
                         </button>

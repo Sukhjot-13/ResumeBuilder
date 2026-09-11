@@ -113,29 +113,59 @@ function DashboardContent() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen pb-20">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-900/10 via-slate-900 to-slate-900 -z-10" />
-
       <div className="container mx-auto px-6 pt-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+        {/* Dashboard Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">Dashboard</h1>
-            <p className="text-slate-400 text-sm mt-1">Manage your resumes and create new ones</p>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                Resume Studio
+              </h1>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                AI Engine v2
+              </span>
+            </div>
+            <p className="text-slate-400 text-xs sm:text-sm">
+              Target job descriptions and tailor high-scoring ATS resumes in real time
+            </p>
+          </div>
+
+          {/* Quick Stats Pills */}
+          <div className="flex items-center gap-2.5">
+            <div className="px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/[0.08] text-xs flex items-center gap-2 shadow-sm">
+              <span className="text-slate-400">Master Resume:</span>
+              {profile?.mainResume ? (
+                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  Active
+                </span>
+              ) : (
+                <span className="text-amber-400 font-medium">Needs Setup</span>
+              )}
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/[0.08] text-xs flex items-center gap-2 shadow-sm">
+              <span className="text-slate-400">Saved Resumes:</span>
+              <span className="font-semibold text-white">{resumes?.length || 0}</span>
+            </div>
           </div>
         </div>
 
         {checkoutStatus && (
           <div
-            className={`mb-6 px-4 py-3 rounded-lg text-sm flex items-center justify-between ${
+            className={`mb-6 px-4 py-3 rounded-xl text-xs sm:text-sm flex items-center justify-between shadow-lg ${
               checkoutStatus.type === 'success'
-                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
-                : 'bg-red-500/10 border border-red-500/30 text-red-300'
+                ? 'bg-emerald-950/40 border border-emerald-500/30 text-emerald-300'
+                : 'bg-rose-950/40 border border-rose-500/30 text-rose-300'
             }`}
             role="status"
           >
-            <span>{checkoutStatus.message}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-base">{checkoutStatus.type === 'success' ? '✓' : '⚠️'}</span>
+              <span>{checkoutStatus.message}</span>
+            </div>
             <button
               onClick={() => setCheckoutStatus(null)}
-              className="ml-4 opacity-70 hover:opacity-100"
+              className="ml-4 opacity-70 hover:opacity-100 p-1"
               aria-label="Dismiss"
             >
               ✕
@@ -143,24 +173,31 @@ function DashboardContent() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Inputs */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: AI Tailoring Studio */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="glass-card p-6 rounded-2xl border border-white/5">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </span>
-                Job Details
-              </h2>
+            <div className="glass-card p-6 rounded-2xl border border-white/[0.08] space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-white">AI Tailoring Studio</h2>
+                    <p className="text-[11px] text-slate-400">Contextual keyword & impact alignment</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <JobDescriptionInput
                   jobDescription={jobDescription}
                   setJobDescription={setJobDescription}
                   loading={loading}
                 />
+
                 <SpecialInstructionsInput
                   specialInstructions={specialInstructions}
                   setSpecialInstructions={setSpecialInstructions}
@@ -169,52 +206,72 @@ function DashboardContent() {
                   profile={profile}
                   loading={loading}
                 />
-                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+
+                <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none pt-1">
                   <input
                     type="checkbox"
                     checked={saveResume}
                     onChange={(e) => setSaveResume(e.target.checked)}
-                    className="w-4 h-4 rounded border-white/10 bg-slate-800 text-blue-600 focus:ring-blue-500"
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-800/80 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
-                  Save this resume
+                  <span>Save tailored resume to your version history</span>
                 </label>
+
                 {generateError && (
-                  <p className="text-sm text-red-400 flex items-center gap-1.5">
-                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                    <svg className="w-4 h-4 shrink-0 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    {generateError}
-                  </p>
+                    <span>{generateError}</span>
+                  </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Right Column: Preview */}
+          {/* Right Column: Studio Live Preview */}
           <div className="lg:col-span-7">
-            <div className="glass-card p-6 rounded-2xl border border-white/5 h-full min-h-[500px]">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center text-violet-400">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </span>
-                Live Preview
-              </h2>
+            <div className="glass-card p-6 rounded-2xl border border-white/[0.08] min-h-[560px]">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-white">Live Document Preview</h2>
+                    <p className="text-[11px] text-slate-400">High-fidelity ATS preview & export</p>
+                  </div>
+                </div>
+              </div>
+
               {tailoredResume ? (
                 <TemplateViewer resume={tailoredResume} user={profile} />
               ) : (
-                <div className="flex flex-col items-center justify-center h-[400px] text-slate-500 border-2 border-dashed border-slate-700 rounded-xl">
-                  <svg className="w-16 h-16 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p>Generated resume preview will appear here</p>
+                <div className="flex flex-col items-center justify-center h-[460px] text-center p-8 rounded-xl border border-dashed border-white/[0.08] bg-[#070c18]/40">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4 shadow-sm animate-subtle-float">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-200 mb-1">
+                    Ready to Generate Your Resume
+                  </h3>
+                  <p className="text-xs text-slate-400 max-w-sm leading-relaxed mb-4">
+                    Paste your target job description on the left and click &ldquo;Generate Tailored Resume&rdquo; to preview it instantly.
+                  </p>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                    <span>ATS Keyword Matcher Ready</span>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
+
 
         <div className="mt-12">
           {loading || !profile ? (

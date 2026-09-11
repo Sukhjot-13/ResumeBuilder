@@ -45,89 +45,140 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto text-center">
-        <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-          Simple, transparent pricing
-        </h2>
-        <p className="mt-4 text-xl text-gray-600">
-          Choose the plan that fits your needs.
+    <div className="min-h-screen py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <div className="max-w-5xl mx-auto text-center mb-14">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs font-semibold text-indigo-300 mb-4">
+          <span>⚡ Simple, Transparent Pricing</span>
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-white mb-4">
+          Invest in Your Next <span className="bg-gradient-to-r from-indigo-400 via-cyan-300 to-indigo-300 bg-clip-text text-transparent">Career Leap</span>
+        </h1>
+        <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto leading-relaxed">
+          Unlock unlimited AI resume tailoring, natural language editing, and ATS-compliant PDF exports.
         </p>
       </div>
 
-      <div className="mt-12 space-y-4 sm:mt-16 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0 xl:grid-cols-2">
+      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
         {/* Free Plan */}
-        <div className="border border-gray-200 rounded-lg shadow-sm divide-y divide-gray-200 bg-white">
-          <div className="p-6">
-            <h2 className="text-lg leading-6 font-medium text-gray-900">{PLANS.FREE.name}</h2>
-            <p className="mt-4 text-sm text-gray-500">Basic access for everyone.</p>
-            <p className="mt-8">
-              <span className="text-4xl font-extrabold text-gray-900">${PLANS.FREE.price}</span>
-              <span className="text-base font-medium text-gray-500">/{PLANS.FREE.interval}</span>
-            </p>
-            <button
-              disabled={isSubscriber}
-              className={`mt-8 block w-full border border-transparent rounded-md py-2 text-sm font-semibold text-center ${
-                isSubscriber
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-100 text-gray-500 cursor-not-allowed'
-              }`}
-              title={isSubscriber ? '' : 'Create a free account to get started'}
-            >
-              {isSubscriber ? 'Included' : isAuthenticated ? 'Your Plan' : 'Start Free'}
-            </button>
+        <div className="glass-card p-8 rounded-3xl border border-white/[0.08] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Starter</span>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-1">{PLANS.FREE.name}</h2>
+            <p className="text-xs text-slate-400 mb-6">Essential tools for job hunters starting out.</p>
+
+            <div className="mb-6 flex items-baseline gap-1">
+              <span className="text-4xl font-extrabold text-white">${PLANS.FREE.price}</span>
+              <span className="text-xs text-slate-400 font-medium">/{PLANS.FREE.interval}</span>
+            </div>
+
+            <div className="pt-6 border-t border-white/[0.08] space-y-3.5 mb-8">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">Included</h3>
+              <ul className="space-y-3 text-xs text-slate-300">
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-cyan-400 text-[10px]">✓</div>
+                  <span>{PLANS.FREE.credits} Resume credits / day</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-cyan-400 text-[10px]">✓</div>
+                  <span>Standard ATS templates</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-cyan-400 text-[10px]">✓</div>
+                  <span>Master resume builder</span>
+                </li>
+                <li className="flex items-center gap-2.5 text-slate-500">
+                  <div className="w-4 h-4 rounded-full bg-slate-900 flex items-center justify-center text-slate-600 text-[10px]">✕</div>
+                  <span>AI interactive natural language editor</span>
+                </li>
+              </ul>
+            </div>
           </div>
-          <div className="pt-6 pb-8 px-6">
-            <h3 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What&apos;s included</h3>
-            <ul className="mt-6 space-y-4">
-              <li className="flex space-x-3">
-                <span className="text-green-500">✓</span>
-                <span className="text-gray-500">{PLANS.FREE.credits} Credits / Day</span>
-              </li>
-              <li className="flex space-x-3">
-                <span className="text-green-500">✓</span>
-                <span className="text-gray-500">Basic Resume Templates</span>
-              </li>
-            </ul>
-          </div>
+
+          <button
+            disabled={isSubscriber || isAuthenticated}
+            className={`w-full py-3 px-4 rounded-xl text-xs font-semibold transition-all ${
+              isSubscriber
+                ? 'bg-slate-800/40 text-slate-500 border border-white/[0.06] cursor-not-allowed'
+                : isAuthenticated
+                ? 'bg-slate-800/60 text-slate-300 border border-white/[0.08] cursor-default'
+                : 'btn-secondary'
+            }`}
+          >
+            {isSubscriber ? 'Included in your Plan' : isAuthenticated ? 'Current Plan' : 'Get Started Free'}
+          </button>
         </div>
 
         {/* Pro Plan */}
-        <div className="border border-indigo-200 rounded-lg shadow-sm divide-y divide-gray-200 bg-white ring-2 ring-indigo-500">
-          <div className="p-6">
-            <h2 className="text-lg leading-6 font-medium text-gray-900">{PLANS.PRO.name}</h2>
-            <p className="mt-4 text-sm text-gray-500">For serious job seekers.</p>
-            <p className="mt-8">
-              <span className="text-4xl font-extrabold text-gray-900">${PLANS.PRO.price}</span>
-              <span className="text-base font-medium text-gray-500">/{PLANS.PRO.interval}</span>
-            </p>
-            <button
-              onClick={() => handleUpgrade('PRO')}
-              disabled={loading}
-              className="mt-8 block w-full bg-indigo-600 border border-transparent rounded-md py-2 text-sm font-semibold text-white text-center hover:bg-indigo-700"
-            >
-              {loading ? 'Processing...' : 'Upgrade to Pro'}
-            </button>
+        <div className="glass-card p-8 rounded-3xl border border-indigo-500/40 relative shadow-2xl shadow-indigo-950/40 flex flex-col justify-between">
+          {/* Top highlight bar */}
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 text-[10px] font-bold text-white uppercase tracking-wider shadow-md">
+            Most Popular
           </div>
-          <div className="pt-6 pb-8 px-6">
-            <h3 className="text-xs font-medium text-gray-900 tracking-wide uppercase">What&apos;s included</h3>
-            <ul className="mt-6 space-y-4">
-              <li className="flex space-x-3">
-                <span className="text-green-500">✓</span>
-                <span className="text-gray-500">{PLANS.PRO.credits} Credits / Month</span>
-              </li>
-              <li className="flex space-x-3">
-                <span className="text-green-500">✓</span>
-                <span className="text-gray-500">Premium Templates</span>
-              </li>
-              <li className="flex space-x-3">
-                <span className="text-green-500">✓</span>
-                <span className="text-gray-500">AI Resume Editing</span>
-              </li>
-            </ul>
+
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Professional</span>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-1">{PLANS.PRO.name}</h2>
+            <p className="text-xs text-slate-400 mb-6">Complete AI toolkit for active applicants.</p>
+
+            <div className="mb-6 flex items-baseline gap-1">
+              <span className="text-4xl font-extrabold text-white">${PLANS.PRO.price}</span>
+              <span className="text-xs text-slate-400 font-medium">/{PLANS.PRO.interval}</span>
+            </div>
+
+            <div className="pt-6 border-t border-white/[0.08] space-y-3.5 mb-8">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-300">Everything in Free, plus:</h3>
+              <ul className="space-y-3 text-xs text-slate-200">
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
+                  <span className="font-medium text-white">{PLANS.PRO.credits} Generation credits / month</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
+                  <span>High-resolution PDF exports</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
+                  <span>AI Natural Language Resume Editor</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
+                  <span>AI Cover Letter Generator</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
+                  <span>Custom instructions & keyword prioritization</span>
+                </li>
+              </ul>
+            </div>
           </div>
+
+          <button
+            onClick={() => handleUpgrade('PRO')}
+            disabled={loading || isSubscriber}
+            className={`w-full py-3 px-4 rounded-xl text-xs font-semibold transition-all ${
+              isSubscriber
+                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 cursor-default'
+                : 'btn-primary'
+            }`}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Connecting to Stripe...
+              </span>
+            ) : isSubscriber ? (
+              'Active Pro Subscription'
+            ) : (
+              'Upgrade to Pro'
+            )}
+          </button>
         </div>
       </div>
     </div>
   );
 }
+

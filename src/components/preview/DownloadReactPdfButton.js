@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { checkPermission, getPermissionMetadata } from "@/lib/accessControl";
+import { checkPermission } from "@/lib/accessControl";
 import { PERMISSIONS } from "@/lib/constants";
 import { useToast } from "@/components/common/ToastProvider";
 
@@ -17,7 +17,7 @@ export default function DownloadReactPdfButton({
 
   const handleDownload = async () => {
     if (!hasPermission) {
-      toast.info("Upgrade to Pro to download PDFs");
+      toast.info("Upgrade to Pro to export high-resolution PDFs");
       return;
     }
     setDownloading(true);
@@ -39,7 +39,7 @@ export default function DownloadReactPdfButton({
 
         const a = document.createElement("a");
         a.href = url;
-        a.download = "resume-react.pdf";
+        a.download = "tailored-resume.pdf";
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -53,7 +53,7 @@ export default function DownloadReactPdfButton({
         } catch {}
         toast.error(message);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to download PDF. Please check your connection and try again.");
     }
     setDownloading(false);
@@ -64,13 +64,13 @@ export default function DownloadReactPdfButton({
     return (
       <button
         onClick={handleDownload}
-        className="bg-gray-600 text-gray-400 px-6 py-2 rounded-lg cursor-not-allowed flex items-center gap-2"
-        title="Upgrade to Pro to download PDFs"
+        className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-amber-300/90 border border-amber-500/20 hover:border-amber-500/40 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+        title="Upgrade to Pro to export PDF"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
-        Download PDF (Pro)
+        <span>Export PDF (Pro)</span>
       </button>
     );
   }
@@ -78,10 +78,23 @@ export default function DownloadReactPdfButton({
   return (
     <button
       onClick={handleDownload}
-      className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-500 transition-colors disabled:bg-gray-500"
       disabled={downloading}
+      className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-all shadow-sm shadow-indigo-600/30 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
     >
-      {downloading ? "Downloading..." : "Download PDF"}
+      {downloading ? (
+        <>
+          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <span>Rendering PDF...</span>
+        </>
+      ) : (
+        <>
+          <svg className="w-3.5 h-3.5 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>Download PDF</span>
+        </>
+      )}
     </button>
   );
 }
+

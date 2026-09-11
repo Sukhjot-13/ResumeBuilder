@@ -6,10 +6,6 @@ import { useEffect, useState } from "react";
  * A component for selecting a resume template.
  * Lists templates from /api/resume/templates (the single canonical listing —
  * friendly names + ids accepted by the PDF generator).
- * @param {object} props - The component's props.
- * @param {string} props.selectedTemplate - The currently selected template.
- * @param {function} props.setSelectedTemplate - The function to call when the template changes.
- * @returns {JSX.Element} The rendered component.
  */
 export default function TemplateSelector({
   selectedTemplate,
@@ -37,36 +33,45 @@ export default function TemplateSelector({
 
   if (loading) {
     return (
-      <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-        <h2 className="text-2xl font-semibold mb-4">Select a Template</h2>
-        <div>Loading templates...</div>
+      <div className="flex items-center gap-2 text-xs text-slate-400">
+        <div className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <span>Loading styles...</span>
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-        <h2 className="text-2xl font-semibold mb-4">Select a Template</h2>
-        <div className="text-red-500">Error: {error}</div>
-      </div>
-    );
+    return <div className="text-xs text-rose-400">Failed to load styles</div>;
   }
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-semibold mb-4">Select a Template</h2>
-      <select
-        value={selectedTemplate}
-        onChange={(e) => setSelectedTemplate(e.target.value)}
-        className="w-full bg-gray-700 text-white p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        {templates.map((template) => (
-          <option key={template.id} value={template.id}>
-            {template.name}
-          </option>
-        ))}
-      </select>
+    <div className="flex items-center gap-2">
+      <label htmlFor="template-select" className="text-xs font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap hidden sm:inline-flex items-center gap-1">
+        <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+        </svg>
+        Template:
+      </label>
+      <div className="relative">
+        <select
+          id="template-select"
+          value={selectedTemplate}
+          onChange={(e) => setSelectedTemplate(e.target.value)}
+          className="appearance-none bg-slate-900/80 border border-white/[0.1] hover:border-white/[0.2] text-xs font-medium text-slate-200 py-1.5 pl-3 pr-8 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all cursor-pointer shadow-sm"
+        >
+          {templates.map((template) => (
+            <option key={template.id} value={template.id} className="bg-slate-900 text-white">
+              {template.name}
+            </option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
     </div>
   );
 }
+

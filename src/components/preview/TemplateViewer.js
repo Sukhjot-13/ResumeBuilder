@@ -4,28 +4,28 @@ import { useState } from "react";
 import ResumePreview from "@/components/preview/ResumePreview";
 import TemplateSelector from "@/components/home/TemplateSelector";
 
-// Default template id — matches TemplateSelector option values (filename with extension)
 const DEFAULT_TEMPLATE_ID = "ClassicTemplate.js";
 
 export default function TemplateViewer({ resume, user }) {
-  const [selectedTemplate, setSelectedTemplate] =
-    useState(DEFAULT_TEMPLATE_ID);
+  const [selectedTemplate, setSelectedTemplate] = useState(DEFAULT_TEMPLATE_ID);
+
+  if (!resume) return null;
 
   return (
-    <div>
-      <TemplateSelector
+    <div className="space-y-4">
+      <ResumePreview
+        tailoredResume={resume}
         selectedTemplate={selectedTemplate}
         setSelectedTemplate={setSelectedTemplate}
-      />
-      <div className="mt-8">
-        {resume && (
-          <ResumePreview
-            tailoredResume={resume}
+        user={user}
+        templateSelector={
+          <TemplateSelector
             selectedTemplate={selectedTemplate}
-            user={user}
+            setSelectedTemplate={setSelectedTemplate}
           />
-        )}
-      </div>
+        }
+      />
     </div>
   );
 }
+

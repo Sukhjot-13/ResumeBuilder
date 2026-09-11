@@ -9,14 +9,6 @@ import { PERMISSIONS } from "@/lib/constants";
  * Always rendered for every user — never conditionally hidden.
  * Free users see the field and generate button, but both are locked/disabled.
  * A lock badge communicates the upgrade path clearly.
- *
- * Props:
- *   specialInstructions     {string}   - current value
- *   setSpecialInstructions  {function} - setter (no-op for free users, locked UI)
- *   handleGenerateResume    {function} - called on generate button click
- *   generating              {boolean}  - whether generation is in progress
- *   profile                 {object}   - user profile (null while loading)
- *   loading                 {boolean}  - show skeleton while profile loads
  */
 export default function SpecialInstructionsInput({
   specialInstructions,
@@ -36,22 +28,23 @@ export default function SpecialInstructionsInput({
   const genMeta = getPermissionMetadata(PERMISSIONS.GENERATE_RESUME);
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg shadow-lg space-y-4">
+    <div className="space-y-4">
       {/* ── Special Instructions ─────────────────────────── */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <svg className="w-5 h-5 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
             Special Instructions
-          </h2>
+            <span className="text-[11px] text-slate-500 font-normal lowercase">(optional)</span>
+          </label>
 
           {/* Pro badge — shown only for free users */}
           {!loading && !canUseSpecialInstructions && (
-            <span className="flex items-center gap-1 text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-full px-2.5 py-0.5">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            <span className="flex items-center gap-1 text-[11px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25 rounded-full px-2 py-0.5">
+              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
               {siMeta?.requiredPlan ?? "Pro"}
             </span>
@@ -59,23 +52,22 @@ export default function SpecialInstructionsInput({
         </div>
 
         {loading ? (
-          <div className="animate-pulse space-y-2">
-            <div className="h-4 bg-gray-700 rounded w-full" />
-            <div className="h-4 bg-gray-700 rounded w-4/5" />
-            <div className="h-4 bg-gray-700 rounded w-3/4" />
+          <div className="animate-pulse space-y-2 p-3 rounded-xl bg-slate-800/40 border border-white/[0.06]">
+            <div className="h-3 bg-slate-700/60 rounded w-full" />
+            <div className="h-3 bg-slate-700/60 rounded w-4/5" />
           </div>
         ) : (
-          <div className="relative">
+          <div className="relative group">
             <textarea
-              className={`w-full h-24 p-4 rounded-lg text-sm resize-none transition-colors focus:outline-none focus:ring-2
-                ${canUseSpecialInstructions
-                  ? "bg-gray-700 text-white focus:ring-purple-500 placeholder-gray-500"
-                  : "bg-gray-700/40 text-gray-500 cursor-not-allowed focus:ring-0 placeholder-gray-600 select-none"
-                }`}
+              className={`w-full h-20 p-3 rounded-xl text-xs sm:text-sm resize-none transition-all leading-relaxed ${
+                canUseSpecialInstructions
+                  ? "app-input"
+                  : "bg-slate-900/40 border border-white/[0.06] text-slate-500 cursor-not-allowed select-none focus:outline-none"
+              }`}
               placeholder={
                 canUseSpecialInstructions
-                  ? "e.g. Focus on leadership roles, highlight React.js experience…"
-                  : "Upgrade to Pro to use custom instructions…"
+                  ? "e.g. Focus on leadership impact, emphasize AWS and React, keep length concise..."
+                  : "Upgrade to Pro to customize tailoring with specific instructions..."
               }
               value={canUseSpecialInstructions ? specialInstructions : ""}
               onChange={(e) =>
@@ -85,16 +77,14 @@ export default function SpecialInstructionsInput({
               aria-label="Special instructions"
             />
 
-            {/* Lock overlay for free users */}
+            {/* Subtle lock notice overlay */}
             {!canUseSpecialInstructions && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-lg pointer-events-none">
-                <div className="flex flex-col items-center gap-1.5 text-center px-4">
-                  <svg className="w-6 h-6 text-amber-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="absolute inset-0 flex items-center justify-center rounded-xl pointer-events-none bg-slate-950/20 backdrop-blur-[1px]">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/90 border border-amber-500/20 shadow-lg text-[11px] text-slate-300">
+                  <svg className="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
-                  <p className="text-xs text-gray-400">
-                    Available on <span className="text-amber-400 font-semibold">{siMeta?.requiredPlan ?? "Pro"}</span>
-                  </p>
+                  <span>Unlocked with <span className="text-amber-400 font-semibold">{siMeta?.requiredPlan ?? "Pro"}</span></span>
                 </div>
               </div>
             )}
@@ -104,36 +94,36 @@ export default function SpecialInstructionsInput({
 
       {/* ── Generate Button ───────────────────────────────── */}
       {loading ? (
-        <div className="animate-pulse h-12 bg-gray-700 rounded-lg" />
+        <div className="animate-pulse h-11 bg-slate-800/60 rounded-xl" />
       ) : canGenerate ? (
         <button
           onClick={handleGenerateResume}
           disabled={generating}
-          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold px-6 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+          className="w-full relative overflow-hidden btn-primary py-3 px-5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
         >
           {generating ? (
             <>
-              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Generating…
+              <span>Tailoring Resume with AI...</span>
             </>
           ) : (
             <>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 text-cyan-300 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Generate Tailored Resume
+              <span>Generate Tailored Resume</span>
             </>
           )}
         </button>
       ) : (
-        /* Free user — generate button locked */
-        <div className="space-y-2">
+        /* Free user locked generate state */
+        <div className="space-y-1.5">
           <button
             disabled
-            className="w-full bg-gray-700/50 text-gray-500 font-semibold px-6 py-3 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed text-sm border border-gray-600/40"
+            className="w-full bg-slate-800/50 text-slate-500 font-medium py-3 px-5 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed text-xs sm:text-sm border border-white/[0.06]"
             title={`Upgrade to ${genMeta?.requiredPlan ?? "Pro"} to generate resumes`}
           >
             <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,10 +131,8 @@ export default function SpecialInstructionsInput({
             </svg>
             Generate Tailored Resume
           </button>
-          <p className="text-xs text-center text-gray-500">
-            Upgrade to{" "}
-            <span className="text-amber-400 font-medium">{genMeta?.requiredPlan ?? "Pro"}</span>{" "}
-            to unlock AI resume generation
+          <p className="text-[11px] text-center text-slate-500">
+            Requires <span className="text-amber-400 font-medium">{genMeta?.requiredPlan ?? "Pro"}</span> plan to generate resumes
           </p>
         </div>
       )}

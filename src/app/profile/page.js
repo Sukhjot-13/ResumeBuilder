@@ -260,323 +260,321 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
-      <h1 className="text-4xl font-bold mb-8 text-center">Your Profile</h1>
-      
-      <div className="flex justify-center mb-8">
-        <div className="bg-gray-800 rounded-lg p-1 flex space-x-2">
-          <button
-            onClick={() => setActiveTab("details")}
-            className={`px-4 py-2 rounded-md transition-colors ${
-              activeTab === "details" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            Details
-          </button>
-          <button
-            onClick={() => setActiveTab("subscription")}
-            className={`px-4 py-2 rounded-md transition-colors ${
-              activeTab === "subscription" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            Subscription
-          </button>
+    <div className="min-h-screen pb-20">
+      <div className="container mx-auto px-6 pt-8">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs font-semibold text-indigo-300 mb-3">
+            Account Management
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-2">
+            Profile & Settings
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
+            Manage your personal credentials, master resume data, and subscription tier.
+          </p>
         </div>
-      </div>
+        
+        {/* Navigation Tabs */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex p-1 rounded-xl bg-slate-900/90 border border-white/[0.08] shadow-inner">
+            <button
+              onClick={() => setActiveTab("details")}
+              className={`px-6 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === "details"
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Details & Resume
+            </button>
+            <button
+              onClick={() => setActiveTab("subscription")}
+              className={`px-6 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === "subscription"
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Plan & Credits
+            </button>
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-8">
-          {activeTab === "details" && (
-            <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full">
-              <h2 className="text-2xl font-bold mb-6 text-center">
-                Your Details
-              </h2>
-              {error && <p className="text-red-500 mb-4">{error}</p>}
-              {success && <p className="text-green-500 mb-4">{success}</p>}
-              {canEditProfile ? (
-                <form onSubmit={handleSubmit}>
-                  <div className="mb-4">
-                    <label htmlFor="name" className="block mb-2">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label htmlFor="dateOfBirth" className="block mb-2">
-                      Date of Birth
-                    </label>
-                    <input
-                      type="date"
-                      id="dateOfBirth"
-                      value={dateOfBirth}
-                      onChange={(e) => setDateOfBirth(e.target.value)}
-                      required
-                      className="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500"
-                  >
-                    {loading ? "Saving..." : "Save Changes"}
-                  </button>
-                </form>
-              ) : (
-                <PremiumFeatureLock
-                  featureName={getPermissionMetadata(PERMISSIONS.EDIT_OWN_PROFILE)?.name || "Edit Profile"}
-                  description={getPermissionMetadata(PERMISSIONS.EDIT_OWN_PROFILE)?.description}
-                  planName={getPermissionMetadata(PERMISSIONS.EDIT_OWN_PROFILE)?.requiredPlan}
-                  variant="compact"
-                />
-              )}
-              {hasAiEditAccess && (
-                <button
-                  onClick={() => setShowAiEditor(!showAiEditor)}
-                  className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
-                >
-                  {showAiEditor ? "Cancel AI Edit" : "Edit with AI"}
-                </button>
-              )}
-              {!hasAiEditAccess && (
-                <PremiumFeatureLock
-                  featureName={getPermissionMetadata(PERMISSIONS.EDIT_RESUME_WITH_AI)?.name || "AI Resume Editor"}
-                  planName={getPermissionMetadata(PERMISSIONS.EDIT_RESUME_WITH_AI)?.requiredPlan}
-                  variant="compact"
-                />
-              )}
-              {showAiEditor && (
-                <div className="mt-4">
-                  <textarea
-                    className="w-full h-24 bg-gray-700 text-white p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    placeholder="Describe the changes you want to make..."
-                    value={aiEditQuery}
-                    onChange={(e) => setAiEditQuery(e.target.value)}
-                  ></textarea>
-                  
-                  <div className="mt-4 flex items-center">
-                    <input
-                      type="checkbox"
-                      id="createNewResume"
-                      checked={createNewResume}
-                      onChange={(e) => setCreateNewResume(e.target.checked)}
-                      disabled={!hasCreateNewResumeAccess}
-                      className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-                    />
-                    <label htmlFor="createNewResume" className="ml-2 text-sm font-medium text-gray-300">
-                      Create new resume version {!hasCreateNewResumeAccess && <span className="text-yellow-500 text-xs ml-1">(Pro Feature)</span>}
-                    </label>
-                  </div>
-
-                  <button
-                    onClick={handleAiEdit}
-                    disabled={editing}
-                    className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500"
-                  >
-                    {editing ? "Editing..." : "Submit AI Edit"}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "subscription" && (
-            <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full">
-              <h2 className="text-2xl font-bold mb-6 text-center">
-                Subscription Plan
-              </h2>
-              
-              <div className="space-y-6">
-                <div className="bg-gray-700 p-6 rounded-lg border border-gray-600">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-white">
-                        {userRole === ROLES.ADMIN ? 'Admin Plan' : (userRole === ROLES.SUBSCRIBER ? 'Pro Plan' : 'Free Plan')}
-                      </h3>
-                      <p className="text-gray-400 text-sm mt-1">
-                        {userRole === ROLES.ADMIN ? 'Full system access with unlimited credits' : (userRole === ROLES.SUBSCRIBER ? 'Unlimited access to all features' : 'Basic access with daily limits')}
-                      </p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className={`${masterResume && activeTab === 'details' ? 'lg:col-span-6' : 'lg:col-span-8 lg:col-start-3'} space-y-6`}>
+            {activeTab === "details" && (
+              <>
+                {/* Account Details Form */}
+                <div className="glass-card p-6 sm:p-8 rounded-2xl border border-white/[0.08] space-y-6">
+                  <div className="flex items-center gap-2.5 pb-4 border-b border-white/[0.08]">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      userRole === ROLES.ADMIN ? 'bg-purple-500/20 text-purple-400' : (userRole === ROLES.SUBSCRIBER ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400')
-                    }`}>
-                      {userRole === ROLES.ADMIN ? 'ADMIN' : (userRole === ROLES.SUBSCRIBER ? 'ACTIVE' : 'CURRENT')}
+                    <div>
+                      <h2 className="text-sm font-semibold text-white">Personal Credentials</h2>
+                      <p className="text-[11px] text-slate-400">Used for resume headers and generation</p>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                      <svg className="w-4 h-4 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  {success && (
+                    <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+                      <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>{success}</span>
+                    </div>
+                  )}
+
+                  {canEditProfile ? (
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div>
+                        <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          id="name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          required
+                          className="w-full app-input px-3.5 py-2.5 text-xs sm:text-sm text-white"
+                          placeholder="Your legal name"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="dateOfBirth" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                          Date of Birth
+                        </label>
+                        <input
+                          type="date"
+                          id="dateOfBirth"
+                          value={dateOfBirth}
+                          onChange={(e) => setDateOfBirth(e.target.value)}
+                          required
+                          className="w-full app-input px-3.5 py-2.5 text-xs sm:text-sm text-white"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full btn-primary py-2.5 px-4 text-xs font-semibold rounded-xl transition-all disabled:opacity-50"
+                      >
+                        {loading ? "Saving Changes..." : "Save Credentials"}
+                      </button>
+                    </form>
+                  ) : (
+                    <PremiumFeatureLock
+                      featureName={getPermissionMetadata(PERMISSIONS.EDIT_OWN_PROFILE)?.name || "Edit Profile"}
+                      description={getPermissionMetadata(PERMISSIONS.EDIT_OWN_PROFILE)?.description}
+                      planName={getPermissionMetadata(PERMISSIONS.EDIT_OWN_PROFILE)?.requiredPlan}
+                      variant="compact"
+                    />
+                  )}
+                </div>
+
+                {/* Master Resume Manager */}
+                <div className="glass-card p-6 sm:p-8 rounded-2xl border border-white/[0.08] space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-semibold text-white">Master Resume Base</h2>
+                        <p className="text-[11px] text-slate-400">
+                          {masterResume ? "Baseline configured and ready" : "No baseline resume uploaded"}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {masterResume && !confirmDeleteMaster && (
+                        <button
+                          onClick={() => setConfirmDeleteMaster(true)}
+                          className="px-3 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 rounded-lg transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setShowManualForm((v) => !v)}
+                        className="btn-secondary px-3 py-1.5 text-xs font-semibold rounded-lg"
+                      >
+                        {showManualForm ? "Close Form" : masterResume ? "Edit Details" : "Add Manually"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {confirmDeleteMaster && (
+                    <div className="p-3.5 bg-rose-950/40 border border-rose-500/30 rounded-xl flex items-center justify-between gap-3 text-xs">
+                      <span className="text-rose-300">Are you sure? This cannot be undone.</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setConfirmDeleteMaster(false)}
+                          className="px-2.5 py-1 text-xs text-slate-300 hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleDeleteMasterResume}
+                          disabled={deletingMaster}
+                          className="px-3 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors"
+                        >
+                          {deletingMaster ? "Deleting..." : "Confirm Delete"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {showManualForm && (
+                    <div className="pt-2">
+                      <ManualResumeForm
+                        initialData={masterResume || undefined}
+                        onSaved={(saved) => {
+                          setMasterResume(saved.content);
+                          setShowManualForm(false);
+                          setSuccess("Master resume updated!");
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {canParseResume ? (
+                    <div className="pt-2">
+                      <ResumeUpload parsing={parsing} handleFileUpload={handleFileUpload} />
+                    </div>
+                  ) : (
+                    <PremiumFeatureLock
+                      featureName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.name || "AI Resume Parsing"}
+                      description={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.description}
+                      planName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.requiredPlan}
+                    />
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeTab === "subscription" && (
+              <div className="glass-card p-6 sm:p-8 rounded-2xl border border-white/[0.08] space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-semibold text-white">Current Subscription</h2>
+                      <p className="text-[11px] text-slate-400">Plan limits, renewals, and billing</p>
+                    </div>
+                  </div>
+
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                    userRole === ROLES.ADMIN
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : userRole === ROLES.SUBSCRIBER
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                  }`}>
+                    {userRole === ROLES.ADMIN ? 'Admin' : (userRole === ROLES.SUBSCRIBER ? 'Pro Plan' : 'Free Tier')}
+                  </span>
+                </div>
+
+                {/* Credit Usage Progress */}
+                <div className="p-4 rounded-xl bg-slate-900/60 border border-white/[0.06] space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400 font-medium">Credits Remaining</span>
+                    <span className="font-bold text-white">
+                      {userRole === ROLES.ADMIN
+                        ? 'Unlimited'
+                        : `${subscriptionInfo?.creditsRemaining ?? 0} available`}
                     </span>
                   </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Credits</span>
-                      <span className="font-medium text-white">
-                        {userRole === ROLES.ADMIN
-                          ? 'Unlimited'
-                          : subscriptionInfo?.creditsRemaining != null
-                            ? `${subscriptionInfo.creditsRemaining} remaining (${subscriptionInfo.creditsUsed} used)`
-                            : userRole === ROLES.SUBSCRIBER
-                              ? `${PLANS.PRO.credits} / month`
-                              : `${PLANS.FREE.credits} / day`}
-                      </span>
+                  {userRole !== ROLES.ADMIN && (
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(100, Math.max(5, ((subscriptionInfo?.creditsRemaining || 0) / (userRole === ROLES.SUBSCRIBER ? PLANS.PRO.credits : PLANS.FREE.credits)) * 100))}%`
+                        }}
+                      />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Reset Period</span>
-                      <span className="font-medium text-white">
-                        {userRole === ROLES.ADMIN ? 'N/A' : (userRole === ROLES.SUBSCRIBER ? 'Monthly' : 'Daily')}
-                      </span>
-                    </div>
+                  )}
+                  <div className="flex justify-between text-[11px] text-slate-500">
+                    <span>Reset period: {userRole === ROLES.SUBSCRIBER ? 'Monthly' : 'Daily'}</span>
                     {subscriptionInfo?.expiresAt && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Renews / Expires</span>
-                        <span className="font-medium text-white">
-                          {formatLocalDate(subscriptionInfo.expiresAt)}
-                        </span>
-                      </div>
-                    )}
-                    {subscriptionInfo && !['active', 'none'].includes(subscriptionInfo.status) && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400">Status</span>
-                        <span className={`font-medium ${subscriptionInfo.status === 'past_due' || subscriptionInfo.status === 'unpaid' ? 'text-yellow-400' : 'text-gray-300'}`}>
-                          {subscriptionInfo.status.replace('_', ' ')}
-                        </span>
-                      </div>
+                      <span>Renews: {formatLocalDate(subscriptionInfo.expiresAt)}</span>
                     )}
                   </div>
-
-                  {userRole !== ROLES.SUBSCRIBER && userRole !== ROLES.ADMIN && (
-                    <button
-                      onClick={handleUpgrade}
-                      disabled={checkoutLoading}
-                      className="w-full mt-6 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] shadow-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                      {checkoutLoading ? 'Opening checkout...' : `Upgrade to ${PLANS.PRO.name} ($${PLANS.PRO.price}/${PLANS.PRO.interval === 'month' ? 'mo' : PLANS.PRO.interval})`}
-                    </button>
-                  )}
-
-                  {userRole === ROLES.SUBSCRIBER && (
-                    <button
-                      onClick={handleManageSubscription}
-                      disabled={portalLoading}
-                      className="w-full mt-6 bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {portalLoading ? 'Opening portal...' : 'Manage Subscription'}
-                    </button>
-                  )}
                 </div>
 
-                <div className="bg-gray-700/50 p-4 rounded-lg">
-                  <h4 className="font-semibold text-white mb-3">Plan Features</h4>
-                  <ul className="space-y-2 text-sm text-gray-300">
-                    <li className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      AI Resume Editing
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Create New Versions
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <svg className={`w-4 h-4 ${userRole === ROLES.SUBSCRIBER || userRole === ROLES.ADMIN ? 'text-green-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className={userRole !== ROLES.SUBSCRIBER && userRole !== ROLES.ADMIN ? 'text-gray-500' : ''}>Priority Support (Pro)</span>
-                    </li>
-                  </ul>
-                </div>
+                {/* Upgrade or Manage Billing */}
+                {userRole !== ROLES.SUBSCRIBER && userRole !== ROLES.ADMIN && (
+                  <button
+                    onClick={handleUpgrade}
+                    disabled={checkoutLoading}
+                    className="w-full btn-primary py-3 px-4 text-xs font-semibold rounded-xl flex items-center justify-center gap-2"
+                  >
+                    {checkoutLoading ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Opening Stripe Checkout...
+                      </span>
+                    ) : (
+                      `Upgrade to ${PLANS.PRO.name} ($${PLANS.PRO.price}/${PLANS.PRO.interval})`
+                    )}
+                  </button>
+                )}
+
+                {userRole === ROLES.SUBSCRIBER && (
+                  <button
+                    onClick={handleManageSubscription}
+                    disabled={portalLoading}
+                    className="w-full btn-secondary py-3 px-4 text-xs font-semibold rounded-xl flex items-center justify-center gap-2"
+                  >
+                    {portalLoading ? 'Opening Stripe Customer Portal...' : 'Manage Billing & Invoices'}
+                  </button>
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {activeTab === "details" && (
-            <div className="space-y-6">
-              {/* Manual resume form — available to ALL users */}
-              <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
-                <div className="flex items-center justify-between mb-3">
+          {/* Right Column: Master Resume Preview */}
+          {masterResume && activeTab === "details" && (
+            <div className="lg:col-span-6 glass-card p-6 rounded-2xl border border-white/[0.08]">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </div>
                   <div>
-                    <h3 className="font-semibold text-white">Your Resume Data</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {masterResume ? "Edit your saved resume details" : "Enter your resume details manually"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {masterResume && !confirmDeleteMaster && (
-                      <button
-                        onClick={() => setConfirmDeleteMaster(true)}
-                        className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 text-sm rounded-lg transition-colors border border-red-500/30 flex items-center gap-1.5"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Delete
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setShowManualForm((v) => !v)}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
-                    >
-                      {showManualForm ? "Hide Form" : masterResume ? "Edit Resume" : "Add Resume"}
-                    </button>
+                    <h2 className="text-sm font-semibold text-white">Master Resume Preview</h2>
+                    <p className="text-[11px] text-slate-400">Baseline document representation</p>
                   </div>
                 </div>
-
-                {/* Inline delete confirmation */}
-                {confirmDeleteMaster && (
-                  <div className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-lg flex items-center justify-between gap-3">
-                    <p className="text-sm text-red-300">Delete your master resume? This cannot be undone.</p>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => setConfirmDeleteMaster(false)}
-                        className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleDeleteMasterResume}
-                        disabled={deletingMaster}
-                        className="px-3 py-1 text-xs bg-red-600 hover:bg-red-500 text-white rounded-md transition-colors disabled:opacity-50"
-                      >
-                        {deletingMaster ? "Deleting…" : "Yes, delete"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {showManualForm && (
-                  <ManualResumeForm
-                    initialData={masterResume || undefined}
-                    onSaved={(saved) => {
-                      setMasterResume(saved.content);
-                      setShowManualForm(false);
-                      setSuccess("Resume saved!");
-                    }}
-                  />
-                )}
               </div>
-
-              {/* AI-powered file upload — Pro users only */}
-              {canParseResume ? (
-                <ResumeUpload parsing={parsing} handleFileUpload={handleFileUpload} />
-              ) : (
-                <PremiumFeatureLock
-                  featureName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.name || "AI Resume Parsing"}
-                  description={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.description}
-                  planName={getPermissionMetadata(PERMISSIONS.PARSE_RESUME)?.requiredPlan}
-                />
-              )}
+              <TemplateViewer resume={masterResume} user={{ role: userRole }} />
             </div>
           )}
         </div>
-        <div>{masterResume && <TemplateViewer resume={masterResume} user={{ role: userRole }} />}</div>
       </div>
     </div>
   );
 }
+
