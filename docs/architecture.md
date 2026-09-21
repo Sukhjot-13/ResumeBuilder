@@ -81,7 +81,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/components/layout/Navbar.js` — Top navigation bar with authentication-aware links, credit badge, role-based navigation items, and mobile menu.
 
-- `Navbar (default export)` — Renders fixed header with logo, auth-aware nav links, credit badge, permission-gated items (Dashboard, Cover Letters, AI Edit, History, Admin), Profile link, Logout button, and mobile menu with aria-expanded toggle. Uses AuthContext user directly (no duplicate fetch); credit badge prefers server-computed `creditsRemaining` with ROLES-based fallback. Fixed 2026-09-21: added History (/resume-history) link to desktop + mobile nav (was orphaned).
+- `Navbar (default export)` — Renders fixed header with logo (routes to /dashboard when signed in, / when signed out), auth-aware nav links, credit badge, permission-gated items (Dashboard, Cover Letters, AI Edit, History, Pricing, Admin), Profile link, Logout button, and mobile menu with aria-expanded toggle. Uses AuthContext user directly (no duplicate fetch); credit badge prefers server-computed `creditsRemaining` with ROLES-based fallback. Fixed 2026-09-21: added History (/resume-history) link to desktop + mobile nav (was orphaned). Updated 2026-09-22: locked Pro items render as /pricing teasers with lock icons (no longer hidden); Pricing link in pill + mobile nav; Upgrade CTA for free-tier users (desktop + mobile).
 - `handleLogout` — Internal async function that POSTs to /api/auth/logout, refreshes auth state, and redirects to /login.
 
 ### `src/components/preview/CoverLetterDisplayView.js` — An HTML/text view of a cover letter for on-screen display.
@@ -322,11 +322,12 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `metadata` — Named export. SEO metadata object with title 'ATS-Friendly Resume Builder' and description.
 - `RootLayout` — Default export. Server component providing the HTML document structure with Outfit font, AuthProvider context, ToastProvider (app-wide toasts), Navbar, main content area, and Footer.
 
-### `src/app/login/page.js` — Login page with an email-based OTP authentication flow: send a login code to the user's email, then verify the code to redirect to onboarding (new users) or dashboard (existing users). Fixed 2026-09-21: email/OTP inputs now carry explicit padding/typography (bare `app-input` has no padding); OTP auto-submits at 6 digits (digit-only, paste-friendly, double-submit guarded, code cleared on failure); resend button with 60s cooldown matching the server throttle; mobile numeric keyboard + one-time-code autofill.
+### `src/app/login/page.js` — Login page with an email-based OTP authentication flow: send a login code to the user's email, then verify the code to redirect to onboarding (new users) or dashboard (existing users). Fixed 2026-09-21: email/OTP inputs now carry explicit padding/typography (bare `app-input` has no padding); resend button with 60s cooldown matching the server throttle. Upgraded 2026-09-22: six per-digit OTP boxes (auto-advance, backspace nav, paste-split, auto-submit on complete, mobile numeric keyboard + one-time-code autofill), visible 5:00 code-expiry countdown, error shake + attempt counter (X of 5, lockout state on 429), "remember this device for 30 days" checkbox, magic-link auto-sign-in from `?email=&code=` (with Suspense boundary for useSearchParams).
 
-- `LoginPage` — Default export. Client component with two-stage login form (send OTP then verify OTP), managing loading state, errors, resend countdown, and post-authentication redirect based on newUser flag.
-- `handleSendOtp` — Async function that calls POST /api/auth/otp to request a one-time passcode sent to the user's email. Also backs the resend button; starts the cooldown on success.
-- `handleVerifyOtp` — Async function that calls POST /api/auth/verify-otp to verify the OTP, refetches auth state, and redirects to onboarding (new user) or dashboard (existing user). Guarded against concurrent submits; clears the code on failure so a retry starts clean.
+- `LoginPage` — Default export. Suspense wrapper around LoginForm (required for useSearchParams).
+- `LoginForm` — Two-stage login form managing loading, errors, resend countdown, expiry ticker, attempts/lockout, and post-auth redirect based on newUser flag.
+- `handleSendOtp` — Calls POST /api/auth/otp; on success resets attempts/lockout, starts expiry + resend timers, focuses the first digit box. Also backs the resend button.
+- `handleVerifyOtp` — Calls POST /api/auth/verify-otp with `{ email, otp, remember }`; guarded against concurrent submits; increments the attempt counter and shakes on failure, locks out on 429, clears the code so retries start clean.
 
 ### `src/app/onboarding/page.js` — Onboarding page for new users after first login, collecting name and date of birth to complete their profile.
 
@@ -350,14 +351,14 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `metadata` — SEO title/description.
 - `TermsPage` — Server component rendering numbered terms sections (accounts, acceptable use, subscriptions/billing via Stripe, refunds, AI content ownership, liability).
 
-### `src/app/pricing/page.js` — Pricing page displaying Free and Pro subscription plans with feature comparisons and upgrade buttons that trigger Stripe checkout.
+### `src/app/pricing/page.js` — Pricing page displaying Free and Pro subscription plans with truthful feature comparisons (Free: 3 daily credits incl. AI generation + saved library; Pro: 200 monthly credits, custom instructions, AI editor + versions, cover letters, upload parsing) and upgrade buttons that trigger Stripe checkout.
 
 - `PricingPage` — Client component rendering Free/Pro tiers; Free-tier label adapts to the viewer's role (Start Free / Your Plan / Included) via useAuth.
 - `handleUpgrade(planKey)` — POSTs the plan KEY (`'PRO'`) to /api/checkout/create-session and redirects to Stripe. Errors surface via toast.
 
 ### `src/app/profile/page.js` — User profile page with tabs for personal details (name, date of birth, AI resume editing, manual resume form, resume upload/parse) and subscription management (plan info, upgrade, manage billing).
 
-- `ProfilePage` — Full profile experience: tabs, editing, AI edit, manual form, upload/parse, master delete, subscription display (renders real `subscriptionStatus` / `subscriptionExpiresAt` / `creditsRemaining` from the API instead of static guesses), upgrade + billing portal. Stripe buttons have pending/disabled double-submit guards; plan labels derive from PLANS constants; role compares use ROLES enum; DOB round-trips through local-date formatting (no UTC off-by-one).
+- `ProfilePage` — Full profile experience: tabs, editing, AI edit, manual form, upload/parse, master delete, subscription display (renders real `subscriptionStatus` / `subscriptionExpiresAt` / `creditsRemaining` from the API instead of static guesses), upgrade + billing portal, plus a "What you get with Pro" benefits box with compare-plans link for free-tier users (added 2026-09-22). Stripe buttons have pending/disabled double-submit guards; plan labels derive from PLANS constants; role compares use ROLES enum; DOB round-trips through local-date formatting (no UTC off-by-one).
 - `handleSubmit` — Async function that saves profile name and date of birth via PUT /api/user/profile.
 - `handleFileUpload` — Async function that uploads a resume file to POST /api/parse-resume for AI parsing, then saves the parsed result as the master resume.
 - `handleAiEdit` — Async function that sends a natural-language edit query to POST /api/edit-resume-with-ai to modify the master resume content via AI.
@@ -533,18 +534,18 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `verifyTokenEdge` — Verifies a JWT token (access or refresh) using jose and the appropriate secret key, returns the decoded payload
 - `verifyAuthEdge` — Verifies authentication from access/refresh token cookies at the edge; returns { ok, userId, role } on success, or { ok: false } if invalid (cannot rotate at edge)
 
-### `src/lib/auth.js` — Server-side authentication with JWT access/refresh token verification and secure refresh token rotation. Rotation uses a 60-second grace window: superseded tokens stay briefly valid (marked `supersededAt`, TTL-shortened) so parallel requests carrying the same just-rotated token rotate again instead of failing — fixes random logouts from concurrent refreshes.
+### `src/lib/auth.js` — Server-side authentication with JWT access/refresh token verification and secure refresh token rotation. Rotation uses a 60-second grace window: superseded tokens stay briefly valid (marked `supersededAt`, TTL-shortened) so parallel requests carrying the same just-rotated token rotate again instead of failing — fixes random logouts from concurrent refreshes. Rotation preserves remember-me lifetimes via `resolveRotationLifetime()` and returns `refreshTokenMaxAge` so cookies match.
 
-- `rotateRefreshToken` — Verifies a refresh token, rejects superseded tokens past the grace window, marks the used token superseded instead of hard-deleting, and issues a new pair
+- `rotateRefreshToken` — Verifies a refresh token, rejects superseded tokens past the grace window, marks the used token superseded instead of hard-deleting, and issues a new pair (carrying forward any >15-day lifetime)
 - `verifyAuth` — Main auth verification function: tries the access token first; if invalid/expired, attempts refresh token rotation; returns auth result with optional new tokens or cookie-clear signal
 
 ### `src/lib/constants.js` — Application-wide constants including role/permission enums, plan definitions, token config, routes, and API endpoints.
 
 - `ROLES` — Enum mapping role names (ADMIN: 0, DEVELOPER: 70, SUBSCRIBER: 99, USER: 100) to numeric levels
 - `PERMISSIONS` — Enum of 38 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, and billing. Includes EDIT_COVER_LETTER (cover letter editing) and MANAGE_ROLES (admin permission management) — both PRO-tier permissions. Automation-related strings (VIEW_AUTOMATION, MANAGE_SCHEDULER, MANAGE_PLATFORM_SESSIONS, MANAGE_API_KEYS, EMERGENCY_STOP, etc.) are inert legacy values kept to avoid touching role/seed logic — their features were archived on 2026-08-21.
-- `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN uses 'ALL' wildcard (any permission check passes), DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base permissions only. No more duplicated arrays.
+- `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN uses 'ALL' wildcard (any permission check passes), DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base plus a free trial (GENERATE_RESUME + VIEW_OWN_RESUMES, added 2026-09-22) so free users can test generation with 3 daily credits. No more duplicated arrays.
 - `PERMISSION_METADATA` — Maps all 38 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
-- `PLANS` — Defines Free (2 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
+- `PLANS` — Defines Free (3 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
 - `TOKEN_CONFIG` — JWT token configuration: access token expiry (15m), refresh token expiry (15 days), and type identifiers
 - `COOKIE_NAMES` — App-specific auth cookie names (`ats_accessToken`, `ats_refreshToken`, `ats_subCheckedAt`) used by proxy.js, serverAuth.js, verify-otp and logout routes. Added 2026-08-22: cookies are scoped by host (not port), so generic names were being clobbered by another localhost app on a different port, randomly logging users out
 - `DEFAULTS` — Default values such as credits on signup
@@ -636,14 +637,15 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `checkAndDowngradeExpiredSubscription` — Checks if a user's subscription has expired and downgrades their role to USER if so; **clears `subscriptionId`** so credit limits no longer treat them as PRO.
 - `isSubscriptionActive` — Returns true if the user's subscription status is active and the expiration date is in the future.
 
-### `src/lib/utils.js` — Utility functions for SHA-256 hashing (hex string and raw Buffer variants) and JWT access/refresh token generation and verification.
+### `src/lib/utils.js` — Utility functions for SHA-256 hashing (hex string and raw Buffer variants) and JWT access/refresh token generation and verification. `generateRefreshToken` accepts an optional `expiresIn` (default '15d') for remember-me sessions; `resolveRotationLifetime` (pure, tested) carries a longer lifetime forward on rotation.
 
 - `sha256` — Computes a SHA-256 hex digest of the input string.
 - `hashToken` — Alias for sha256.
 - `sha256Buffer` — SHA-256 hash returning a raw Buffer (for key derivation, encryption, etc.). Used by encryption.js.
 - `generateAccessToken` — Creates and signs a JWT access token containing `type: 'access'`, userId and role, using the configured expiry.
-- `generateRefreshToken` — Creates and signs a JWT refresh token containing `type: 'refresh'` and userId, with a 15-day expiry.
+- `generateRefreshToken` — Creates and signs a JWT refresh token containing `type: 'refresh'` and userId, with a configurable expiry (default 15 days, '30d' for remember-me).
 - `verifyToken` — Verifies a JWT token (access or refresh) using the corresponding secret and asserts the embedded `type` claim matches (legacy claim-less tokens tolerated).
+- `resolveRotationLifetime` — Pure helper returning `{ expiresAt, maxAgeSeconds, jwtExp }`: preserves remaining lifetime when it exceeds 15 days, otherwise the default 15-day window.
 
 
 ---
@@ -701,7 +703,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ## proxy.js
 
-### `src/proxy.js` — Next.js Edge Middleware that handles authentication (JWT verification and token rotation), subscription status checking, route-level access control (admin/protected/public), and cookie management. Fixed 2026-09-21: protects /cover-letters/* + /ai-edit/* (were unauthenticated); internal fetches use req.nextUrl.origin + 5s AbortSignal.timeout.
+### `src/proxy.js` — Next.js Edge Middleware that handles authentication (JWT verification and token rotation), subscription status checking, route-level access control (admin/protected/public), and cookie management. Fixed 2026-09-21: protects /cover-letters/* + /ai-edit/* (were unauthenticated); internal fetches use req.nextUrl.origin + 5s AbortSignal.timeout. Fixed 2026-09-22: rotated refresh cookie honors the rotation response's maxAge (validated, capped at 31 days) so remember-me sessions survive rotation.
 
 - `proxy(req)` — Main middleware handler. Validates authentication via verifyAuthEdge, attempts token rotation using refresh tokens on failure, periodically checks subscription status, enforces role-based routing (redirects unauthenticated users to login, admins-only for /admin, authenticated users away from /login), injects x-user-id header on API requests, and manages cookie setting/clearing for tokens and subscription check timestamps. All auth cookies are read/written via the `COOKIE_NAMES` constants (`ats_*` prefix — added 2026-08-22 so other localhost apps on different ports can't clobber the session).
 - `config` — Next.js middleware matcher configuration specifying which route patterns trigger the proxy: /api/:path*, /dashboard/:path*, /profile/:path*, /onboarding/:path*, /admin/:path*, /login, /resume-history/:path*, /checkout/:path*.
@@ -768,7 +770,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `UserService.removeGeneratedResume(userId, resumeId)` — Pulls a resume ID from the user's generatedResumes array.
 
 ### `scripts/backfill-users.mjs` — One-time data migration (2026-08-22 audit follow-ups). Idempotent; supports `--dry-run`.
-
 1. Lowercases + trims all user emails (skips with a warning on collisions for manual merge).
 2. Clears stale `subscriptionId` from users who are not active subscribers (unless their paid-through window hasn't passed).
 
@@ -776,13 +777,21 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 **Usage:** `node scripts/backfill-users.mjs [--dry-run]` (reads MONGODB_URI from env or `.env.local`)
 
+### `scripts/sync-free-tier.mjs` — Targeted free-trial grant (added 2026-09-22). `$addToSet`s `generate_resume` + `view_own_resumes` onto the USER role and flips their requiredPlan to FREE — unlike a full seed re-run, it never overwrites other custom admin permission edits. Idempotent; supports `--dry-run`.
+
+**Usage:** `node scripts/sync-free-tier.mjs [--dry-run]` (reads MONGODB_URI from env or `.env.local`)
+
 ### `vitest.config.js` — Vitest test runner config: `@/*` alias + an Oxc-based plugin that compiles JSX inside the app's `.js` source files (Next.js convention) so templates can be imported in tests. Tests live in `tests/` and run via `npm test`.
 
 ### `tests/aiParsers.test.js` — Regression tests for AI JSON parsers (added 2026-09-21 for audit H2 fix).
 
 - `AI JSON parsers strip preambles` — Verifies parseDeepSeekJson + parseGeminiJson handle leading conversational text, markdown fences, and clean JSON.
 
-### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections.
+### `tests/rotationLifetime.test.js` — Regression tests for remember-me rotation (added 2026-09-22).
+
+- `resolveRotationLifetime` — Verifies standard sessions keep the 15-day window, 30-day tokens carry remaining lifetime forward, expired tokens fall back to 15 days.
+
+### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections. Updated 2026-09-22: USER mirror includes the free trial (`generate_resume`, `view_own_resumes`, requiredPlan FREE).
 
 Populates the database with all 38 permissions and 4 roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) using a hand-mirrored copy of constants.js metadata. **Must be run when switching to a fresh database** — without it, the admin permissions page shows nothing.
 

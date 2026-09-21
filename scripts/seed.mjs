@@ -80,13 +80,13 @@ const PERMISSION_METADATA = {
   access_admin_panel:      { name: "Admin Panel Access", description: "Access the administrative control panel.", requiredPlan: "DEVELOPER" },
   delete_user:             { name: "Delete User", description: "Permanently delete user accounts.", requiredPlan: "ADMIN" },
   manage_roles:            { name: "Manage Roles", description: "Create, edit, and delete roles and their permissions.", requiredPlan: "DEVELOPER" },
-  generate_resume:         { name: "AI Resume Generation", description: "Generate tailored resumes from job descriptions using AI.", requiredPlan: "PRO" },
+  generate_resume:         { name: "AI Resume Generation", description: "Generate tailored resumes from job descriptions using AI.", requiredPlan: "FREE" },
   edit_resume_with_ai:     { name: "AI Resume Editor", description: "Edit and improve your resume with AI.", requiredPlan: "PRO" },
   create_new_resume_on_edit:{ name: "Version Control", description: "Create unlimited versions of your resume.", requiredPlan: "PRO" },
   use_special_instructions:{ name: "Custom AI Instructions", description: "Provide specific AI instructions.", requiredPlan: "PRO" },
   parse_resume:            { name: "AI Resume Parsing", description: "Upload and parse resume files.", requiredPlan: "PRO" },
   create_resume:           { name: "Create Resume", description: "Create a new resume from scratch.", requiredPlan: "FREE" },
-  view_own_resumes:        { name: "View Saved Resumes", description: "Access your resume library.", requiredPlan: "PRO" },
+  view_own_resumes:        { name: "View Saved Resumes", description: "Access your resume library.", requiredPlan: "FREE" },
   delete_own_resume:       { name: "Delete Resumes", description: "Remove resumes from your library.", requiredPlan: "FREE" },
   edit_resume_metadata:    { name: "Edit Resume Details", description: "Update job title and company name.", requiredPlan: "PRO" },
   download_pdf:            { name: "PDF Download", description: "Download resumes as PDF.", requiredPlan: "FREE" },
@@ -123,6 +123,7 @@ const ROLE_PERMISSIONS = {
   [ROLES.USER]: [
     'view_own_profile','edit_own_profile','upload_main_resume','create_resume','delete_own_resume',
     'download_pdf','view_own_subscription','manage_own_subscription',
+    'generate_resume','view_own_resumes',
   ],
 };
 

@@ -523,20 +523,48 @@ export default function ProfilePage() {
 
                 {/* Upgrade or Manage Billing */}
                 {userRole !== ROLES.SUBSCRIBER && userRole !== ROLES.ADMIN && (
-                  <button
-                    onClick={handleUpgrade}
-                    disabled={checkoutLoading}
-                    className="w-full btn-primary py-3 px-4 text-xs font-semibold rounded-xl flex items-center justify-center gap-2"
-                  >
-                    {checkoutLoading ? (
-                      <span className="flex items-center gap-2">
-                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Opening Stripe Checkout...
-                      </span>
-                    ) : (
-                      `Upgrade to ${PLANS.PRO.name} ($${PLANS.PRO.price}/${PLANS.PRO.interval})`
-                    )}
-                  </button>
+                  <>
+                    <div className="p-4 rounded-xl bg-indigo-500/[0.06] border border-indigo-500/20 space-y-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-300">
+                        What you get with {PLANS.PRO.name}
+                      </h3>
+                      <ul className="space-y-2 text-xs text-slate-300">
+                        <li className="flex items-center gap-2">
+                          <span className="text-cyan-400">✓</span>
+                          <span>{PLANS.PRO.credits} generation credits / month (vs {PLANS.FREE.credits} / day)</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-cyan-400">✓</span>
+                          <span>Custom AI instructions for tailored generation</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-cyan-400">✓</span>
+                          <span>AI resume editor with version history</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-cyan-400">✓</span>
+                          <span>Cover letter generator + resume upload parsing</span>
+                        </li>
+                      </ul>
+                      <a href="/pricing" className="inline-block text-xs font-semibold text-indigo-300 hover:text-indigo-200 transition-colors">
+                        Compare plans →
+                      </a>
+                    </div>
+                    <button
+                      onClick={handleUpgrade}
+                      disabled={checkoutLoading}
+                      className="w-full btn-primary py-3 px-4 text-xs font-semibold rounded-xl flex items-center justify-center gap-2"
+                    >
+                      {checkoutLoading ? (
+                        <span className="flex items-center gap-2">
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Opening Stripe Checkout...
+                        </span>
+                      ) : (
+                        `Upgrade to ${PLANS.PRO.name} ($${PLANS.PRO.price}/${PLANS.PRO.interval})`
+                      )}
+                    </button>
+                  </>
                 )}
 
                 {userRole === ROLES.SUBSCRIBER && (

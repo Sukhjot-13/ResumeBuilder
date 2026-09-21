@@ -6,6 +6,7 @@ import {
   hashToken,
   generateAccessToken,
   generateRefreshToken,
+  resolveRotationLifetime,
 } from "@/lib/utils";
 import { TOKEN_CONFIG } from "@/lib/constants";
 import { logger } from "@/lib/logger";
@@ -96,22 +97,23 @@ export async function rotateRefreshToken(refreshToken, reqInfo) {
     throw new Error('User not found');
   }
 
-  // Generate new tokens
+  // Generate new tokens (preserving a longer remember-me lifetime, if any)
   const newAccessToken = await generateAccessToken(userId, user.role);
-  const newRefreshToken = await generateRefreshToken(userId);
+  const lifetime = resolveRotationLifetime(tokenDoc.expiresAt);
+  const newRefreshToken = await generateRefreshToken(userId, lifetime.jwtExp);
 
   // Store the new refresh token
   const newHashedRefreshToken = hashToken(newRefreshToken);
   await RefreshToken.create({
     userId,
     token: newHashedRefreshToken,
-    expiresAt: new Date(Date.now() + TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS),
+    expiresAt: lifetime.expiresAt,
     ip: reqInfo.ip,
     userAgent: reqInfo.userAgent,
   });
 
   logger.info("Tokens rotated successfully", { userId });
-  return { newAccessToken, newRefreshToken, userId, role: user.role };
+  return { newAccessToken, newRefreshToken, userId, role: user.role, refreshTokenMaxAge: lifetime.maxAgeSeconds };
 }
 
 /**

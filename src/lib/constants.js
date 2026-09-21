@@ -114,7 +114,11 @@ export const ROLE_PERMISSIONS = {
   ],
   [ROLES.USER]: [
     ...BASE_PERMISSIONS,
-    // Note: NO AI features for free users
+    // Free trial: generate + view tailored resumes so users can test the
+    // site (3 daily credits). Special instructions, AI editing, cover
+    // letters, and parsing stay Pro-only.
+    PERMISSIONS.GENERATE_RESUME,
+    PERMISSIONS.VIEW_OWN_RESUMES,
   ],
 };
 
@@ -165,7 +169,7 @@ export const PERMISSION_METADATA = {
   [PERMISSIONS.GENERATE_RESUME]: {
     name: "AI Resume Generation",
     description: "Generate tailored resumes from job descriptions using advanced AI.",
-    requiredPlan: "PRO"
+    requiredPlan: "FREE"
   },
   [PERMISSIONS.EDIT_RESUME_WITH_AI]: {
     name: "AI Resume Editor",
@@ -210,7 +214,7 @@ export const PERMISSION_METADATA = {
   [PERMISSIONS.VIEW_OWN_RESUMES]: {
     name: "View Saved Resumes",
     description: "Access your library of generated and saved resumes.",
-    requiredPlan: "PRO"
+    requiredPlan: "FREE"
   },
   [PERMISSIONS.EDIT_RESUME_METADATA]: {
     name: "Edit Resume Details",
@@ -281,7 +285,7 @@ export const PERMISSION_METADATA = {
 export const PLANS = {
   FREE: {
     name: 'Free',
-    credits: 2,
+    credits: 3,
     interval: 'day',
     price: 0,
   },
@@ -299,6 +303,9 @@ export const TOKEN_CONFIG = {
   ACCESS_TOKEN_EXPIRY_SECONDS: 15 * 60, // Must match ACCESS_TOKEN_EXPIRY
   REFRESH_TOKEN_EXPIRY_DAYS: 15,
   REFRESH_TOKEN_EXPIRY_MS: 15 * 24 * 60 * 60 * 1000,
+  // "Remember this device" lifetime — a 30-day refresh window issued at login
+  // when the user opts in; rotation carries the remaining lifetime forward.
+  REFRESH_TOKEN_EXPIRY_REMEMBER_MS: 30 * 24 * 60 * 60 * 1000,
   TYPE_ACCESS: 'access',
   TYPE_REFRESH: 'refresh',
 };
@@ -315,7 +322,7 @@ export const COOKIE_NAMES = {
 };
 
 export const DEFAULTS = {
-  CREDITS_ON_SIGNUP: 2,
+  CREDITS_ON_SIGNUP: 3,
 };
 
 export const OTP_CONFIG = {

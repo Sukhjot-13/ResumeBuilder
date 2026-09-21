@@ -40,13 +40,16 @@ export default function Navbar() {
     { href: "/cover-letters", label: "Cover Letters", permission: PERMISSIONS.VIEW_COVER_LETTERS },
     { href: "/ai-edit", label: "AI Studio", permission: PERMISSIONS.ACCESS_AI_EDIT_PAGE },
     { href: "/resume-history", label: "History", permission: PERMISSIONS.VIEW_OWN_RESUMES },
+    { href: "/pricing", label: "Pricing", permission: null },
   ];
+
+  const isFreeUser = !!user && user.role === ROLES.USER;
 
   return (
     <header className="fixed top-0 w-full z-50 glass border-b border-white/[0.08]">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
+        {/* Brand Logo — dashboard when signed in, landing when signed out */}
+        <Link href={auth.isAuthenticated ? "/dashboard" : "/"} className="flex items-center gap-2.5 group">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-[1px] shadow-sm shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-all">
             <div className="w-full h-full bg-[#0e1526] rounded-[7px] flex items-center justify-center">
               <svg className="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -95,8 +98,22 @@ export default function Navbar() {
         {!auth.loading && auth.isAuthenticated && (
           <nav className="hidden md:flex items-center p-1 rounded-xl bg-slate-900/80 border border-white/[0.08] shadow-inner">
             {navLinks.map((item) => {
-              if (item.permission && (!user || !checkPermission(user, item.permission))) {
-                return null;
+              const locked = item.permission && (!user || !checkPermission(user, item.permission));
+              if (locked) {
+                // Locked teaser — visible so free users discover Pro features
+                return (
+                  <Link
+                    key={item.href}
+                    href="/pricing"
+                    title="Upgrade to Pro to unlock"
+                    className="px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all text-slate-500 hover:text-amber-300 hover:bg-amber-500/10 flex items-center gap-1.5"
+                  >
+                    <svg className="w-3 h-3 text-amber-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    {item.label}
+                  </Link>
+                );
               }
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
@@ -134,6 +151,18 @@ export default function Navbar() {
           {!auth.loading &&
             (auth.isAuthenticated ? (
               <div className="hidden md:flex items-center gap-3">
+                {/* Upgrade CTA — free tier only */}
+                {isFreeUser && (
+                  <Link
+                    href="/pricing"
+                    className="px-3.5 py-1.5 text-xs font-semibold text-white btn-primary rounded-lg transition-all flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Upgrade
+                  </Link>
+                )}
                 {/* Credit Badge */}
                 {user && (
                   <div
@@ -228,7 +257,7 @@ export default function Navbar() {
               >
                 Dashboard
               </Link>
-              {user && checkPermission(user, PERMISSIONS.VIEW_COVER_LETTERS) && (
+              {user && (checkPermission(user, PERMISSIONS.VIEW_COVER_LETTERS) ? (
                 <Link
                   href="/cover-letters"
                   className={`px-3 py-2 text-sm rounded-lg transition-colors ${
@@ -238,8 +267,20 @@ export default function Navbar() {
                 >
                   Cover Letters
                 </Link>
-              )}
-              {user && checkPermission(user, PERMISSIONS.ACCESS_AI_EDIT_PAGE) && (
+              ) : (
+                <Link
+                  href="/pricing"
+                  className="px-3 py-2 text-sm rounded-lg transition-colors text-slate-500 hover:bg-amber-500/10 hover:text-amber-300 flex items-center gap-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <svg className="w-3.5 h-3.5 text-amber-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Cover Letters
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/80">Pro</span>
+                </Link>
+              ))}
+              {user && (checkPermission(user, PERMISSIONS.ACCESS_AI_EDIT_PAGE) ? (
                 <Link
                   href="/ai-edit"
                   className={`px-3 py-2 text-sm rounded-lg transition-colors ${
@@ -249,7 +290,19 @@ export default function Navbar() {
                 >
                   AI Studio
                 </Link>
-              )}
+              ) : (
+                <Link
+                  href="/pricing"
+                  className="px-3 py-2 text-sm rounded-lg transition-colors text-slate-500 hover:bg-amber-500/10 hover:text-amber-300 flex items-center gap-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <svg className="w-3.5 h-3.5 text-amber-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  AI Studio
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/80">Pro</span>
+                </Link>
+              ))}
               {user && checkPermission(user, PERMISSIONS.VIEW_OWN_RESUMES) && (
                 <Link
                   href="/resume-history"
@@ -259,6 +312,24 @@ export default function Navbar() {
                   onClick={() => setIsMenuOpen(false)}
                 >
                   History
+                </Link>
+              )}
+              <Link
+                href="/pricing"
+                className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                  pathname === "/pricing" ? "bg-indigo-600/30 text-white font-medium" : "text-slate-300 hover:bg-white/[0.04]"
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Pricing
+              </Link>
+              {isFreeUser && (
+                <Link
+                  href="/pricing"
+                  className="mt-1 text-center py-2.5 text-sm font-semibold text-white btn-primary rounded-lg"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Upgrade to Pro
                 </Link>
               )}
               {user && checkPermission(user, PERMISSIONS.ACCESS_ADMIN_PANEL) && (

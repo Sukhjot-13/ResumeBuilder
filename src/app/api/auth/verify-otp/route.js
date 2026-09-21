@@ -17,7 +17,7 @@ const MAX_OTP_ATTEMPTS = 5;
 export const POST = withErrorHandler(async (req) => {
   const parsed = await readJson(req);
   if (!parsed.ok) return parsed.response;
-  const { email, otp } = parsed.body || {};
+  const { email, otp, remember } = parsed.body || {};
 
   if (!email || !otp || typeof otp !== 'string') {
     return fail('Email and OTP are required', 400);
@@ -52,10 +52,18 @@ export const POST = withErrorHandler(async (req) => {
     }
 
     let newUser = !user.name;
-    const refreshTokenExpirationSeconds = TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS / 1000;
+    // "Remember this device" opts into a 30-day refresh window instead of 15
+    const rememberMe = remember === true;
+    const refreshTokenExpiryMs = rememberMe
+      ? TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_REMEMBER_MS
+      : TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS;
+    const refreshTokenExpirationSeconds = refreshTokenExpiryMs / 1000;
 
     const accessToken = await generateAccessToken(user._id, user.role);
-    const refreshToken = await generateRefreshToken(user._id);
+    const refreshToken = await generateRefreshToken(
+      user._id,
+      rememberMe ? '30d' : '15d'
+    );
 
     // Hash the refresh token
     const hashedRefreshToken = hashToken(refreshToken);

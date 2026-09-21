@@ -56,7 +56,7 @@ export async function proxy(req) {
 
       if (res.ok) {
         const data = await res.json();
-        authResult = { ok: true, userId: data.userId, role: data.role, newAccessToken: data.newAccessToken, newRefreshToken: data.newRefreshToken };
+        authResult = { ok: true, userId: data.userId, role: data.role, newAccessToken: data.newAccessToken, newRefreshToken: data.newRefreshToken, newRefreshTokenMaxAge: data.refreshTokenMaxAge };
       }
     } catch (error) {
       console.error('Token rotation failed in proxy:', error);
@@ -132,11 +132,17 @@ export async function proxy(req) {
       response.cookies.set(COOKIE_NAMES.SUB_CHECKED_AT, String(Date.now()), { path: '/', maxAge: 600, httpOnly: true, secure: env.isProduction, sameSite: 'lax' });
     }
 
-    // Set new cookies if rotation happened
+    // Set new cookies if rotation happened (remember-me sessions carry a
+    // longer refresh maxAge from the rotation response; validated + capped)
     if (authResult.newAccessToken && authResult.newRefreshToken) {
       const secure = env.isProduction;
+      const maxRefreshAge = Number(authResult.newRefreshTokenMaxAge);
+      const refreshMaxAge =
+        Number.isFinite(maxRefreshAge) && maxRefreshAge > 0 && maxRefreshAge <= 31 * 24 * 60 * 60
+          ? Math.floor(maxRefreshAge)
+          : TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS / 1000;
       response.cookies.set(COOKIE_NAMES.ACCESS_TOKEN, authResult.newAccessToken, { path: '/', maxAge: TOKEN_CONFIG.ACCESS_TOKEN_EXPIRY_SECONDS, httpOnly: true, secure, sameSite: 'lax' });
-      response.cookies.set(COOKIE_NAMES.REFRESH_TOKEN, authResult.newRefreshToken, { path: '/', maxAge: TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS / 1000, httpOnly: true, secure, sameSite: 'lax' });
+      response.cookies.set(COOKIE_NAMES.REFRESH_TOKEN, authResult.newRefreshToken, { path: '/', maxAge: refreshMaxAge, httpOnly: true, secure, sameSite: 'lax' });
     }
   } else {
     // User is not authenticated

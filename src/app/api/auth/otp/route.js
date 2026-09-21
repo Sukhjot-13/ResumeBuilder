@@ -83,6 +83,7 @@ export const POST = withErrorHandler(async (req) => {
     const sendSmtpEmail = new Brevo.SendSmtpEmail();
 
     sendSmtpEmail.subject = "Your login code for ATS-Friendly Resume Builder";
+    const magicLink = `${env.appUrl}/login?email=${encodeURIComponent(normalizedEmail)}&code=${otp}`;
     sendSmtpEmail.htmlContent = `
 <html>
   <body style="margin:0;padding:0;background-color:#f4f5f7;font-family:Arial,Helvetica,sans-serif;">
@@ -91,6 +92,7 @@ export const POST = withErrorHandler(async (req) => {
         <h1 style="font-size:20px;color:#111827;margin:0 0 8px;">ATS-Friendly Resume Builder</h1>
         <p style="font-size:14px;color:#6b7280;margin:0 0 24px;">Use the code below to sign in. It expires in ${Math.round(OTP_CONFIG.EXPIRY_MS / 60000)} minutes.</p>
         <div style="display:inline-block;background-color:#f3f4f6;border-radius:8px;padding:16px 32px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#111827;">${otp}</div>
+        <p style="margin:24px 0 0;"><a href="${magicLink}" style="display:inline-block;background-color:#4f46e5;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;border-radius:8px;padding:12px 28px;">Sign in instantly</a></p>
         <p style="font-size:12px;color:#9ca3af;margin:24px 0 0;">If you didn't request this code, you can safely ignore this email.</p>
       </div>
     </div>

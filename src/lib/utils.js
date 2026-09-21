@@ -26,11 +26,11 @@ export async function generateAccessToken(userId, role) {
     .sign(secret);
 }
 
-export async function generateRefreshToken(userId) {
+export async function generateRefreshToken(userId, expiresIn = '15d') {
   const secret = new TextEncoder().encode(env.refreshTokenSecret);
   return await new SignJWT({ type: TOKEN_CONFIG.TYPE_REFRESH, userId: userId.toString() })
     .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime('15d')
+    .setExpirationTime(expiresIn)
     .sign(secret);
 }
 
@@ -50,4 +50,31 @@ export async function verifyToken(token, tokenType) {
   }
 
   return payload;
+}
+
+/**
+ * Resolves the lifetime for a rotated refresh token.
+ * Standard sessions get the default 15-day window; "remember this device"
+ * sessions (whose stored expiry stretches beyond 15 days) carry their
+ * remaining lifetime forward so rotation never shortens a granted window.
+ * Pure function — unit-tested in tests/rotationLifetime.test.js.
+ * @param {Date|string|number} expiresAt - Current token's stored expiry
+ * @param {number} now - Current timestamp (injectable for tests)
+ * @returns {{ expiresAt: Date, maxAgeSeconds: number, jwtExp: string }}
+ */
+export function resolveRotationLifetime(expiresAt, now = Date.now()) {
+  const remainingMs = new Date(expiresAt).getTime() - now;
+  if (remainingMs > TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS) {
+    const maxAgeSeconds = Math.floor(remainingMs / 1000);
+    return {
+      expiresAt: new Date(expiresAt),
+      maxAgeSeconds,
+      jwtExp: `${maxAgeSeconds}s`,
+    };
+  }
+  return {
+    expiresAt: new Date(now + TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS),
+    maxAgeSeconds: TOKEN_CONFIG.REFRESH_TOKEN_EXPIRY_MS / 1000,
+    jwtExp: '15d',
+  };
 }

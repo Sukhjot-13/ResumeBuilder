@@ -82,6 +82,14 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center gap-2.5">
                   <div className="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-cyan-400 text-[10px]">✓</div>
+                  <span>AI tailored resume generation</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-cyan-400 text-[10px]">✓</div>
+                  <span>Saved resume library</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-cyan-400 text-[10px]">✓</div>
                   <span>Standard ATS templates</span>
                 </li>
                 <li className="flex items-center gap-2.5">
@@ -90,7 +98,11 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center gap-2.5 text-slate-500">
                   <div className="w-4 h-4 rounded-full bg-slate-900 flex items-center justify-center text-slate-600 text-[10px]">✕</div>
-                  <span>AI interactive natural language editor</span>
+                  <span>Custom AI instructions & AI editor</span>
+                </li>
+                <li className="flex items-center gap-2.5 text-slate-500">
+                  <div className="w-4 h-4 rounded-full bg-slate-900 flex items-center justify-center text-slate-600 text-[10px]">✕</div>
+                  <span>Cover letters & resume upload parsing</span>
                 </li>
               </ul>
             </div>
@@ -138,19 +150,19 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center gap-2.5">
                   <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
-                  <span>High-resolution PDF exports</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
-                  <span>AI Natural Language Resume Editor</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
-                  <span>AI Cover Letter Generator</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
                   <span>Custom instructions & keyword prioritization</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
+                  <span>AI natural language resume editor + version history</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
+                  <span>AI cover letter generator + library</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <div className="w-4 h-4 rounded-full bg-indigo-500/20 text-cyan-300 flex items-center justify-center text-[10px]">✓</div>
+                  <span>Resume upload parsing & high-resolution PDF exports</span>
                 </li>
               </ul>
             </div>
