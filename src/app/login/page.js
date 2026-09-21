@@ -1,9 +1,12 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+
+const OTP_LENGTH = 6;
+const RESEND_COOLDOWN_S = 60;
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,8 +14,10 @@ export default function LoginPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resendIn, setResendIn] = useState(0);
   const router = useRouter();
   const { refetch } = useAuth();
+  const verifyingRef = useRef(false);
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
@@ -28,6 +33,8 @@ export default function LoginPage() {
 
       if (response.ok) {
         setOtpSent(true);
+        setOtp('');
+        setResendIn(RESEND_COOLDOWN_S);
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to send OTP');
@@ -40,7 +47,10 @@ export default function LoginPage() {
   };
 
   const handleVerifyOtp = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
+    const code = otp;
+    if (verifyingRef.current || code.length !== OTP_LENGTH) return;
+    verifyingRef.current = true;
     setLoading(true);
     setError('');
 
@@ -48,7 +58,7 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp }),
+        body: JSON.stringify({ email, otp: code }),
       });
 
       if (response.ok) {
@@ -65,13 +75,30 @@ export default function LoginPage() {
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to verify OTP');
+        setOtp('');
       }
     } catch (err) {
       setError('An unexpected error occurred.');
     }
 
     setLoading(false);
+    verifyingRef.current = false;
   };
+
+  // Auto-submit the moment a complete code is entered or pasted
+  useEffect(() => {
+    if (otpSent && otp.length === OTP_LENGTH && !loading) {
+      handleVerifyOtp();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp, otpSent]);
+
+  // Resend cooldown countdown (mirrors the server's 60s throttle)
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden px-4">
@@ -108,7 +135,8 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="app-input w-full"
+                autoComplete="email"
+                className="app-input w-full px-4 py-3 text-sm text-white"
                 placeholder="you@example.com"
               />
             </div>
@@ -137,11 +165,13 @@ export default function LoginPage() {
                 type="text"
                 id="otp"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
                 required
-                className="app-input w-full text-center tracking-[0.3em] font-mono text-xl py-3"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                className="app-input w-full px-4 py-3 text-center tracking-[0.3em] font-mono text-xl text-white"
                 placeholder="123456"
-                maxLength={6}
+                maxLength={OTP_LENGTH}
               />
               <p className="text-xs text-slate-400 mt-2 text-center">
                 We sent a 6-digit code to <span className="text-white font-medium">{email}</span>
@@ -163,8 +193,16 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
+              onClick={handleSendOtp}
+              disabled={loading || resendIn > 0}
+              className="w-full text-xs text-slate-400 hover:text-white transition-colors text-center font-medium pt-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
+            </button>
+            <button
+              type="button"
               onClick={() => setOtpSent(false)}
-              className="w-full text-xs text-slate-400 hover:text-white transition-colors text-center font-medium pt-2"
+              className="w-full text-xs text-slate-400 hover:text-white transition-colors text-center font-medium"
             >
               ← Use a different email
             </button>

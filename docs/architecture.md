@@ -322,11 +322,11 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `metadata` — Named export. SEO metadata object with title 'ATS-Friendly Resume Builder' and description.
 - `RootLayout` — Default export. Server component providing the HTML document structure with Outfit font, AuthProvider context, ToastProvider (app-wide toasts), Navbar, main content area, and Footer.
 
-### `src/app/login/page.js` — Login page with an email-based OTP authentication flow: send a login code to the user's email, then verify the code to redirect to onboarding (new users) or dashboard (existing users).
+### `src/app/login/page.js` — Login page with an email-based OTP authentication flow: send a login code to the user's email, then verify the code to redirect to onboarding (new users) or dashboard (existing users). Fixed 2026-09-21: email/OTP inputs now carry explicit padding/typography (bare `app-input` has no padding); OTP auto-submits at 6 digits (digit-only, paste-friendly, double-submit guarded, code cleared on failure); resend button with 60s cooldown matching the server throttle; mobile numeric keyboard + one-time-code autofill.
 
-- `LoginPage` — Default export. Client component with two-stage login form (send OTP then verify OTP), managing loading state, errors, and post-authentication redirect based on newUser flag.
-- `handleSendOtp` — Async function that calls POST /api/auth/otp to request a one-time passcode sent to the user's email.
-- `handleVerifyOtp` — Async function that calls POST /api/auth/verify-otp to verify the OTP, refetches auth state, and redirects to onboarding (new user) or dashboard (existing user).
+- `LoginPage` — Default export. Client component with two-stage login form (send OTP then verify OTP), managing loading state, errors, resend countdown, and post-authentication redirect based on newUser flag.
+- `handleSendOtp` — Async function that calls POST /api/auth/otp to request a one-time passcode sent to the user's email. Also backs the resend button; starts the cooldown on success.
+- `handleVerifyOtp` — Async function that calls POST /api/auth/verify-otp to verify the OTP, refetches auth state, and redirects to onboarding (new user) or dashboard (existing user). Guarded against concurrent submits; clears the code on failure so a retry starts clean.
 
 ### `src/app/onboarding/page.js` — Onboarding page for new users after first login, collecting name and date of birth to complete their profile.
 
