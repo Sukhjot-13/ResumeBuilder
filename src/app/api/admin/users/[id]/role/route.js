@@ -28,15 +28,50 @@ export const PATCH = withErrorHandler(async (req, { params }) => {
     return fail('You cannot change your own role.', 400);
   }
 
-  const user = await User.findByIdAndUpdate(
-    id,
-    { role },
-    { new: true }
-  ).select('-otp -otpExpires');
-
+  const user = await User.findById(id);
   if (!user) {
     return fail('User not found', 404);
   }
 
-  return ok({ user });
+  // Keep subscription state in sync with manual role changes so an
+  // admin-promoted subscriber actually receives Pro credits (getLimit
+  // requires status 'active', and new users default to 'none').
+  // Pro is a monthly plan: grants last 30 days, then the existing periodic
+  // subscription checker downgrades automatically on expiry.
+  const set = { role };
+  const unset = {};
+  const now = new Date();
+  const hasLiveSub =
+    user.subscriptionStatus === 'active' &&
+    user.subscriptionExpiresAt &&
+    new Date(user.subscriptionExpiresAt) > now;
+
+  if (role === ROLES.SUBSCRIBER && !hasLiveSub) {
+    // Manual grant: fresh monthly Pro window with reset credits.
+    const expiry = new Date(now);
+    expiry.setDate(expiry.getDate() + 30);
+    set.subscriptionStatus = 'active';
+    set.subscriptionExpiresAt = expiry;
+    set.creditsUsed = 0;
+    set.lastCreditResetDate = now;
+  } else if (role === ROLES.USER && user.role === ROLES.SUBSCRIBER) {
+    // Manual revocation: clear the Pro window so Free limits apply cleanly.
+    set.subscriptionStatus = 'none';
+    set.creditsUsed = 0;
+    set.lastCreditResetDate = now;
+    unset.subscriptionId = '';
+    unset.subscriptionExpiresAt = '';
+  }
+
+  const updateOp = Object.keys(unset).length > 0 ? { $set: set, $unset: unset } : set;
+
+  const updated = await User.findByIdAndUpdate(id, updateOp, { new: true }).select(
+    '-otp -otpExpires'
+  );
+
+  if (!updated) {
+    return fail('User not found', 404);
+  }
+
+  return ok({ user: updated });
 });

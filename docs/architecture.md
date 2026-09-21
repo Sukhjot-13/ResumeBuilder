@@ -182,7 +182,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Reset a specific user's creditsUsed to 0
 
-### `src/app/api/admin/users/[id]/role/route.js` — Changes a user's role.
+### `src/app/api/admin/users/[id]/role/route.js` — Changes a user's role. Fixed 2026-09-21: keeps subscription state in sync — promoting to SUBSCRIBER grants a 30-day manual Pro window (status active + expiry + credit reset) so admin-granted subscribers actually receive Pro limits; demoting to USER clears it. Skips the grant when a live subscription already exists (never shortens a real Stripe window).
 
 - `PATCH` — Role must be an integer present in the ROLES enum; self-demotion blocked; response whitelisted (-otp/-otpExpires); body parsed via readJson.
 
