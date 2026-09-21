@@ -69,15 +69,21 @@ export const POST = withErrorHandler(async (req) => {
     return fail('Insufficient credits. Please upgrade your plan.', 403);
   }
 
-  const newResume = await ResumeService.createResume(
-    userId,
-    content,
-    metadata,
-    { returnPopulated: true }
-  );
+  try {
+    const newResume = await ResumeService.createResume(
+      userId,
+      content,
+      metadata,
+      { returnPopulated: true }
+    );
 
-  await UserService.addGeneratedResume(userId, newResume._id);
+    await UserService.addGeneratedResume(userId, newResume._id);
 
-  logger.info("Resume created successfully", { userId, resumeId: newResume._id });
-  return ok(newResume, 201);
+    logger.info("Resume created successfully", { userId, resumeId: newResume._id });
+    return ok(newResume, 201);
+  } catch (err) {
+    await SubscriptionService.refundUsage(userId, 1);
+    logger.error("Failed to create resume, credit refunded", err, { userId });
+    throw err;
+  }
 });

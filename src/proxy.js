@@ -18,7 +18,7 @@ export async function proxy(req) {
   const isPublicApiRoute = PUBLIC_API_ROUTES.some(prefix => pathname.startsWith(prefix));
   const isProtectedApiRoute = isApiRoute && !isPublicApiRoute;
 
-  const isProtectedRoute = ['/dashboard', '/profile', '/onboarding', '/resume-history', '/checkout'].some(p => pathname.startsWith(p));
+  const isProtectedRoute = ['/dashboard', '/profile', '/onboarding', '/resume-history', '/checkout', '/cover-letters', '/ai-edit'].some(p => pathname.startsWith(p));
   const isAdminRoute = pathname.startsWith('/admin');
   const isLoginPage = pathname === '/login';
 
@@ -45,14 +45,13 @@ export async function proxy(req) {
   // If access token failed but we have a refresh token, try to rotate via API
   if (!authResult.ok && refreshToken) {
     try {
-      // Call the verify-token API route to rotate tokens
-      // We must use an absolute URL
-      const protocol = req.headers.get('x-forwarded-proto') || 'http';
-      const host = req.headers.get('host');
-      const res = await fetch(`${protocol}://${host}/api/auth/verify-token`, {
+      // Call the verify-token API route to rotate tokens (5s timeout so a
+      // hung auth endpoint can't block middleware indefinitely)
+      const res = await fetch(`${req.nextUrl.origin}/api/auth/verify-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
+        signal: AbortSignal.timeout(5000),
       });
 
       if (res.ok) {
@@ -84,15 +83,14 @@ export async function proxy(req) {
     const fiveMin = 5 * 60 * 1000;
     if (!lastCheck || Date.now() - Number(lastCheck) > fiveMin) {
       try {
-        const protocol = req.headers.get('x-forwarded-proto') || 'http';
-        const host = req.headers.get('host');
-      const checkRes = await fetch(`${protocol}://${host}/api/auth/check-subscription`, {
+      const checkRes = await fetch(`${req.nextUrl.origin}/api/auth/check-subscription`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           // Forward cookies — the endpoint authenticates via JWT, not headers
           Cookie: req.headers.get('cookie') || '',
         },
+        signal: AbortSignal.timeout(5000),
       });
 
         if (checkRes.ok) {
@@ -177,5 +175,7 @@ export const config = {
     '/login',
     '/resume-history/:path*',
     '/checkout/:path*',
+    '/cover-letters/:path*',
+    '/ai-edit/:path*',
   ],
 };

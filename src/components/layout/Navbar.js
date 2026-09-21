@@ -39,6 +39,7 @@ export default function Navbar() {
     { href: "/dashboard", label: "Dashboard", permission: null },
     { href: "/cover-letters", label: "Cover Letters", permission: PERMISSIONS.VIEW_COVER_LETTERS },
     { href: "/ai-edit", label: "AI Studio", permission: PERMISSIONS.ACCESS_AI_EDIT_PAGE },
+    { href: "/resume-history", label: "History", permission: PERMISSIONS.VIEW_OWN_RESUMES },
   ];
 
   return (
@@ -247,6 +248,17 @@ export default function Navbar() {
                   onClick={() => setIsMenuOpen(false)}
                 >
                   AI Studio
+                </Link>
+              )}
+              {user && checkPermission(user, PERMISSIONS.VIEW_OWN_RESUMES) && (
+                <Link
+                  href="/resume-history"
+                  className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                    pathname.startsWith("/resume-history") ? "bg-indigo-600/30 text-white font-medium" : "text-slate-300 hover:bg-white/[0.04]"
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  History
                 </Link>
               )}
               {user && checkPermission(user, PERMISSIONS.ACCESS_ADMIN_PANEL) && (

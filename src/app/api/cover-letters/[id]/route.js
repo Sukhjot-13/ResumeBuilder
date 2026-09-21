@@ -3,7 +3,7 @@ import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { CoverLetterService } from '@/services/coverLetterService';
-import { ok, success, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, success, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (request, context) => {
   const resolved = await resolveUserId(request);
@@ -48,12 +48,9 @@ export const PATCH = withErrorHandler(async (request, context) => {
 
   const { id } = await context.params;
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return fail('Invalid JSON body', 400);
-  }
+  const parsed = await readJson(request);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.body || {};
 
   await dbConnect();
 

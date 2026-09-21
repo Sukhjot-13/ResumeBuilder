@@ -5,7 +5,7 @@ import ResumeMetadata from '@/models/resumeMetadata';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (req, context) => {
   const resolved = await resolveUserId(req);
@@ -68,7 +68,9 @@ export const PATCH = withErrorHandler(async (req, context) => {
   if (resolved.error) return resolved.error;
   const { userId } = resolved;
   const { id } = await context.params;
-  const { jobTitle, companyName, resumeName } = await req.json();
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
+  const { jobTitle, companyName, resumeName } = parsed.body || {};
 
   await dbConnect();
 

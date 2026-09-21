@@ -81,7 +81,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/components/layout/Navbar.js` — Top navigation bar with authentication-aware links, credit badge, role-based navigation items, and mobile menu.
 
-- `Navbar (default export)` — Renders fixed header with logo, auth-aware nav links, credit badge, permission-gated items (Dashboard, Cover Letters, AI Edit, Admin), Profile link, Logout button, and mobile menu with aria-expanded toggle. Uses AuthContext user directly (no duplicate fetch); credit badge prefers server-computed `creditsRemaining` with ROLES-based fallback.
+- `Navbar (default export)` — Renders fixed header with logo, auth-aware nav links, credit badge, permission-gated items (Dashboard, Cover Letters, AI Edit, History, Admin), Profile link, Logout button, and mobile menu with aria-expanded toggle. Uses AuthContext user directly (no duplicate fetch); credit badge prefers server-computed `creditsRemaining` with ROLES-based fallback. Fixed 2026-09-21: added History (/resume-history) link to desktop + mobile nav (was orphaned).
 - `handleLogout` — Internal async function that POSTs to /api/auth/logout, refreshes auth state, and redirects to /login.
 
 ### `src/components/preview/CoverLetterDisplayView.js` — An HTML/text view of a cover letter for on-screen display.
@@ -125,7 +125,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `ResumePreview (default export)` — Component that renders a resume preview container with a tab toggle (Text View / PDF View), the active view component, and a DownloadReactPdfButton. Dynamically imports ReactPdfView for client-side only rendering.
 
-### `src/components/preview/TemplateViewer.js` — A combined component that wraps a TemplateSelector and ResumePreview for viewing a resume with different templates.
+### `src/components/preview/TemplateViewer.js` — A combined component that wraps a TemplateSelector and ResumePreview for viewing a resume with different templates. Fixed 2026-09-21: DEFAULT_TEMPLATE_ID is now "ClassicTemplate" (was "ClassicTemplate.js" — dropdown showed Professional while preview rendered Classic).
 
 - `TemplateViewer (default export)` — Component that holds a selectedTemplate state, renders a TemplateSelector for choosing a template, and a ResumePreview below it showing the resume rendered with the selected template.
 
@@ -168,7 +168,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/api/admin/roles/route.js` — API routes to list and update role permissions in the database. Both require MANAGE_ROLES permission.
 
 - `GET` — Returns all Role documents sorted by value. Requires MANAGE_ROLES.
-- `PUT` — Updates a role's permissions array. Body: { roleValue (number), permissions (string[]) }. Validates input. Requires MANAGE_ROLES.
+- `PUT` — Updates a role's permissions array. Body parsed via readJson size guard (fixed 2026-09-21, was raw req.json → 500 on malformed JSON). Body: { roleValue (number), permissions (string[]) }. Validates input. Requires MANAGE_ROLES.
 
 ### `src/app/api/admin/transactions/route.js` — API route to list all transactions with optional user/status filtering and pagination.
 
@@ -230,7 +230,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `GET` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.getCoverLetterById() to find a cover letter by ID and userId, returns it via `ok()` (unwrapped, consistent with listing endpoint), or a 404.
 - `DELETE` — Requires DELETE_COVER_LETTER permission. Uses resolveUserId() for auth, then CoverLetterService.deleteCoverLetter() to remove a cover letter by ID and userId.
-- `PATCH` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.updateCoverLetter() to update the content and/or metadata fields on a cover letter by ID and userId.
+- `PATCH` — Requires VIEW_COVER_LETTERS permission. Body parsed via readJson size guard (fixed 2026-09-21). Uses resolveUserId() for auth, then CoverLetterService.updateCoverLetter() to update the content and/or metadata fields on a cover letter by ID and userId.
 
 ### `src/app/api/cover-letters/route.js` — List all cover letters for the user or create a new cover letter. Uses CoverLetterService for all database operations and resolveUserId() for dual auth.
 
@@ -241,9 +241,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Requires EDIT_RESUME_WITH_AI permission. Verifies ownership (`{ _id, userId }`) of any requested coverLetterId/resumeId BEFORE spending AI tokens (404 otherwise). Deducts a credit atomically first; refunds it if the AI edit throws. For type='cover-letter', edits content via AI and saves only via `findOneAndUpdate({ _id, userId })`. For resume editing: accepts `resumeId` for multi-resume support; if `createNewResume`, names the source resume with an incrementing suffix ("Name" → "Name 1") using metadata, gives the new resume the original name, and only sets it as main if editing the master. Sanitizes Mongo _id fields from the AI output before saving.
 
-### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with deduct-first/refund-on-failure credit handling.
+### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with deduct-first/refund-on-failure credit handling. Fixed 2026-09-21: persistence now uses ResumeService.createResume + UserService.addGeneratedResume (was raw Resume.create with an embedded metadata object → Mongoose CastError, resumeId null, client double-spend).
 
-- `POST` — Requires GENERATE_RESUME permission. Resolves user identity via resolveUserId(). Sanitizes the job description via sanitize.js utility, deducts a credit atomically BEFORE generation (refunds on failure), checks USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves the result as a Resume document. Returns the generated content with a resumeId if saved.
+- `POST` — Requires GENERATE_RESUME permission. Resolves user identity via resolveUserId(). Sanitizes the job description via sanitize.js utility, deducts a credit atomically BEFORE generation (refunds on failure), checks USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves via ResumeService (correct ResumeMetadata document + generatedResumes link). Returns the generated content with a resumeId if saved.
 
 ### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with deduct-first/refund-on-failure credit handling. Supports JWT auth via resolveUserId().
 
@@ -269,7 +269,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `GET` — Requires VIEW_OWN_RESUMES permission. Finds and returns a resume by ID and userId, excluding the version key.
 - `DELETE` — Requires DELETE_OWN_RESUME permission. Deletes a resume by ID and userId, removes its ID from the user's generatedResumes array, and deletes the associated ResumeMetadata document.
-- `PATCH` — Requires EDIT_RESUME_METADATA permission. Accepts jobTitle, companyName, resumeName and upserts a ResumeMetadata document linked to the resume ID.
+- `PATCH` — Requires EDIT_RESUME_METADATA permission. Body parsed via readJson size guard (fixed 2026-09-21, was raw req.json → 500 on malformed JSON). Accepts jobTitle, companyName, resumeName and upserts a ResumeMetadata document linked to the resume ID.
 
 ### `src/app/api/resumes/master/route.js` — Creates/updates or deletes the user's master (primary) resume.
 
@@ -280,7 +280,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/api/resumes/route.js` — Lists the user's generated resumes or creates a new resume. Uses resolveUserId() for dual auth (JWT/API key).
 
 - `GET` — Requires VIEW_OWN_RESUMES permission. Loads the user with populated generatedResumes (each with populated metadata) and returns the array.
-- `POST` — Requires CREATE_RESUME permission. Accepts content and optional metadata, deducts a credit via SubscriptionService.trackUsage(), creates the resume via ResumeService, and adds it to the user's generatedResumes list.
+- `POST` — Requires CREATE_RESUME permission. Accepts content and optional metadata, deducts a credit via SubscriptionService.trackUsage(), creates the resume via ResumeService, and adds it to the user's generatedResumes list. Fixed 2026-09-21: creation wrapped in try/catch with refundUsage on DB failure (was a credit leak).
 
 ### `src/app/api/user/profile/route.js` — Get and update the authenticated user's profile. Uses DB-backed `requirePermission`, validates input shapes, and returns a server-computed `creditsRemaining` field (single source of truth for billing UI). GET also returns real billing fields (subscriptionId, subscriptionStatus, subscriptionExpiresAt) so the UI never guesses.
 
@@ -305,17 +305,17 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `handleGenerate` — Async function that calls POST /api/generate-cover-letter to generate a new cover letter from job description and recipient name, then navigates to the result.
 - `handleDelete` — Async function that deletes the cover letter via DELETE /api/cover-letters/:id and redirects to the cover letters list.
 
-### `src/app/cover-letters/page.js` — Lists all saved cover letters with view and delete actions, and a button to create a new cover letter.
+### `src/app/cover-letters/page.js` — Cover letter list page. Fixed 2026-09-21: added missing `useCallback` import (was a build-breaking ReferenceError — `/cover-letters` prerender failed).
 
 - `CoverLettersPage` — Default export. Client component that fetches and renders a list of cover letters with view/delete controls and a create-new link.
-- `fetchLetters` — Async function that calls GET /api/cover-letters to retrieve all cover letters.
+- `fetchLetters` — useCallback fetching GET /api/cover-letters to retrieve all cover letters.
 - `handleDelete` — Async function that deletes a cover letter by ID via DELETE /api/cover-letters/:id and removes it from the local state.
 
-### `src/app/dashboard/page.js` — Main application dashboard providing resume generation from a job description with live preview, resume list, special instructions, and subscription session verification.
+### `src/app/dashboard/page.js` — Main application dashboard providing resume generation from a job description with live preview, resume list, special instructions, and subscription session verification. Fixed 2026-09-21: removed client-side createResume fallback that double-charged a credit when server save failed — server persists within the same credit; missing resumeId now surfaces a save-failed notice.
 
 - `DashboardPage` — Default export. Client component wrapping DashboardContent in a Suspense boundary.
 - `DashboardContent` — Default export (via re-export). Client component with the full dashboard UI: job description input, special instructions, resume generation, live preview, save checkbox, Stripe session verification (inline dismissible status banner instead of alert()), and resume list via ResumeList component.
-- `handleGenerateResume` — Async callback that calls POST to the generate endpoint with resume content, job description, special instructions, and save flag; when the server saves (`resumeId` returned) it refetches the saved-resumes list so the new resume appears immediately.
+- `handleGenerateResume` — Async callback that calls POST to the generate endpoint with resume content, job description, special instructions, and save flag; on success refetches the saved-resumes list (single-credit server save, no second POST).
 
 ### `src/app/layout.js` — Root layout for the entire application, setting up fonts, global CSS, auth context, toast notifications, navigation bar, and footer.
 
@@ -481,15 +481,15 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `AI_TASKS` — Object mapping task keys (RESUME_GENERATION, COVER_LETTER_GENERATION, AI_EDIT, RESUME_PARSING, GATEKEEPER) to { provider, model } -- all currently routed to DeepSeek. The GATEKEEPER key is now referenced only by the archived gatekeeper endpoint (2026-08-21).
 - `getEffectiveConfig` — Returns the effective { provider, model } for a task key, checking for environment variable overrides (format: AI_TASK_<KEY>=provider:model) before falling back to AI_TASKS defaults
 
-### `src/lib/ai/runners/deepseek.js` — DeepSeek AI API runner implementing the OpenAI-compatible chat completions endpoint. Requests carry `max_tokens: 4096` and a 60s AbortController timeout.
+### `src/lib/ai/runners/deepseek.js` — DeepSeek AI API runner implementing the OpenAI-compatible chat completions endpoint. Requests carry `max_tokens: 4096` and a 60s AbortController timeout. Fixed 2026-09-21: parseDeepSeekJson strips preambles (slices from first `{` to last `}`).
 
 - `callDeepSeek` — Calls the DeepSeek API (deepseek.com/v1/chat/completions) with model name and prompt, returns raw response text
-- `parseDeepSeekJson` — Parses JSON from DeepSeek response text, stripping markdown code block markers and extracting the last valid JSON object
+- `parseDeepSeekJson` — Parses JSON from DeepSeek response text, stripping markdown code block markers and extracting the JSON object between the first `{` and last `}` (preamble-safe)
 
-### `src/lib/ai/runners/gemini.js` — Gemini AI runner using the @google/generative-ai SDK. Generation is capped at `maxOutputTokens: 4096` with a 60s Promise-race timeout (via `withTimeout`).
+### `src/lib/ai/runners/gemini.js` — Gemini AI runner using the @google/generative-ai SDK. Generation is capped at `maxOutputTokens: 4096` with a 60s Promise-race timeout (via `withTimeout`). Fixed 2026-09-21: parseGeminiJson strips preambles (slices from first `{` to last `}`).
 
 - `callGemini` — Calls the Gemini API with model name and prompt using the Google Generative AI SDK, returns response text
-- `parseGeminiJson` — Parses JSON from Gemini response text, stripping markdown code block markers and extracting the last valid JSON object
+- `parseGeminiJson` — Parses JSON from Gemini response text, stripping markdown code block markers and extracting the JSON object between the first `{` and last `}` (preamble-safe)
 
 ### `src/lib/ai/withTimeout.js` — Small helper rejecting a wrapped promise if it doesn't settle within N ms.
 
@@ -701,7 +701,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ## proxy.js
 
-### `src/proxy.js` — Next.js Edge Middleware that handles authentication (JWT verification and token rotation), subscription status checking, route-level access control (admin/protected/public), and cookie management.
+### `src/proxy.js` — Next.js Edge Middleware that handles authentication (JWT verification and token rotation), subscription status checking, route-level access control (admin/protected/public), and cookie management. Fixed 2026-09-21: protects /cover-letters/* + /ai-edit/* (were unauthenticated); internal fetches use req.nextUrl.origin + 5s AbortSignal.timeout.
 
 - `proxy(req)` — Main middleware handler. Validates authentication via verifyAuthEdge, attempts token rotation using refresh tokens on failure, periodically checks subscription status, enforces role-based routing (redirects unauthenticated users to login, admins-only for /admin, authenticated users away from /login), injects x-user-id header on API requests, and manages cookie setting/clearing for tokens and subscription check timestamps. All auth cookies are read/written via the `COOKIE_NAMES` constants (`ats_*` prefix — added 2026-08-22 so other localhost apps on different ports can't clobber the session).
 - `config` — Next.js middleware matcher configuration specifying which route patterns trigger the proxy: /api/:path*, /dashboard/:path*, /profile/:path*, /onboarding/:path*, /admin/:path*, /login, /resume-history/:path*, /checkout/:path*.
@@ -777,6 +777,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 **Usage:** `node scripts/backfill-users.mjs [--dry-run]` (reads MONGODB_URI from env or `.env.local`)
 
 ### `vitest.config.js` — Vitest test runner config: `@/*` alias + an Oxc-based plugin that compiles JSX inside the app's `.js` source files (Next.js convention) so templates can be imported in tests. Tests live in `tests/` and run via `npm test`.
+
+### `tests/aiParsers.test.js` — Regression tests for AI JSON parsers (added 2026-09-21 for audit H2 fix).
+
+- `AI JSON parsers strip preambles` — Verifies parseDeepSeekJson + parseGeminiJson handle leading conversational text, markdown fences, and clean JSON.
 
 ### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections.
 

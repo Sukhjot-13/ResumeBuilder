@@ -27,7 +27,7 @@ function DashboardContent() {
 
   // ── Hook layer: no fetch calls in this component ───────────────────────────
   const { profile, loading } = useProfile();
-  const { resumes, deletingId, fetchResumes, createResume, deleteResume } = useResumes(profile);
+  const { resumes, deletingId, fetchResumes, deleteResume } = useResumes(profile);
 
   // Verify subscription after Stripe redirect
   useEffect(() => {
@@ -91,13 +91,16 @@ function DashboardContent() {
       });
 
       if (res.ok) {
-        const { resume, metadata, resumeId } = await res.json();
+        const { resume, resumeId } = await res.json();
         setTailoredResume(resume);
-        if (saveResume && resumeId) {
-          // Server already saved it — refresh so it appears in "Your Saved Resumes"
+        if (saveResume) {
+          // Server persists within the same credit (no second charge).
+          // If the save failed server-side (resumeId null), just refresh
+          // the list and surface a notice — never spend a second credit.
           await fetchResumes();
-        } else if (saveResume) {
-          await createResume(resume, metadata);
+          if (!resumeId) {
+            setGenerateError('Resume generated, but saving failed. Your content is shown above — please try saving again.');
+          }
         }
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -108,7 +111,7 @@ function DashboardContent() {
     } finally {
       setGenerating(false);
     }
-  }, [apiClient, profile, jobDescription, specialInstructions, saveResume, createResume, fetchResumes]);
+  }, [apiClient, profile, jobDescription, specialInstructions, saveResume, fetchResumes]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (

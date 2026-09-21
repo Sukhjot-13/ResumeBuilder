@@ -57,8 +57,13 @@ export async function callDeepSeek(modelName, prompt) {
  */
 export function parseDeepSeekJson(text) {
   let clean = text.replace(/```json/g, '').replace(/```/g, '');
+  const firstBrace = clean.indexOf('{');
   const lastBrace = clean.lastIndexOf('}');
-  if (lastBrace !== -1) clean = clean.substring(0, lastBrace + 1);
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    clean = clean.substring(firstBrace, lastBrace + 1);
+  } else if (lastBrace !== -1) {
+    clean = clean.substring(0, lastBrace + 1);
+  }
   try {
     return JSON.parse(clean);
   } catch (e) {

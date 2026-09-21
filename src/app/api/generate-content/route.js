@@ -3,12 +3,13 @@ import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { sanitizeJobDescription } from '@/lib/sanitize';
 import { SubscriptionService } from '@/services/subscriptionService';
+import { ResumeService } from '@/services/resumeService';
+import { UserService } from '@/services/userService';
 import { PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
 import { checkPermission } from '@/lib/accessControl';
 import User from '@/models/User';
-import Resume from '@/models/resume';
 import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (request) => {
@@ -70,15 +71,20 @@ export const POST = withErrorHandler(async (request) => {
       userRole
     );
 
-    // Persist the generated resume (skipped if save:false)
+    // Persist the generated resume (skipped if save:false).
+    // Uses ResumeService so Resume + ResumeMetadata are created correctly
+    // (metadata is a separate document, not an embedded object) and links
+    // the resume into user.generatedResumes so it appears in listings.
     let resumeId = null;
     if (shouldSave) {
       try {
-        const resumeDoc = await Resume.create({
-          userId: user._id,
-          content: tailoredData.resume || tailoredData,
-          metadata: tailoredData.metadata || undefined,
-        });
+        const resumeDoc = await ResumeService.createResume(
+          user._id,
+          tailoredData.resume || tailoredData,
+          tailoredData.metadata || undefined,
+          { returnPopulated: false }
+        );
+        await UserService.addGeneratedResume(user._id, resumeDoc._id);
         resumeId = resumeDoc._id.toString();
       } catch (saveErr) {
         logger.error('Failed to save generated resume document', saveErr, { userId });

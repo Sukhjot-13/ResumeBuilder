@@ -4,7 +4,7 @@ import { useState } from "react";
 import ResumePreview from "@/components/preview/ResumePreview";
 import TemplateSelector from "@/components/home/TemplateSelector";
 
-const DEFAULT_TEMPLATE_ID = "ClassicTemplate.js";
+const DEFAULT_TEMPLATE_ID = "ClassicTemplate";
 
 export default function TemplateViewer({ resume, user }) {
   const [selectedTemplate, setSelectedTemplate] = useState(DEFAULT_TEMPLATE_ID);
