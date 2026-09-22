@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { PLANS } from "@/lib/constants";
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
@@ -52,6 +53,18 @@ export default function Home() {
             >
               Explore Templates
             </Link>
+          </div>
+
+          {/* Free trial strip */}
+          <div className="mt-8 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 px-4 py-2 rounded-full bg-emerald-500/[0.07] border border-emerald-500/20 text-xs text-slate-300">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span><span className="font-semibold text-white">{PLANS.FREE.credits} free AI-tailored resumes</span> daily</span>
+            </span>
+            <span className="text-slate-600">•</span>
+            <span>Saved library included</span>
+            <span className="text-slate-600">•</span>
+            <span>No credit card required</span>
           </div>
 
           {/* Quick Metrics */}
@@ -142,6 +155,95 @@ export default function Home() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Unlock with Pro Section */}
+      <section className="py-24 border-t border-white/[0.06] relative">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-semibold text-amber-300 mb-3">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Pro Power-Ups
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-3">
+              Start Free, Unlock More When You&apos;re Ready
+            </h2>
+            <p className="text-slate-400 max-w-xl mx-auto text-sm sm:text-base">
+              Your {PLANS.FREE.credits} daily free credits cover tailored generation. Pro unlocks the full toolkit.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                title: "Custom AI Instructions",
+                description: "Steer every generation with your own priorities, keywords, and tone.",
+              },
+              {
+                title: "AI Editor + Versions",
+                description: "Refine by chat and keep a version tailored to each application.",
+              },
+              {
+                title: "Cover Letter Generator",
+                description: "Targeted letters matched to the same job description.",
+              },
+              {
+                title: "Resume Upload Parsing",
+                description: "Import your existing resume — AI extracts every detail instantly.",
+              },
+            ].map((feature, index) => (
+              <Link
+                key={index}
+                href="/pricing"
+                className="glass-card glass-card-interactive p-6 rounded-2xl border border-white/[0.07] group flex flex-col"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                    Pro
+                  </span>
+                </div>
+                <h3 className="text-sm font-bold text-white mb-1.5 group-hover:text-amber-300 transition-colors">
+                  {feature.title}
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed font-normal">
+                  {feature.description}
+                </p>
+              </Link>
+            ))}
+          </div>
+
+          {/* Compact Free vs Pro comparison */}
+          <div className="mt-10 max-w-3xl mx-auto glass-card rounded-2xl border border-white/[0.08] p-6 sm:p-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-6">
+            <div className="flex-1 text-center sm:text-left">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Free</p>
+              <p className="text-sm text-slate-300">
+                <span className="font-bold text-white">{PLANS.FREE.credits} credits/day</span> — generation + library
+              </p>
+            </div>
+            <div className="hidden sm:block w-px self-stretch bg-white/[0.08]" />
+            <div className="flex-1 text-center sm:text-left">
+              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300 mb-1">
+                {PLANS.PRO.name} — ${PLANS.PRO.price}/{PLANS.PRO.interval}
+              </p>
+              <p className="text-sm text-slate-300">
+                <span className="font-bold text-white">{PLANS.PRO.credits} credits/month</span> — everything unlocked
+              </p>
+            </div>
+            <Link
+              href="/pricing"
+              className="btn-primary text-xs font-semibold px-6 py-3 rounded-xl shrink-0 text-center"
+            >
+              Compare Plans
+            </Link>
           </div>
         </div>
       </section>

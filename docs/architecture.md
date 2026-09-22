@@ -333,9 +333,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `OnboardingPage` — Default export. Client component with a profile completion form (name and date of birth) that updates the user profile via PUT /api/user/profile and redirects to dashboard.
 
-### `src/app/page.js` — Landing/home page with a hero section, feature cards, a how-it-works section, and a call-to-action section to drive user signup.
+### `src/app/page.js` — Landing/home page with a hero section, free-trial strip, feature cards, a Pro power-ups teaser section (added 2026-09-22: lock-badged Pro features linking to /pricing + compact Free-vs-Pro comparison driven by PLANS constants), a how-it-works section, and a call-to-action section to drive user signup.
 
-- `Home` — Default export. Client component rendering the marketing landing page with hero, three feature cards (ATS Optimization, AI Content Generation, Real-time Editing), how-it-works steps, and CTA section.
+- `Home` — Default export. Client component rendering the marketing landing page with hero (auth-aware CTA: Open Studio vs Build Free), trial strip, three feature cards (ATS Optimization, AI Content Generation, Real-time Editing), Pro teaser grid, how-it-works steps, and CTA section.
 
 ### `src/app/templates/page.js` — Public templates gallery page (added 2026-08-21 to fix dead nav links).
 
