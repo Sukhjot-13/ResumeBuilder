@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongodb';
@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger';
 import env from '@/config/env';
 
 // Derive expiry from the Stripe subscription itself (falls back to +1 month)
-async function computeExpiry(subscriptionId) {
+async function computeExpiry(stripe, subscriptionId) {
   const fallback = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   if (!subscriptionId) return fallback;
   try {
@@ -24,6 +24,14 @@ async function computeExpiry(subscriptionId) {
 }
 
 export async function POST(req) {
+  let stripe;
+  try {
+    stripe = getStripe();
+  } catch (e) {
+    logger.warn('Stripe webhook received without STRIPE_SECRET_KEY configured');
+    return fail('Billing is not configured', 503);
+  }
+
   const body = await req.text();
   const signature = (await headers()).get('stripe-signature');
 
@@ -62,7 +70,7 @@ export async function POST(req) {
         }
 
         const planDetails = PLANS[planName];
-        const expiryDate = await computeExpiry(subscriptionId);
+        const expiryDate = await computeExpiry(stripe, subscriptionId);
 
         await User.findByIdAndUpdate(userId, {
           subscriptionId,
@@ -104,7 +112,7 @@ export async function POST(req) {
         const user = await User.findOne({ subscriptionId });
         if (!user) break;
 
-        const expiryDate = await computeExpiry(subscriptionId);
+        const expiryDate = await computeExpiry(stripe, subscriptionId);
 
         await User.findByIdAndUpdate(user._id, {
           subscriptionExpiresAt: expiryDate,

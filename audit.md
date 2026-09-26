@@ -1,7 +1,32 @@
 # Site Audit
 
-> **Last Updated:** 2026-09-11  
+> **Last Updated:** 2026-09-26
 > **Scope:** Full-codebase review of the active site (`src/`): auth/session flow, edge middleware proxy, Stripe billing & credits, permissions, all API routes, pages/components/hooks, PDF templates, AI runners & prompt configuration, database models, and error handling. Verified with `npm run lint`, `npm test`, `npm run build`.
+
+---
+
+## 2026-09-26 Follow-up Audit (verification + new findings)
+
+Re-verified every 2026-09-11 item against current code — the 10 code items are
+**all fixed in the tree** (the `f6e9cd2` commit landed the fixes but `audit.md`
+was never updated). Verified: `npm run lint` clean, `npm test` 23/23 green,
+`npm run build` green.
+
+| Severity | Issue | Location | Status |
+| :--- | :--- | :--- | :--- |
+| 🔴 **CRITICAL** | Resume Generation Save Failure & Double Credit Charge | `src/app/api/generate-content/route.js`, `src/app/dashboard/page.js` | ✅ Fixed — uses `ResumeService.createResume` + `addGeneratedResume` |
+| 🔴 **CRITICAL** | Missing Proxy Route Guards for `/cover-letters` and `/ai-edit` | `src/proxy.js` | ✅ Fixed — in both `isProtectedRoute` and `config.matcher` |
+| 🟠 **HIGH** | Credit Leak on Resume Creation Failure | `src/app/api/resumes/route.js` | ✅ Fixed — try/catch with `refundUsage` |
+| 🟠 **HIGH** | AI JSON Parser Fragility with Preambles | `gemini.js`, `deepseek.js` | ✅ Fixed — slices between first `{` and last `}` |
+| 🟡 **MEDIUM** | Template Selector Default ID Mismatch | `TemplateViewer.js` | ✅ Fixed — `ClassicTemplate` |
+| 🟡 **MEDIUM** | Proxy Internal `fetch` Missing Timeout & Using Raw Host | `src/proxy.js` | ✅ Fixed — `req.nextUrl.origin` + `AbortSignal.timeout(5000)` |
+| 🟡 **MEDIUM** | Orphaned Page `/resume-history` | `Navbar.js` | ✅ Fixed — History link in desktop + mobile nav |
+| 🟡 **MEDIUM** | Pricing Page Light Mode Inconsistency | `pricing/page.js` | ✅ Fixed — dark `glass-card` theme |
+| 🟢 **LOW** | ESLint exhaustive-deps warnings | admin dashboard, cover-letters | ✅ Fixed — `npm run lint` clean |
+| 🟢 **LOW** | Vitest ESM Config Warning | `vitest.config.js` | ✅ Fixed 2026-09-26 — renamed to `vitest.config.mjs` |
+| 🟢 **LOW** | Direct `req.json()` without size caps | resumes/[id], cover-letters/[id], admin/roles | ✅ Fixed — all three use `readJson`; also migrated `checkout/create-session` to `readJson` 2026-09-26 |
+| 🔴 **CRITICAL (new)** | **`next build` crashed without Stripe keys** — `src/lib/stripe.js` threw at import time, breaking build/CI/fresh clones | `src/lib/stripe.js` + 5 consumers | ✅ Fixed 2026-09-26 — lazy `getStripe()` singleton, callers return 503 when unconfigured |
+| 🟠 **HIGH (new)** | **`next build` crashed without `MONGODB_URI`** — `src/lib/mongodb.js` threw at import time | `src/lib/mongodb.js` | ✅ Fixed 2026-09-26 — env read moved inside `dbConnect()` |
 
 ---
 

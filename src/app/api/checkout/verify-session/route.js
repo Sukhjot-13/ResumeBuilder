@@ -1,5 +1,5 @@
 import { resolveUserId } from '@/lib/apiKeyAuth';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import User from '@/models/User';
 import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongodb';
@@ -23,6 +23,14 @@ export const POST = withErrorHandler(async (req) => {
   }
 
   await dbConnect();
+
+  let stripe;
+  try {
+    stripe = getStripe();
+  } catch (e) {
+    logger.warn('Stripe session verification attempted without STRIPE_SECRET_KEY', { userId });
+    return fail('Billing is not configured. Please try again later.', 503);
+  }
 
   const session = await stripe.checkout.sessions.retrieve(sessionId);
 

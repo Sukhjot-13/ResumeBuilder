@@ -7,7 +7,7 @@ import ResumeMetadata from '@/models/resumeMetadata';
 import CoverLetter from '@/models/CoverLetter';
 import RefreshToken from '@/models/refreshToken';
 import ApiKey from '@/models/ApiKey';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 import dbConnect from '@/lib/mongodb';
@@ -36,6 +36,7 @@ export const DELETE = withErrorHandler(async (req, { params }) => {
   // Cancel an active Stripe subscription so billing actually stops
   if (user.subscriptionId && user.subscriptionStatus === 'active') {
     try {
+      const stripe = getStripe();
       await stripe.subscriptions.cancel(user.subscriptionId);
       logger.info('Stripe subscription cancelled on user deletion', { userId: id });
     } catch (err) {

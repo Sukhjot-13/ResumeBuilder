@@ -1,4 +1,4 @@
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import User from '@/models/User';
 import dbConnect from '@/lib/mongodb';
@@ -17,6 +17,14 @@ export const POST = withErrorHandler(async (req) => {
   }
 
   const appUrl = env.appUrl;
+
+  let stripe;
+  try {
+    stripe = getStripe();
+  } catch (e) {
+    logger.warn('Stripe portal session attempted without STRIPE_SECRET_KEY', { userId });
+    return fail('Billing is not configured. Please try again later.', 503);
+  }
 
   // Create Stripe Portal Session
   const session = await stripe.billingPortal.sessions.create({

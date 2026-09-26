@@ -582,7 +582,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/mongodb.js` — MongoDB connection manager using Mongoose with a cached singleton pattern to reuse connections across hot reloads.
 
-- `dbConnect (default export)` — Returns a cached Mongoose connection, creating one if none exists. Clears a rejected promise so subsequent calls retry.
+- `dbConnect (default export)` — Returns a cached Mongoose connection, creating one if none exists. Reads `MONGODB_URI` lazily inside the call (never at import time, so `next build` succeeds without env) and throws a clear error if missing. Clears a rejected promise so subsequent calls retry.
 
 ### `src/lib/pdf-generator.js` — Shared core for PDF generation — produces PDF blobs for resumes (using named templates) and cover letters.
 
@@ -628,9 +628,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `getAuthenticatedUser` — Reads access and refresh tokens from cookies (via `COOKIE_NAMES` constants), verifies authentication, and returns { userId, role } or null values on failure.
 
-### `src/lib/stripe.js` — Stripe SDK initialization using the STRIPE_SECRET_KEY environment variable.
+### `src/lib/stripe.js` — Lazy Stripe SDK singleton (fixed 2026-09-26: was throwing at import time, which broke `next build` without keys).
 
-- `stripe` — Exported configured Stripe instance with apiVersion 2023-10-16.
+- `getStripe()` — Returns the cached Stripe instance (apiVersion 2023-10-16), creating it on first use. Throws only when called without `STRIPE_SECRET_KEY` set — never at import. All 5 consumers (checkout create/verify/portal, admin user delete, webhook) call it inside handlers and return 503 when billing is unconfigured.
+- `isStripeConfigured()` — Boolean helper; true when `STRIPE_SECRET_KEY` is set.
 
 ### `src/lib/subscriptionChecker.js` — Subscription expiration checking and automatic user downgrade logic.
 
@@ -781,7 +782,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 **Usage:** `node scripts/sync-free-tier.mjs [--dry-run]` (reads MONGODB_URI from env or `.env.local`)
 
-### `vitest.config.js` — Vitest test runner config: `@/*` alias + an Oxc-based plugin that compiles JSX inside the app's `.js` source files (Next.js convention) so templates can be imported in tests. Tests live in `tests/` and run via `npm test`.
+### `vitest.config.mjs` — Vitest test runner config: `@/*` alias + an Oxc-based plugin that compiles JSX inside the app's `.js` source files (Next.js convention) so templates can be imported in tests. Tests live in `tests/` and run via `npm test`. (Renamed from `.js` on 2026-09-26 to silence the Vite ESM/CommonJS loader warning.)
 
 ### `tests/aiParsers.test.js` — Regression tests for AI JSON parsers (added 2026-09-21 for audit H2 fix).
 

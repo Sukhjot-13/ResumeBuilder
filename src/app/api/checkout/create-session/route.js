@@ -1,19 +1,29 @@
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import User from '@/models/User';
 import { PLANS } from '@/lib/constants';
 import { resolvePlanKey } from '@/lib/planResolver';
 import dbConnect from '@/lib/mongodb';
 import { logger } from '@/lib/logger';
 import { resolveUserId } from '@/lib/apiKeyAuth';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 import env from '@/config/env';
 
 export const POST = withErrorHandler(async (req) => {
   const { userId, error } = await resolveUserId(req);
   if (error) return error;
 
+  let stripe;
   try {
-    const { planName } = await req.json(); // plan KEY, e.g. 'PRO' (display names like 'Pro' also accepted)
+    stripe = getStripe();
+  } catch (e) {
+    logger.warn('Stripe checkout attempted without STRIPE_SECRET_KEY', { userId });
+    return fail('Billing is not configured. Please try again later.', 503);
+  }
+
+  try {
+    const parsed = await readJson(req);
+    if (!parsed.ok) return parsed.response;
+    const { planName } = parsed.body || {}; // plan KEY, e.g. 'PRO' (display names like 'Pro' also accepted)
 
     await dbConnect();
     const user = await User.findById(userId);
