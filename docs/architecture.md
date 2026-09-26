@@ -1,11 +1,17 @@
 # Architecture Documentation
 
 Maintained inventory of every file in the codebase: purpose + all functions per file.
-Covers the Next.js app (`src/`) and root configs. The job-automation feature (UI pages, API routes, models, and the `worker/` service) was archived on 2026-08-21 into the root `automation/` folder — see its section below.
+Covers the Next.js app (`src/`), `tests/`, `scripts/`, `public/`, and root configs. The job-automation feature (UI pages, API routes, models, and the `worker/` service) was archived on 2026-08-21 into the root `automation/` folder and then **fully purged on 2026-09-11** (commit `d957d4a`) — the `automation/` folder no longer exists; see git history for the original inventory.
 
 ---
 
 ## Docs
+
+### `docs/architecture.md` — This file: always-current file/function inventory + env vars (updated on every change per `AGENTS.md`).
+
+### `docs/suggestions.md` — Improvement / feature / vulnerability log (date-stamped entries; open items only).
+
+### `AGENTS.md` (repo root) — Repo-local AI behavior guidelines: architecture-docs conventions (`docs/` location, per-file purpose + functions, Env Vars section), testing rules, PermissionGate standard (§1–27), commit workflow.
 
 ### `docs/audit.md` — Site audit report (open items)
 
@@ -54,14 +60,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/components/cover-letter/CoverLetterTemplate.js` — A React-PDF Document template for rendering a cover letter as a PDF document.
 
 - `CoverLetterTemplate (default export)` — React-PDF component that renders a full-page cover letter PDF with sender info, date, recipient info, salutation, body paragraphs, closing, and signature using styled react-pdf primitives (Document, Page, Text, View).
-
-### `src/components/diff/DiffViewer.js` — A text diff viewer component that highlights added and removed lines between two text inputs.
-
-- `DiffViewer (default export)` — Component that accepts originalText and newText props, computes line-level diffs using the 'diff' library, and renders each change with green for additions, red/strikethrough for removals, and normal styling for unchanged lines.
-
-### `src/components/home/JobDescription.js` — A simple textarea component for inputting a job description.
-
-- `JobDescription (default export)` — Stateless component rendering a labeled textarea for pasting a job description, bound via jobDescription/setJobDescription props.
 
 ### `src/components/home/JobDescriptionInput.js` — An enhanced job description textarea with a loading skeleton state.
 
@@ -146,6 +144,10 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 > them except `getTemplates` (now replaced by `/api/resume/templates`); the others were unscoped
 > IDOR-class RPC surfaces. All operations live in the hardened API routes instead.
 
+### `src/app/admin/page.js` — Admin index redirect (no UI of its own).
+
+- `AdminIndexPage (default export)` — Server component that redirects `/admin` → `/admin/dashboard`.
+
 ### `src/app/admin/dashboard/page.js` — Admin dashboard page component displaying a user table with role management, reset usage, and delete actions. Updated with navigation tabs linking to Users and Permissions pages.
 
 - `AdminDashboard` — Default export — renders admin UI with user list table, role change dropdowns, reset usage and delete buttons, and navigation tabs for Users / Permissions
@@ -220,7 +222,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/checkout/create-session/route.js` — Creates a Stripe Checkout Session for a new subscription purchase.
 
-- `POST` — Reads x-user-id from header (set by middleware), resolves the requested plan via `resolvePlanKey()` (accepts KEY 'PRO' or display name 'Pro', case-insensitive) and **rejects any plan other than PRO** (FREE is never a checkout product). Creates a Stripe Checkout Session with subscription mode and returns the checkout URL. Includes userId and planName='PRO' (canonical KEY) in both session and subscription metadata so webhook/verify checks always match.
+- `POST` — Reads x-user-id from header (set by middleware), resolves the requested plan via `resolvePlanKey()` (accepts KEY 'PRO' or display name 'Pro', case-insensitive) and **rejects any plan other than PRO** (FREE is never a checkout product). Body parsed via readJson size guard (fixed 2026-09-26, was raw req.json → 500 on malformed JSON). Creates a Stripe Checkout Session with subscription mode and returns the checkout URL. Includes userId and planName='PRO' (canonical KEY) in both session and subscription metadata so webhook/verify checks always match.
 
 ### `src/app/api/checkout/verify-session/route.js` — Verifies a completed Stripe Checkout Session and activates the user's subscription.
 
@@ -321,6 +323,18 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `metadata` — Named export. SEO metadata object with title 'ATS-Friendly Resume Builder' and description.
 - `RootLayout` — Default export. Server component providing the HTML document structure with Outfit font, AuthProvider context, ToastProvider (app-wide toasts), Navbar, main content area, and Footer.
+
+### `src/app/not-found.js` — Global 404 page with a dashboard return link.
+
+- `NotFound (default export)` — Server component rendering a centered 404 card (glassmorphic) with a "Return to Dashboard" link.
+
+### `src/app/globals.css` — Global stylesheet (Tailwind v4 + shared design-system classes such as `app-input`, `glass-card`, `btn-primary`).
+
+- No exported functions — style definitions only.
+
+### `src/app/favicon.ico` — Site favicon served by Next.js from the app directory.
+
+- No exported functions — static binary asset.
 
 ### `src/app/login/page.js` — Login page with an email-based OTP authentication flow: send a login code to the user's email, then verify the code to redirect to onboarding (new users) or dashboard (existing users). Fixed 2026-09-21: email/OTP inputs now carry explicit padding/typography (bare `app-input` has no padding); resend button with 60s cooldown matching the server throttle. Upgraded 2026-09-22: six per-digit OTP boxes (auto-advance, backspace nav, paste-split, auto-submit on complete, mobile numeric keyboard + one-time-code autofill), visible 5:00 code-expiry countdown, error shake + attempt counter (X of 5, lockout state on 429), "remember this device for 30 days" checkbox, magic-link auto-sign-in from `?email=&code=` (with Suspense boundary for useSearchParams).
 
@@ -425,7 +439,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/config/env.js` — Single source of truth for environment variable access. Centralizes all process.env references so renaming a variable only requires a change here. Also exports `validateEnv()` for boot-time validation of required vars (see `src/instrumentation.js`).
 
-- `env (default export)` — Object mapping config keys to environment variables for auth secrets, MongoDB URI, AI keys (Gemini + DeepSeek), Stripe keys, Brevo email config, and app URL. Legacy automation keys (`workerUrl`, `cookieEncryptionKey`) are still defined but their only consumers were archived on 2026-08-21.
+- `env (default export)` — Object mapping config keys to environment variables for auth secrets, MongoDB URI, AI keys (Gemini + DeepSeek), Stripe keys, Brevo email config, and app URL.
 - `validateEnv(opts)` — Returns `{ missing, warnings }`; throws when `opts.throwOnError` and required vars are absent.
 
 
@@ -479,7 +493,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/ai/config.js` — AI task configuration mapping each task to a provider and model. Supports environment variable overrides per task.
 
-- `AI_TASKS` — Object mapping task keys (RESUME_GENERATION, COVER_LETTER_GENERATION, AI_EDIT, RESUME_PARSING, GATEKEEPER) to { provider, model } -- all currently routed to DeepSeek. The GATEKEEPER key is now referenced only by the archived gatekeeper endpoint (2026-08-21).
+- `AI_TASKS` — Object mapping task keys (RESUME_GENERATION, COVER_LETTER_GENERATION, AI_EDIT, RESUME_PARSING, GATEKEEPER) to { provider, model } -- all currently routed to DeepSeek. The GATEKEEPER key is unreferenced since the automation purge (2026-09-11) — no live callers.
 - `getEffectiveConfig` — Returns the effective { provider, model } for a task key, checking for environment variable overrides (format: AI_TASK_<KEY>=provider:model) before falling back to AI_TASKS defaults
 
 ### `src/lib/ai/runners/deepseek.js` — DeepSeek AI API runner implementing the OpenAI-compatible chat completions endpoint. Requests carry `max_tokens: 4096` and a 60s AbortController timeout. Fixed 2026-09-21: parseDeepSeekJson strips preambles (slices from first `{` to last `}`).
@@ -542,16 +556,16 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/lib/constants.js` — Application-wide constants including role/permission enums, plan definitions, token config, routes, and API endpoints.
 
 - `ROLES` — Enum mapping role names (ADMIN: 0, DEVELOPER: 70, SUBSCRIBER: 99, USER: 100) to numeric levels
-- `PERMISSIONS` — Enum of 38 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, and billing. Includes EDIT_COVER_LETTER (cover letter editing) and MANAGE_ROLES (admin permission management) — both PRO-tier permissions. Automation-related strings (VIEW_AUTOMATION, MANAGE_SCHEDULER, MANAGE_PLATFORM_SESSIONS, MANAGE_API_KEYS, EMERGENCY_STOP, etc.) are inert legacy values kept to avoid touching role/seed logic — their features were archived on 2026-08-21.
+- `PERMISSIONS` — Enum of 30 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, and billing. Includes EDIT_COVER_LETTER (cover letter editing) and MANAGE_ROLES (admin permission management) — both PRO-tier permissions. (Automation permission strings were removed in the 2026-09-11 purge; pre-purge DBs may still hold them as inert rows.)
 - `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN uses 'ALL' wildcard (any permission check passes), DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base plus a free trial (GENERATE_RESUME + VIEW_OWN_RESUMES, added 2026-09-22) so free users can test generation with 3 daily credits. No more duplicated arrays.
-- `PERMISSION_METADATA` — Maps all 38 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
+- `PERMISSION_METADATA` — Maps all 30 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
 - `PLANS` — Defines Free (3 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
 - `TOKEN_CONFIG` — JWT token configuration: access token expiry (15m), refresh token expiry (15 days), and type identifiers
 - `COOKIE_NAMES` — App-specific auth cookie names (`ats_accessToken`, `ats_refreshToken`, `ats_subCheckedAt`) used by proxy.js, serverAuth.js, verify-otp and logout routes. Added 2026-08-22: cookies are scoped by host (not port), so generic names were being clobbered by another localhost app on a different port, randomly logging users out
 - `DEFAULTS` — Default values such as credits on signup
 - `OTP_CONFIG` — OTP expiry configuration (5 minutes)
-- `ROUTES` — Maps route names to URL paths for all app pages (home, login, onboarding, dashboard, profile, pricing, checkout, resume-history, ai-edit, cover-letters, admin). The AUTOMATION_*/API_KEYS entries are legacy paths pointing at pages archived on 2026-08-21.
-- `API_ENDPOINTS` — Maps API endpoint categories (auth, user, resumes, generate, cover-letters, edit-with-ai, parse-resume, checkout, admin). The automation/API_KEYS/GATEKEEPER entries are legacy paths for routes archived on 2026-08-21.
+- `ROUTES` — Maps route names to URL paths for all app pages (home, login, onboarding, dashboard, profile, pricing, checkout, resume-history, ai-edit, cover-letters, admin).
+- `API_ENDPOINTS` — Maps API endpoint categories (auth, user, resumes, generate, cover-letters, edit-with-ai, parse-resume, checkout, admin).
 
 ### `src/lib/coverLetter-generator.js` — Shared core for cover letter generation via AI. Builds prompts and calls the AI client to produce a cover letter JSON object.
 
@@ -569,12 +583,6 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `addDays` — Returns a new Date shifted by the specified number of days.
 - `isPast` — Returns true if the given date is before the current time.
 - `now` — Returns the current date/time — useful as a mock point in tests.
-
-### `src/lib/encryption.js` — AES-256-GCM encryption and decryption for cookie values, keyed via the COOKIE_ENCRYPTION_KEY environment variable. Uses sha256Buffer from utils.js for key derivation.
-
-- `encrypt` — Encrypts a plaintext string with AES-256-GCM and returns a colon-delimited string of IV + auth tag + ciphertext.
-- `decrypt` — Decrypts an encrypted string (IV:tag:ciphertext) back to plaintext using AES-256-GCM.
-- **Status:** no live importers since platform-session storage was archived on 2026-08-21 — kept so the automation archive can be restored without re-implementing crypto.
 
 ### `src/lib/logger.js` — Centralized logging service providing structured JSON log output at INFO, WARN, ERROR, and DEBUG levels.
 
@@ -642,7 +650,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `sha256` — Computes a SHA-256 hex digest of the input string.
 - `hashToken` — Alias for sha256.
-- `sha256Buffer` — SHA-256 hash returning a raw Buffer (for key derivation, encryption, etc.). Used by encryption.js.
+- `sha256Buffer` — SHA-256 hash returning a raw Buffer (for key derivation, etc.). No live importers since `src/lib/encryption.js` was purged with the automation archive (2026-09-11); kept for reuse.
 - `generateAccessToken` — Creates and signs a JWT access token containing `type: 'access'`, userId and role, using the configured expiry.
 - `generateRefreshToken` — Creates and signs a JWT refresh token containing `type: 'refresh'` and userId, with a configurable expiry (default 15 days, '30d' for remember-me).
 - `verifyToken` — Verifies a JWT token (access or refresh) using the corresponding secret and asserts the embedded `type` claim matches (legacy claim-less tokens tolerated).
@@ -707,7 +715,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/proxy.js` — Next.js Edge Middleware that handles authentication (JWT verification and token rotation), subscription status checking, route-level access control (admin/protected/public), and cookie management. Fixed 2026-09-21: protects /cover-letters/* + /ai-edit/* (were unauthenticated); internal fetches use req.nextUrl.origin + 5s AbortSignal.timeout. Fixed 2026-09-22: rotated refresh cookie honors the rotation response's maxAge (validated, capped at 31 days) so remember-me sessions survive rotation.
 
 - `proxy(req)` — Main middleware handler. Validates authentication via verifyAuthEdge, attempts token rotation using refresh tokens on failure, periodically checks subscription status, enforces role-based routing (redirects unauthenticated users to login, admins-only for /admin, authenticated users away from /login), injects x-user-id header on API requests, and manages cookie setting/clearing for tokens and subscription check timestamps. All auth cookies are read/written via the `COOKIE_NAMES` constants (`ats_*` prefix — added 2026-08-22 so other localhost apps on different ports can't clobber the session).
-- `config` — Next.js middleware matcher configuration specifying which route patterns trigger the proxy: /api/:path*, /dashboard/:path*, /profile/:path*, /onboarding/:path*, /admin/:path*, /login, /resume-history/:path*, /checkout/:path*.
+- `config` — Next.js middleware matcher configuration specifying which route patterns trigger the proxy: /api/:path*, /dashboard/:path*, /profile/:path*, /onboarding/:path*, /admin/:path*, /login, /resume-history/:path*, /checkout/:path*, /cover-letters/:path*, /ai-edit/:path*.
 - Hardened 2026-08-21: `/api/health` is exempted at the top of the handler so uptime monitors can reach it without auth; the internal subscription-check fetch now forwards the request Cookie header instead of trusting a client-settable x-user-id.
 - Hardened 2026-08-22: on failed rotation the proxy checks whether the refresh JWT is still structurally valid — if so (rotation race in flight) cookies are NOT cleared, preventing random logouts; `subCheckedAt` cookie is now httpOnly+secure so client JS can't postpone periodic downgrade checks.
 
@@ -788,13 +796,25 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `AI JSON parsers strip preambles` — Verifies parseDeepSeekJson + parseGeminiJson handle leading conversational text, markdown fences, and clean JSON.
 
+### `tests/normalizeSkills.test.js` — Regression tests for the skills-shape normalizer.
+
+- `normalizeSkills` — Verifies arrays of strings pass through, `[{ skill_name, category }]` maps to names, legacy `{ list_of_skills: [...] }` unwraps, comma-separated strings split, and empty/junk input yields `[]`.
+
+### `tests/pdfTemplates.test.jsx` — Regression tests rendering all six PDF templates (added for audit H3 fix).
+
+- `PDF templates render schema-shaped skills` — Renders Classic, Classic 2, Modern, Professional, Creative, and Simple via @react-pdf/renderer + unpdf text extraction and asserts skills content appears (guards the legacy-shape blank-Skills bug).
+
+### `tests/planResolver.test.js` — Regression tests for plan-key resolution (added for audit C1 fix).
+
+- `resolvePlanKey` — Verifies PRO/FREE resolve by key or display name case-insensitively (with whitespace trimmed) and unknown/non-string input returns null.
+
 ### `tests/rotationLifetime.test.js` — Regression tests for remember-me rotation (added 2026-09-22).
 
 - `resolveRotationLifetime` — Verifies standard sessions keep the 15-day window, 30-day tokens carry remaining lifetime forward, expired tokens fall back to 15 days.
 
 ### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections. Updated 2026-09-22: USER mirror includes the free trial (`generate_resume`, `view_own_resumes`, requiredPlan FREE).
 
-Populates the database with all 38 permissions and 4 roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) using a hand-mirrored copy of constants.js metadata. **Must be run when switching to a fresh database** — without it, the admin permissions page shows nothing.
+Populates the database with all 30 permissions and 4 roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) using a hand-mirrored copy of constants.js metadata. **Must be run when switching to a fresh database** — without it, the admin permissions page shows nothing.
 
 Includes a **drift guard**: before writing, it parses `src/lib/constants.js` and compares every permission's requiredPlan against the seed map, exiting with an error listing mismatches. (Historical note: a requiredPlan drift for 5 admin permissions was found and fixed on 2026-08-21 — the guard prevents recurrence.)
 
@@ -814,6 +834,11 @@ node scripts/seed.mjs
 ```
 
 > Note: `src/scripts/seedPermissions.js` is the original version but can't run standalone due to the `@/config` path alias. Use `scripts/seed.mjs` instead.
+
+### `src/scripts/seedPermissions.js` — Original (legacy) Permission/Role seed script; superseded by `scripts/seed.mjs`.
+
+- `deriveGroup(key)` — Maps a permission key to a group label (Admin/AI/Resume/Cover Letter/Profile/Billing/General) for the seeded Permission documents. **Known bug (2026-09-26): references an undeclared `billingKeys` variable — throws ReferenceError if the script is ever run.**
+- `seed()` — Connects via dbConnect, upserts every PERMISSION_METADATA entry into Permission and all 4 roles (ADMIN/DEVELOPER/SUBSCRIBER/USER) into Role. Idempotent; exits the process on completion/failure.
 
 
 ---
@@ -841,25 +866,44 @@ node scripts/seed.mjs
 
 ---
 
-## Automation Archive (`automation/`) — removed from active site 2026-08-21
+## Repo Root & Static Assets
 
-The whole job-automation feature and API-key management UI were moved here unchanged for
-reference (nothing deleted). Structure mirrors the original repo paths — see
-`automation/README.md` for the full mapping and restore steps.
+### `README.md` — Project overview: ATS-Friendly Resume Builder feature summary, tech stack, and getting-started commands (`npm install`, `node scripts/seed.mjs`, `npm run dev`).
 
-- `automation/src/app/automation/` — Automation UI pages (dashboard, jobs, jobs/[id], applications, settings/*).
-- `automation/src/app/api/automation/` — Automation REST routes (applications, apply-instructions, criteria, daily-count, gatekeeper-rules, jobs, jobs/[id], jobs/[id]/apply, notifications, scheduler, sessions, trigger-scrape).
-- `automation/src/app/api/gatekeeper/evaluate/route.js` — Worker-only AI gatekeeper endpoint.
-- `automation/src/app/api-keys/`, `automation/src/app/api/api-keys/` — API key management page + CRUD routes.
-- `automation/src/models/` — Application, ApplyInstructions, JobCriteria, JobListing, GatekeeperDecision, GatekeeperRules, NotificationPrefs, PlatformSession, SchedulerSettings models.
-- `automation/worker/` — Node.js Express + BullMQ scraper/applier service (LinkedIn/Indeed scrapers, DeepSeek apply agent, cron scheduler; full file/function inventory preserved in git history and in this doc's history).
-- `automation/job_automation_system_spec_v2.md` — Original automation system design spec, moved from the repo root.
+- No exported functions — markdown documentation.
 
-**Kept live on purpose:** `src/lib/apiKeyAuth.js`, `src/models/ApiKey.js`, `src/models/DailyCount.js`
-(`resolveUserId()` from apiKeyAuth authenticates every active resume / cover-letter / generate /
-profile route via its JWT path; the Bearer-key and rate-limit functions are dormant but stay to keep
-the library intact), automation permission strings in
-`constants.js` (inert), and all MongoDB collections (historical data intact).
+### `audit.md` (repo root) — Newest audit record: full 2026-09-11 findings table plus the 2026-09-26 follow-up re-verifying all 10 code items fixed and recording the Stripe/Mongo lazy-init fixes. (Note: `docs/audit.md` is an older copy without the 2026-09-26 section — see suggestions log 2026-09-26.)
+
+- No exported functions — markdown documentation.
+
+### `package.json` — NPM manifest: scripts (`dev`, `build`, `start`, `lint` → eslint, `test` → `vitest run`) and dependencies (next, react, mongoose, stripe, @react-pdf/renderer, unpdf, mammoth, jose, brevo).
+
+- No exported functions — manifest only. Single test entry point: `npm test`.
+
+### `package-lock.json` — Locked dependency tree for reproducible installs.
+
+- No exported functions — generated lockfile.
+
+### `.gitignore` — Git ignore rules (node_modules, .next, env files, build output).
+
+- No exported functions — config only.
+
+### `public/pdf.worker.min.js` — Vendored PDF.js worker bundle loaded by `ReactPdfView.js` and `CoverLetterPdfView.js` via `pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'` for client-side PDF rendering.
+
+- No exported functions — static vendor asset.
+
+### `public/file.svg`, `public/globe.svg`, `public/next.svg`, `public/vercel.svg`, `public/window.svg` — Default Next.js static icons/illustrations.
+
+- No exported functions — static assets.
+
+
+---
+
+## Automation Archive — purged 2026-09-11, folder no longer exists
+
+The job-automation feature and API-key management UI were archived on 2026-08-21 into the root `automation/` folder and then **fully purged on 2026-09-11** (commit `d957d4a`: "purge archived automation worker"). Nothing under `automation/` remains — the full file/function inventory is preserved in git history (`git show d957d4a --stat`, parent commit `5bde93b`).
+
+**Still live (kept on purpose):** `src/lib/apiKeyAuth.js` (`resolveUserId()` authenticates every active resume / cover-letter / generate / profile route via its JWT path; the Bearer-key and rate-limit functions are dormant but stay to keep the library intact), `src/models/ApiKey.js`, `src/models/DailyCount.js`, and all MongoDB collections (historical data intact). `src/lib/encryption.js` was removed in the purge (its only consumer was platform-session storage). The `GATEKEEPER` key in `src/lib/ai/config.js` is unreferenced. Open worker-related follow-ups (if ever restored) live in `docs/suggestions.md`.
 
 
 ---
@@ -872,16 +916,14 @@ the library intact), automation permission strings in
 |---|---|---|
 | `ACCESS_TOKEN_SECRET` | JWT access token signing secret | `src/config/env.js` → auth/utils |
 | `REFRESH_TOKEN_SECRET` | JWT refresh token signing secret | `src/config/env.js` → auth/utils |
-| `MONGODB_URI` | MongoDB connection string | `src/config/env.js` → `src/lib/mongodb.js`, `scripts/seed.mjs` |
+| `MONGODB_URI` | MongoDB connection string (read lazily inside `dbConnect()` so build works without env) | `src/config/env.js` → `src/lib/mongodb.js`, `scripts/*.mjs` |
 | `GEMINI_API_KEY` | Gemini AI provider key | `src/config/env.js` → `src/lib/ai/runners/gemini.js` |
 | `DEEPSEEK_API_KEY` | DeepSeek AI provider key | `src/config/env.js` → `src/lib/ai/runners/deepseek.js` |
 | `STRIPE_SECRET_KEY` | Stripe SDK key | `src/config/env.js` → `src/lib/stripe.js` |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification | `src/config/env.js` → stripe webhook route |
 | `BREVO_API_KEY` | Brevo transactional email API key | `src/config/env.js` → OTP email sending |
 | `BREVO_SENDER_EMAIL` | Verified sender address for emails | `src/config/env.js` → OTP email sending |
-| `NEXT_PUBLIC_APP_URL` | Public app base URL (default localhost:3000) | `src/config/env.js` |
-| `COOKIE_ENCRYPTION_KEY` | AES-256-GCM key for platform cookie encryption | `src/config/env.js` → `src/lib/encryption.js` (only used by archived automation now) |
-| `WORKER_URL` | Base URL of the automation worker (default localhost:3001) | `src/config/env.js` (only consumer was archived) |
+| `NEXT_PUBLIC_APP_URL` | Public app base URL (default localhost:3000) | `src/config/env.js` → OTP magic link, checkout success/cancel URLs |
 | `AI_TASK_<KEY>` | Optional per-task AI override (`provider:model`) | `src/lib/ai/config.js` |
 
-> Worker env vars (`RESUME_BUILDER_*`, `REDIS_*`, `DEEPSEEK_API_KEY`, `RESEND_API_KEY`, etc.) are no longer used by the site — they belong to the archived worker in `automation/worker/.env.example`.
+> `NODE_ENV` (`production`/`development`) is also read via `env.isProduction` / `env.isDevelopment` (proxy cookie security, logger verbosity, instrumentation warnings). Required vars (`ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `MONGODB_URI`) are enforced at boot by `validateEnv()` in `src/instrumentation.js`; missing AI/Stripe/Brevo keys only produce feature warnings.
