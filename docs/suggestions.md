@@ -2,22 +2,20 @@
 
 > Convention: only open, not-yet-implemented items live here. Anything fixed
 > is recorded in `docs/architecture.md` (per-file history) and removed below.
+> 2026-09-26 cleanup: removed the refresh-token grace-replay entry (fixed —
+> first-`supersededAt` kept), the legacy seed-script entry (file deleted),
+> the root-vs-docs audit-divergence entry (consolidated into `docs/audit.md`),
+> and all archived-worker entries (the `automation/` folder was purged —
+> nothing left to implement).
 
 ## 🔴 Vulnerabilities
 
-- **Refresh-token grace replay:** `rotateRefreshToken()` (`src/lib/auth.js`) resets `supersededAt` to "now" every time a superseded token is re-presented within the 60s grace window — a token replayed at <60s intervals never expires (unbounded session extension for a captured token). Consider keeping the FIRST superseded timestamp (or capping total replays).
-- **Archived worker:** `automation/worker/src/config.js` `validateConfig()` does not require `DEEPSEEK_API_KEY`, yet the entire apply stage silently no-ops without it. Enforce it at boot if the worker is ever restored.
+_(none open)_
 
 ## 🟡 New Features
 
-- **Archived worker:** notifications (`automation/worker/src/notifications/index.js`) are a logging stub: implement the actual Resend SDK send when `RESEND_API_KEY` is set.
-- **Archived worker:** `POST /trigger/pause` is a placeholder; implement real queue pausing (e.g., pause BullMQ workers or suspend the scheduler).
+_(none open)_
 
 ## 🟢 Improvements
 
-- **(2026-09-26) Legacy seed script crashes if run:** `src/scripts/seedPermissions.js` `deriveGroup()` references an undeclared `billingKeys` variable (line 27) — running the script throws `ReferenceError`. Either declare the missing key list or delete the file since `scripts/seed.mjs` superseded it.
-- **(2026-09-26) Audit docs diverged:** root `audit.md` has the 2026-09-26 follow-up section but `docs/audit.md` is a stale copy without it. Consolidate into one canonical location (`docs/` per AGENTS.md) to avoid conflicting records.
-
-- **Archived worker:** `apply.processor.js` re-reads `RESUME_BUILDER_URL` / `RESUME_BUILDER_API_KEY` directly from `process.env` instead of using the shared `config` object — consolidate if restored.
-- **Archived worker:** `SAFETY_RULES` in `automation/anti-detection.js` (40/day, 8/hour caps, timing ranges) are declarative only; wire them into the processors so rate caps are actually enforced.
-- **Archived worker:** dead/dormant code — `automation/worker/src/scraper/index.js` aggregator and `automation/worker/src/automation/linkedin-apply.js` are not imported by any processor — either wire up LinkedIn applying or remove.
+_(none open)_

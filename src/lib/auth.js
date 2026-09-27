@@ -84,11 +84,14 @@ export async function rotateRefreshToken(refreshToken, reqInfo) {
   // --- ROTATION ---
   // Mark the used token as superseded (kept briefly for racing requests),
   // and shorten its life so MongoDB TTL cleanup removes it after the grace window.
+  // SECURITY: keep the FIRST supersededAt — resetting it on every replay would
+  // let a captured token live forever by re-presenting it inside the window.
   const supersededExpiry = new Date(Date.now() + ROTATION_GRACE_MS + 60 * 1000);
-  await RefreshToken.findByIdAndUpdate(tokenDoc._id, {
-    supersededAt: new Date(),
-    expiresAt: supersededExpiry,
-  });
+  const supersedeUpdate = { expiresAt: supersededExpiry };
+  if (!tokenDoc.supersededAt) {
+    supersedeUpdate.supersededAt = new Date();
+  }
+  await RefreshToken.findByIdAndUpdate(tokenDoc._id, supersedeUpdate);
 
   // Fetch user to get current role
   const user = await User.findById(userId);

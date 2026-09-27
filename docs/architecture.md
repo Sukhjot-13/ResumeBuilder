@@ -550,7 +550,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/auth.js` — Server-side authentication with JWT access/refresh token verification and secure refresh token rotation. Rotation uses a 60-second grace window: superseded tokens stay briefly valid (marked `supersededAt`, TTL-shortened) so parallel requests carrying the same just-rotated token rotate again instead of failing — fixes random logouts from concurrent refreshes. Rotation preserves remember-me lifetimes via `resolveRotationLifetime()` and returns `refreshTokenMaxAge` so cookies match.
 
-- `rotateRefreshToken` — Verifies a refresh token, rejects superseded tokens past the grace window, marks the used token superseded instead of hard-deleting, and issues a new pair (carrying forward any >15-day lifetime)
+- `rotateRefreshToken` — Verifies a refresh token, rejects superseded tokens past the grace window, marks the used token superseded instead of hard-deleting, and issues a new pair (carrying forward any >15-day lifetime). **Grace-replay hardening (2026-09-26):** keeps the FIRST `supersededAt` — re-presenting a superseded token no longer extends its window, so a captured token cannot live forever.
 - `verifyAuth` — Main auth verification function: tries the access token first; if invalid/expired, attempts refresh token rotation; returns auth result with optional new tokens or cookie-clear signal
 
 ### `src/lib/constants.js` — Application-wide constants including role/permission enums, plan definitions, token config, routes, and API endpoints.
@@ -833,12 +833,7 @@ Without both, the permission check might pass from constants but the admin UI gr
 node scripts/seed.mjs
 ```
 
-> Note: `src/scripts/seedPermissions.js` is the original version but can't run standalone due to the `@/config` path alias. Use `scripts/seed.mjs` instead.
-
-### `src/scripts/seedPermissions.js` — Original (legacy) Permission/Role seed script; superseded by `scripts/seed.mjs`.
-
-- `deriveGroup(key)` — Maps a permission key to a group label (Admin/AI/Resume/Cover Letter/Profile/Billing/General) for the seeded Permission documents. **Known bug (2026-09-26): references an undeclared `billingKeys` variable — throws ReferenceError if the script is ever run.**
-- `seed()` — Connects via dbConnect, upserts every PERMISSION_METADATA entry into Permission and all 4 roles (ADMIN/DEVELOPER/SUBSCRIBER/USER) into Role. Idempotent; exits the process on completion/failure.
+> Note: legacy `src/scripts/seedPermissions.js` was deleted 2026-09-26 (crashed with ReferenceError; superseded by `scripts/seed.mjs`).
 
 
 ---
