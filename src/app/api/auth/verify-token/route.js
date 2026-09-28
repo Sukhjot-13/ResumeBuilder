@@ -1,18 +1,21 @@
 import { rotateRefreshToken } from '@/lib/auth';
+import { getClientIp } from '@/lib/clientIp';
 import { logger } from '@/lib/logger';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (req) => {
   logger.debug('Token rotation requested via verify-token route');
 
-  const { refreshToken } = await req.json();
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
+  const { refreshToken } = parsed.body || {};
 
   if (!refreshToken) {
     return fail('Refresh token is required', 400);
   }
 
   const reqInfo = {
-    ip: req.headers.get('x-forwarded-for') || req.ip,
+    ip: getClientIp(req),
     userAgent: req.headers.get('user-agent'),
   };
 

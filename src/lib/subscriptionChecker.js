@@ -38,9 +38,9 @@ export async function checkAndDowngradeExpiredSubscription(user) {
  */
 export function isSubscriptionActive(user) {
   if (!user || user.subscriptionStatus !== 'active') return false;
-  
+
   const now = new Date();
   const expiresAt = user.subscriptionExpiresAt;
-  
-  return expiresAt && expiresAt > now;
+
+  return Boolean(expiresAt) && new Date(expiresAt) > now;
 }

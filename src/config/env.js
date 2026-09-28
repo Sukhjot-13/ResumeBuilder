@@ -31,6 +31,10 @@ const env = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: process.env.NODE_ENV === 'development',
+
+  // Comma-separated extra origins allowed to make state-changing API calls
+  // (CSRF allow-list). NEXT_PUBLIC_APP_URL is always included.
+  allowedOrigins: process.env.ALLOWED_ORIGINS || '',
 };
 
 // ---------------------------------------------------------------------------

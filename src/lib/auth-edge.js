@@ -1,6 +1,6 @@
 import { jwtVerify } from 'jose';
 import env from '@/config/env';
-import { TOKEN_CONFIG } from '@/lib/constants';
+import { JWT_ALGORITHMS, TOKEN_CONFIG } from '@/lib/constants';
 
 export async function verifyTokenEdge(token, tokenType) {
   const secret = tokenType === 'access'
@@ -9,7 +9,9 @@ export async function verifyTokenEdge(token, tokenType) {
   
   if (!secret) throw new Error(`Secret for ${tokenType} token is not defined.`);
   
-  const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+  const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
+    algorithms: JWT_ALGORITHMS,
+  });
 
   // Assert embedded token type matches expectation (legacy tokens w/o claim tolerated)
   const expectedType = tokenType === 'access' ? TOKEN_CONFIG.TYPE_ACCESS : TOKEN_CONFIG.TYPE_REFRESH;

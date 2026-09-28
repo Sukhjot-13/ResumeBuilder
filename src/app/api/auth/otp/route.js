@@ -3,8 +3,10 @@ import * as Brevo from '@getbrevo/brevo';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { sha256 } from '@/lib/utils';
+import { buildOtpThrottleKey } from '@/lib/clientIp';
 import { OTP_CONFIG } from '@/lib/constants';
 import env from '@/config/env';
+import { logger } from '@/lib/logger';
 import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 const RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute between OTP sends
@@ -34,8 +36,7 @@ export const POST = withErrorHandler(async (req) => {
   // Normalize casing/whitespace so Me@x.com and me@x.com are ONE account
   const normalizedEmail = email.trim().toLowerCase();
 
-  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const throttleKey = `${clientIp}:${normalizedEmail}`;
+  const throttleKey = buildOtpThrottleKey(req, normalizedEmail);
   const now = Date.now();
   pruneRecentRequests(now);
 
@@ -105,7 +106,7 @@ export const POST = withErrorHandler(async (req) => {
 
     return ok(null);
   } catch (error) {
-    console.error('OTP sending error:', error);
+    logger.error('OTP sending error', error, { emailHash: sha256(normalizedEmail) });
     return fail('Failed to send OTP', 500);
   }
 });

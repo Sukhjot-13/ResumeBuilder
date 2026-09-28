@@ -5,6 +5,10 @@ import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 200;
+const MAX_SKIP = 10000;
+
 export const GET = withErrorHandler(async (req) => {
   const { userId, error } = await resolveUserId(req);
   if (error) return error;
@@ -19,8 +23,18 @@ export const GET = withErrorHandler(async (req) => {
   const { searchParams } = new URL(req.url);
   const queryUserId = searchParams.get('userId');
   const status = searchParams.get('status');
-  const limit = parseInt(searchParams.get('limit') || '50');
-  const skip = parseInt(searchParams.get('skip') || '0');
+
+  // Clamped so a caller cannot request an unbounded page off the collection.
+  const requestedLimit = Number.parseInt(searchParams.get('limit') || '', 10);
+  const requestedSkip = Number.parseInt(searchParams.get('skip') || '', 10);
+  const limit = Math.min(
+    Math.max(Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : DEFAULT_LIMIT, 1),
+    MAX_LIMIT
+  );
+  const skip = Math.min(
+    Math.max(Number.isFinite(requestedSkip) && requestedSkip > 0 ? requestedSkip : 0, 0),
+    MAX_SKIP
+  );
 
   const query = {};
   if (queryUserId) query.user = queryUserId;

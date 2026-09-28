@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (req) => {
   const resolved = await resolveUserId(req);
@@ -41,15 +41,10 @@ export const POST = withErrorHandler(async (req) => {
   if (resolved.error) return resolved.error;
   const { userId } = resolved;
 
-  let body;
-  try {
-    body = await req.json();
-  } catch (e) {
-    logger.warn("Invalid JSON in POST /api/resumes", { userId });
-    return fail('Invalid JSON', 400);
-  }
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
 
-  const { content, metadata } = body;
+  const { content, metadata } = parsed.body || {};
 
   if (!content) {
     return fail('Resume content is required', 400);

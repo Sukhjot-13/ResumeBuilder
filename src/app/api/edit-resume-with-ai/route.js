@@ -6,7 +6,7 @@ import { UserService } from '@/services/userService';
 import { ResumeService } from '@/services/resumeService';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { checkPermissionDB } from '@/lib/accessControl';
-import { PERMISSIONS } from '@/lib/constants';
+import { API_KEY_LIMITS, PERMISSIONS } from '@/lib/constants';
 import CoverLetter from '@/models/CoverLetter';
 import Resume from '@/models/resume';
 import { logger } from '@/lib/logger';
@@ -14,7 +14,7 @@ import { resolveUserId } from '@/lib/apiKeyAuth';
 import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (req) => {
-  const { userId, error } = await resolveUserId(req);
+  const { userId, error } = await resolveUserId(req, { rateLimit: API_KEY_LIMITS.EDIT_RESUME_WITH_AI });
   if (error) return error;
 
   const parsed = await readJson(req);

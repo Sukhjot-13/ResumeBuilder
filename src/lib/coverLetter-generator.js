@@ -2,6 +2,9 @@
  * Cover Letter Generator — shared core for cover letter generation.
  */
 import { callAI } from '@/lib/ai/client';
+import { sanitizeJobDescription } from '@/lib/sanitize';
+
+const MAX_NAME_LENGTH = 200;
 
 const COVER_LETTER_OUTPUT_SCHEMA = `{
   "recipientName": "string (the hiring manager name or 'Hiring Manager')",
@@ -37,6 +40,10 @@ Your output MUST be a valid JSON object with the fields below.
 /**
  * Generate a cover letter from the user's resume and a job description.
  *
+ * Defence in depth: every caller-supplied string is scrubbed of prompt
+ * injection patterns and length-capped here as well as at the route boundary,
+ * so no caller can reintroduce the override lane.
+ *
  * @param {object} resume           - The user's current resume data
  * @param {string} jobDescription   - Sanitized job description text
  * @param {object} opts
@@ -48,17 +55,20 @@ Your output MUST be a valid JSON object with the fields below.
 export async function generateCoverLetter(resume, jobDescription, opts = {}) {
   const { recipientName, userName, userEmail, userPhone } = opts;
 
+  const cleanRecipientName = sanitizeJobDescription(recipientName).slice(0, MAX_NAME_LENGTH);
+  const cleanUserName = sanitizeJobDescription(userName).slice(0, MAX_NAME_LENGTH);
+
   let prompt = BASE_PROMPT.replace('{{SCHEMA}}', COVER_LETTER_OUTPUT_SCHEMA);
 
   prompt += `\n\n[USER'S RESUME]\n${JSON.stringify(resume, null, 2)}`;
   prompt += `\n\n[JOB DESCRIPTION]\n${jobDescription}`;
 
-  if (recipientName) {
-    prompt += `\n\n[RECIPIENT NAME]\n${recipientName}`;
+  if (cleanRecipientName) {
+    prompt += `\n\n[RECIPIENT NAME]\n${cleanRecipientName}`;
   }
 
   prompt += `\n\n[SPECIFIC INSTRUCTIONS]
-- Sender name: ${userName || 'the user'}
+- Sender name: ${cleanUserName || 'the user'}
 - Sender email: ${userEmail || ''}
 - Sender phone: ${userPhone || ''}
 - Use today's date as the letter date.

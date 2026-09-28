@@ -37,15 +37,3 @@ export function sanitizeJobDescription(text) {
   }
   return sanitized;
 }
-
-/**
- * Like sanitizeJobDescription but reports what happened — for callers that want
- * to surface a notice to the user.
- * @returns {{ text: string, wasTruncated: boolean }}
- */
-export function sanitizeJobDescriptionWithInfo(text) {
-  if (!text || typeof text !== 'string') return { text: '', wasTruncated: false };
-  const originalLength = text.length;
-  const clean = sanitizeJobDescription(text);
-  return { text: clean, wasTruncated: originalLength > MAX_JOB_DESCRIPTION_LENGTH };
-}

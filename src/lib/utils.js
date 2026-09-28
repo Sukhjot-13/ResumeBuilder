@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
-import { TOKEN_CONFIG } from '@/lib/constants';
+import { JWT_ALGORITHMS, TOKEN_CONFIG } from '@/lib/constants';
 import env from '@/config/env';
 
 export function sha256(string) {
@@ -40,7 +40,9 @@ export async function verifyToken(token, tokenType) {
     : env.refreshTokenSecret;
   if (!secret) throw new Error(`Secret for ${tokenType} token is not defined.`);
 
-  const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+  const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
+    algorithms: JWT_ALGORITHMS,
+  });
 
   // Assert the embedded token type matches what the caller expects — guards
   // against access/refresh tokens becoming interchangeable if secrets coincide.

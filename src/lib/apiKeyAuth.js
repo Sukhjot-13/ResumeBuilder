@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
 import dbConnect from '@/lib/mongodb';
 import { hashToken } from '@/lib/utils';
 import ApiKey from '@/models/ApiKey';
@@ -109,12 +108,4 @@ export async function checkRateLimit(userId, limit = 100) {
   );
 
   return null;
-}
-
-export function generateApiKey() {
-  const plainKey = 'rb_' + crypto.randomBytes(32).toString('hex');
-  const hashed = hashToken(plainKey);
-  const keyPrefix = plainKey.slice(0, 8);
-
-  return { plainKey, hashedKey: hashed, keyPrefix };
 }

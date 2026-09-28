@@ -5,17 +5,17 @@ import { sanitizeJobDescription } from '@/lib/sanitize';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { ResumeService } from '@/services/resumeService';
 import { UserService } from '@/services/userService';
-import { PERMISSIONS } from '@/lib/constants';
+import { API_KEY_LIMITS, PERMISSIONS } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
-import { checkPermission } from '@/lib/accessControl';
+import { checkPermissionDB } from '@/lib/accessControl';
 import User from '@/models/User';
 import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const POST = withErrorHandler(async (request) => {
   await dbConnect();
 
-  const resolved = await resolveUserId(request);
+  const resolved = await resolveUserId(request, { rateLimit: API_KEY_LIMITS.GENERATE_CONTENT });
   if (resolved.error) return resolved.error;
   const { userId } = resolved;
 
@@ -47,9 +47,10 @@ export const POST = withErrorHandler(async (request) => {
     return fail('Insufficient credits. Please upgrade your plan.', 403);
   }
 
-  const userRole = user.role;
-  const hasSpecialInstructionsPermission = checkPermission(
-    { role: userRole },
+  // DB-backed (fail-closed) so a revoked USE_SPECIAL_INSTRUCTIONS grant takes
+  // effect here too — the constants path ignored revocations on this route.
+  const hasSpecialInstructionsPermission = await checkPermissionDB(
+    user,
     PERMISSIONS.USE_SPECIAL_INSTRUCTIONS
   );
   const specialInstructions = hasSpecialInstructionsPermission

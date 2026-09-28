@@ -3,10 +3,6 @@ import env from '@/config/env';
 
 let client = null;
 
-export function isStripeConfigured() {
-  return Boolean(env.stripeSecretKey);
-}
-
 // Lazy singleton — throws only when actually used, never at import time,
 // so `next build` (which imports every route) succeeds without Stripe keys.
 // Callers should catch this and return 503 (billing unavailable).

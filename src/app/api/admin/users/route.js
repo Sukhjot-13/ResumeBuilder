@@ -2,7 +2,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
-import { PERMISSIONS } from '@/lib/constants';
+import { PERMISSIONS, PLANS, ROLES } from '@/lib/constants';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 
 export const GET = withErrorHandler(async (req) => {
@@ -20,6 +20,18 @@ export const GET = withErrorHandler(async (req) => {
   // Whitelist fields — safer than a deny-list that can silently rot
   const users = await User.find({})
     .select('email name role creditsUsed lastCreditResetDate subscriptionId subscriptionStatus subscriptionExpiresAt customerId createdAt')
-    .sort({ createdAt: -1 });
-  return ok({ users });
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // `plan` is not a stored field — derive it server-side so the admin Plan
+  // column reflects the real entitlement instead of always rendering "Free".
+  const withPlan = users.map((user) => ({
+    ...user,
+    plan:
+      user.role === ROLES.SUBSCRIBER && user.subscriptionStatus === 'active'
+        ? { name: PLANS.PRO.name }
+        : { name: PLANS.FREE.name },
+  }));
+
+  return ok({ users: withPlan });
 });

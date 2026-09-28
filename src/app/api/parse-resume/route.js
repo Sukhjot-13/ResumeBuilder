@@ -1,7 +1,7 @@
 import { parseResume } from '../../../services/resumeParsingService';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
-import { PERMISSIONS } from '@/lib/constants';
+import { API_KEY_LIMITS, PERMISSIONS } from '@/lib/constants';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { logger } from '@/lib/logger';
 import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
@@ -20,7 +20,7 @@ const MAGIC_SIGNATURES = [
 ];
 
 export const POST = withErrorHandler(async (request) => {
-  const resolved = await resolveUserId(request);
+  const resolved = await resolveUserId(request, { rateLimit: API_KEY_LIMITS.PARSE_RESUME });
   if (resolved.error) return resolved.error;
   const { userId } = resolved;
 

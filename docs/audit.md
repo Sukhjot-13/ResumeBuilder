@@ -1,7 +1,35 @@
 # Site Audit
 
-> **Last Updated:** 2026-09-26
+> **Last Updated:** 2026-09-28
+
 > **Scope:** Full-codebase review of the active site (`src/`): auth/session flow, edge middleware proxy, Stripe billing & credits, permissions, all API routes, pages/components/hooks, PDF templates, AI runners & prompt configuration, database models, and error handling. Verified with `npm run lint`, `npm test`, `npm run build`.
+
+---
+
+## 2026-09-28 Security Audit Remediation
+
+Full-codebase security audit. All 11 task groups were remediated in the tree; the
+authorization, entitlement, input-handling and audit-trail findings are closed and
+covered by tests (23 → 139 tests). Items deliberately left open are listed in
+`docs/to-do.md`.
+
+| Severity | Issue | Location | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| 🔴 **CRITICAL** | **Privilege escalation — a DEVELOPER could self-promote to root ADMIN.** `PUT /api/admin/roles` was guarded only by the developer-tier `manage_roles`, so a DEVELOPER could grant themselves any permission and then PATCH their own account to role `0` (self-promotion was explicitly permitted; only self-demotion was blocked). The only other guard was client-side. | `src/app/api/admin/roles/route.js`, `src/app/api/admin/users/[id]/role/route.js`, `src/lib/constants.js`, `src/lib/roleAuthorization.js` | ✅ Fixed — new root-ADMIN-only `delegate_role_management` permission (non-delegable/admin-only metadata), roleValue `0` refused, no granting a permission you don't hold, rank ceiling, self-escalation guard, audit records |
+| 🔴 **CRITICAL** | **User deletion gated on the wrong permission.** `DELETE /api/admin/users/[id]` required `access_admin_panel` (developer-tier) instead of the admin-only `delete_user`, letting any DEVELOPER cascade-delete an account and cancel its Stripe subscription. | `src/app/api/admin/users/[id]/route.js` | ✅ Fixed — requires `delete_user`; id shape validated; rank ceiling; `user.deleted` audit event |
+| 🟠 **HIGH** | **verify-session replay = unlimited free credits.** Every call re-ran the upgrade `findByIdAndUpdate` (resetting `creditsUsed` to `0` and forcing role/status to SUBSCRIBER/active) with no consumed-session guard, so a paying user could re-POST their own paid `sessionId` forever, and a cancelled/expired subscriber could revive Pro indefinitely. | `src/app/api/checkout/verify-session/route.js` | ✅ Fixed — single-use via the `Transaction` row (409 on replay, nothing changed), `creditsUsed` reset removed, no reactivation of cancelled/expired subscriptions, audit events |
+| 🟠 **HIGH** | **Expired subscribers kept Pro limits.** `SubscriptionService.getLimit` never compared `subscriptionExpiresAt`, so a lapsed subscriber kept Pro credits until the periodic downgrade ran (the proxy only triggers it every 5 minutes, best-effort). `isSubscriptionActive` was dead code. | `src/services/subscriptionService.js`, `src/lib/subscriptionChecker.js` | ✅ Fixed — `getLimit` now requires `isSubscriptionActive`; boundary-exact tests |
+| 🟡 **MEDIUM** | **A DB outage broadened access.** `hasPermissionDB` swallowed DB errors and fell back to the compile-time constants, restoring a revoked grant; the 60s role cache was never invalidated after a roles write. | `src/lib/accessControl.js` | ✅ Fixed — fails closed (deny, or a verified last-known-good DB snapshot bounded to 5 minutes), constants used only for an unseeded/empty store; `invalidateRoleCache()` called from the roles PUT |
+| 🟡 **MEDIUM** | **Four routes bypassed the 256 KB body guard** (`raw await req.json()`): user profile PUT, resumes POST, resumes/master PUT, auth/verify-token POST. `docs/architecture.md` falsely claimed profile PUT used the guard. | those four routes + `src/app/api/cover-letters/route.js` | ✅ Fixed — all five use `readJson`; doc corrected |
+| 🟡 **MEDIUM** | **No audit trail for sensitive mutations** (role/permission rewrites, role changes, credit adjustments/resets, user deletion — stdout only) and **no CSRF defence** on state-changing API routes. | `src/models/AuthorizationEvent.js`, `src/lib/auditLog.js`, `src/lib/csrf.js`, `src/proxy.js` | ✅ Fixed — durable audit model + writer on every admin write and the upgrade; Origin/`Sec-Fetch-Site` allow-list (env-driven, fails closed) on non-GET API requests |
+| 🟡 **MEDIUM** | **Prompt injection / dead rate limiting / IP spoofing.** `recipientName` and the profile name were interpolated raw into the cover-letter prompt; `resolveUserId`'s `rateLimit` option was passed by no route (so every API-key call was unmetered); the OTP throttle keyed on the forgeable `x-forwarded-for`. | `src/lib/coverLetter-generator.js`, `src/app/api/generate-cover-letter/route.js`, `src/lib/apiKeyAuth.js`, four AI routes, `src/app/api/auth/otp/route.js` | ✅ Fixed — names sanitized + capped (route and library), daily API-key caps wired, throttle keyed on a hash of the platform IP |
+| 🟢 **LOW** | **Token pinning, status codes, unbounded limit, unmetered cover-letter path.** `jwtVerify` ran without an `algorithms` allowlist (HS384/HS512 accepted); `apiPermissionGuard` returned 404 for a missing user and 500 (CastError) for a malformed id while the proxy emitted a bare 401; admin transactions had an unbounded `limit`; `POST /api/cover-letters` charged no credit. | `src/lib/utils.js`, `src/lib/auth-edge.js`, `src/lib/apiPermissionGuard.js`, `src/app/api/admin/transactions/route.js`, `src/app/api/cover-letters/route.js` | ✅ Fixed — HS256 pinned in both verifiers, 401/403 split with machine-readable codes + id-shape validation, limit clamped, cover-letter creation metered with refund |
+| 🟢 **LOW** | **UI / accessibility / dead code.** Unlabelled job-description textarea, silently discarded manual-form edits, missing `required` attributes and a `details` field the API never returned, index-as-React-key, Escape handler on a non-focusable `div`, admin Plan column always "Free". Dead code removed: `src/models/plan.js`, `generateApiKey`, `isStripeConfigured`, `sanitizeJobDescriptionWithInfo`, and two unused devDependencies. | see `docs/architecture.md` per-file notes | ✅ Fixed — all items addressed; `isSubscriptionActive` and `checkRateLimit` deliberately kept (now used) |
+| 🟢 **LOW** | **Stale documentation.** `docs/to-do.md` listed already-fixed items as open CRITICALs and buried the two genuinely open ones; `docs/suggestions.md` claimed no open vulnerabilities despite the three above; `README.md` linked a purged automation README; two `docs/architecture.md` claims were wrong. | `docs/to-do.md`, `docs/suggestions.md`, `README.md`, `docs/architecture.md` | ✅ Fixed — open-items list regenerated from the tree, Tasks 1–3 logged as vulnerabilities, dead link removed, incorrect claims corrected |
+
+**Explicitly NOT changed (audited CLEAN, out of scope):** JWT + rotating refresh-token scheme,
+IDOR scoping on resumes/cover letters, XSS, mass assignment, secret handling, Stripe
+signature verification, PDF template allowlisting, and the verify-session userId metadata check.
 
 ---
 

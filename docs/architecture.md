@@ -33,7 +33,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/resume-history/page.js` — Page route displaying the user's resume history, including master resume and all generated tailored resumes, with delete and preview capabilities.
 
-- `ResumeHistoryPage (default export)` — Page component that fetches user profile/mainResume and all generated resumes on mount, renders a ResumeList (passing the shared `profile` as `user` so permission-gated Edit/Delete render), and includes a modal overlay rendering the tailored resume via ResumeDisplayView (no more raw JSON).
+- `ResumeHistoryPage (default export)` — Page component that fetches user profile/mainResume and all generated resumes on mount, renders a ResumeList (passing the shared `profile` as `user` so permission-gated Edit/Delete render), and includes a modal overlay rendering the tailored resume via ResumeDisplayView (no more raw JSON). Fixed 2026-09-28: the preview overlay is focusable (`tabIndex={-1}` via `previewDialogRef`) and focused on open, so its Escape handler actually fires — a `onKeyDown` on a non-focusable `div` never received key events.
 
 ### `src/components/common/AccessDenied.js` — A simple access denied UI component that shows a restriction message without an upgrade/upsell prompt.
 
@@ -63,7 +63,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/components/home/JobDescriptionInput.js` — An enhanced job description textarea with a loading skeleton state.
 
-- `JobDescriptionInput (default export)` — Component rendering a labeled textarea for job description input, with an animated pulse skeleton shown while the loading prop is true.
+- `JobDescriptionInput (default export)` — Component rendering a labeled textarea for job description input, with an animated pulse skeleton shown while the loading prop is true. Fixed 2026-09-28: the `<label>` now has `htmlFor="job-description-input"` and the textarea the matching `id`, so the field is programmatically labelled (screen readers previously announced an unlabelled textbox).
 
 ### `src/components/home/SpecialInstructionsInput.js` — Input panel for special instructions and generate button, with permission-gated lock states for free users.
 
@@ -167,34 +167,34 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `GET` — Returns all Permission documents sorted by group and key. Requires MANAGE_ROLES.
 
-### `src/app/api/admin/roles/route.js` — API routes to list and update role permissions in the database. Both require MANAGE_ROLES permission.
+### `src/app/api/admin/roles/route.js` — API routes to list and update role permissions in the database. Hardened 2026-09-28 (audit C1 self-promotion): `PUT` no longer accepts the developer-tier MANAGE_ROLES — writing a role's permission set *is* delegating authority, so it requires the root-ADMIN-only DELEGATE_ROLE_MANAGEMENT permission and passes every `roleAuthorization` guard.
 
 - `GET` — Returns all Role documents sorted by value. Requires MANAGE_ROLES.
-- `PUT` — Updates a role's permissions array. Body parsed via readJson size guard (fixed 2026-09-21, was raw req.json → 500 on malformed JSON). Body: { roleValue (number), permissions (string[]) }. Validates input. Requires MANAGE_ROLES.
+- `PUT` — Requires **DELEGATE_ROLE_MANAGEMENT** (root ADMIN only). Body parsed via `readJson` size guard; body: `{ roleValue (number), permissions (string[]) }`. Runs `evaluateRolePermissionWrite()` (see `src/lib/roleAuthorization.js`), which refuses: roleValue `0` (root role protected), a rank higher than the caller's own, a rewrite of the caller's OWN role (the permission-laundering lane), the `ALL` wildcard on a non-root role, non-delegable permissions, unknown permission keys, duplicates, oversized/malformed lists, and any permission the caller does not itself hold. On success calls `invalidateRoleCache()` so a revocation is effective on the very next permission check, and writes a `role.permissions.updated` audit event (denied attempts write `role.permissions.denied` with `outcome: 'denied'`).
 
 ### `src/app/api/admin/transactions/route.js` — API route to list all transactions with optional user/status filtering and pagination.
 
-- `GET` — Return a paginated list of transactions filtered by userId and/or status
+- `GET` — Return a paginated list of transactions filtered by userId and/or status. `limit` is clamped to `[1, 200]` (default 50) and `skip` to `[0, 10000]` (clamped 2026-09-28 — the parameter was previously unbounded).
 
 ### `src/app/api/admin/users/[id]/credits/route.js` — Atomically adjusts a user's credit count.
 
-- `POST` — Amount must be a bounded non-zero integer (±10 000). Atomic aggregation clamps creditsUsed at ≥0 (negative-credit exploit closed). Positive amount increases usage; negative frees credits.
+- `POST` — Amount must be a bounded non-zero integer (±10 000). Atomic aggregation clamps creditsUsed at ≥0 (negative-credit exploit closed). Positive amount increases usage; negative frees credits. Hardened 2026-09-28: validates the `:id` shape (`isValidObjectId`, 400 instead of a CastError 500), refuses a non-root caller adjusting an account that outranks them, and writes a `user.credits.adjusted` audit event with before/after balances.
 
 ### `src/app/api/admin/users/[id]/reset-usage/route.js` — API route to reset a user's usage counter to zero.
 
-- `POST` — Reset a specific user's creditsUsed to 0
+- `POST` — Reset a specific user's creditsUsed to 0. Hardened 2026-09-28: validates the `:id` shape, applies the same non-root rank ceiling as the credits route, and writes a `user.credits.reset` audit event with the previous balance.
 
 ### `src/app/api/admin/users/[id]/role/route.js` — Changes a user's role. Fixed 2026-09-21: keeps subscription state in sync — promoting to SUBSCRIBER grants a 30-day manual Pro window (status active + expiry + credit reset) so admin-granted subscribers actually receive Pro limits; demoting to USER clears it. Skips the grant when a live subscription already exists (never shortens a real Stripe window).
 
-- `PATCH` — Role must be an integer present in the ROLES enum; self-demotion blocked; response whitelisted (-otp/-otpExpires); body parsed via readJson.
+- `PATCH` — Role must be an integer present in the ROLES enum; response whitelisted (-otp/-otpExpires); body parsed via `readJson`. Hardened 2026-09-28 (audit C1 self-promotion): the old guard blocked only self-DEMOTION, so a caller could PATCH their own account to role `0`. `evaluateUserRoleChange()` now blocks **any** self role change (`SELF_ESCALATION_BLOCKED` when the new rank is higher, `SELF_ROLE_CHANGE_BLOCKED` otherwise) and applies the rank ceiling in both directions (a non-root caller can neither modify an account that outranks them nor assign a rank above their own). The `:id` shape is validated (400), and both allowed and denied changes are audited (`user.role.updated` / `user.role.denied`).
 
 ### `src/app/api/admin/users/[id]/route.js` — Permanently deletes a user account with full cleanup.
 
-- `DELETE` — Self-deletion guarded. Cancels the target's active Stripe subscription, then cascade-deletes their resumes, resume metadata, cover letters, refresh tokens, and API keys before removing the user.
+- `DELETE` — Requires **DELETE_USER** (root ADMIN only). Fixed 2026-09-28 (audit C2): the guard was ACCESS_ADMIN_PANEL, a developer-tier permission, so any DEVELOPER could permanently cascade-delete an account and cancel its Stripe subscription. Also hardened: `:id` shape validated (400), self-deletion still refused, a non-root caller cannot delete an account that outranks them (403), and a `user.deleted` audit event is written. Cancels the target's active Stripe subscription, then cascade-deletes their resumes, resume metadata, cover letters, refresh tokens, and API keys before removing the user.
 
 ### `src/app/api/admin/users/route.js` — API route to list all users for the admin panel. Supports both JWT and API-key auth via resolveUserId().
 
-- `GET` — Return all users sorted by creation date, excluding sensitive OTP fields
+- `GET` — Return all users sorted by creation date, excluding sensitive OTP fields. Fixed 2026-09-28: each row now carries a server-derived `plan` (`{ name }`) so the admin Plan column stops rendering "Free" for every account (`plan` was never selected nor populated).
 
 ### `src/app/api/auth/check-subscription/route.js` — API route to check a user's subscription status and downgrade if expired. Authenticates via HttpOnly JWT cookies (serverAuth) — client-supplied headers are never trusted.
 
@@ -204,15 +204,15 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Reads the refreshToken cookie (via `COOKIE_NAMES`), deletes the matching hashed RefreshToken document(s) from the DB (so a captured token can't outlive logout; never blocks on DB errors), then clears accessToken and refreshToken cookies.
 
-### `src/app/api/auth/otp/route.js` — Generates and emails a one-time password. Rate-limited: 60s resend cooldown via lastOtpSentAt plus a uniform per-IP+email in-memory throttle (identical responses whether or not an account exists — no enumeration oracle); resets attempt counter on new code. Emails are normalized to lowercase+trim so casing can't split accounts.
+### `src/app/api/auth/otp/route.js` — Generates and emails a one-time password. Rate-limited: 60s resend cooldown via lastOtpSentAt plus a uniform per-IP+email in-memory throttle (identical responses whether or not an account exists — no enumeration oracle); resets attempt counter on new code. Emails are normalized to lowercase+trim so casing can't split accounts. Fixed 2026-09-28 (audit M3): the in-memory throttle was keyed on the client-supplied `x-forwarded-for` header, which any caller can forge to bypass the limit. It now uses `buildOtpThrottleKey()` (see `src/lib/clientIp.js`) — a SHA-256 hash of the platform-provided client IP plus a hash of the normalized email.
 
-- `POST` — Validates email format, normalizes it, enforces cooldown (429), stores hashed OTP + expiry atomically, clears otpAttempts, sends a branded HTML email with expiry notice via Brevo.
+- `POST` — Validates email format, normalizes it, enforces cooldown (429), stores hashed OTP + expiry atomically, clears otpAttempts, sends a branded HTML email with expiry notice via Brevo. `pruneRecentRequests` bounds the in-memory map. Failure logging goes through `logger` with a hashed email (no raw address, no `console.error`).
 
 ### `src/app/api/auth/verify-otp/route.js` — Verifies OTP and issues tokens. Brute-force hardened: max 5 attempts (atomic $inc counter) then lockout forcing a fresh code request. Email normalized to match the request path.
 
 - `POST` — Normalizes email casing, generic invalid-OTP response (no user enumeration); on success clears OTP state, rotates refresh token into DB, sets HttpOnly cookies (named via `COOKIE_NAMES`), returns newUser flag
 
-### `src/app/api/auth/verify-token/route.js` — API route to rotate a refresh token and issue new access/refresh tokens.
+### `src/app/api/auth/verify-token/route.js` — API route to rotate a refresh token and issue new access/refresh tokens. Fixed 2026-09-28: the body is read through the `readJson` size guard (was a raw `await req.json()`, which 500'd on malformed input and accepted unbounded bodies), and the recorded client IP now comes from `getClientIp()` (platform headers only) instead of the forgeable `x-forwarded-for`.
 
 - `POST` — Accept refresh token, rotate it (with a 60s grace window so parallel requests carrying the same token aren't logged out — see `src/lib/auth.js`), and return new access and refresh tokens with userId
 
@@ -224,32 +224,32 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Reads x-user-id from header (set by middleware), resolves the requested plan via `resolvePlanKey()` (accepts KEY 'PRO' or display name 'Pro', case-insensitive) and **rejects any plan other than PRO** (FREE is never a checkout product). Body parsed via readJson size guard (fixed 2026-09-26, was raw req.json → 500 on malformed JSON). Creates a Stripe Checkout Session with subscription mode and returns the checkout URL. Includes userId and planName='PRO' (canonical KEY) in both session and subscription metadata so webhook/verify checks always match.
 
-### `src/app/api/checkout/verify-session/route.js` — Verifies a completed Stripe Checkout Session and activates the user's subscription.
+### `src/app/api/checkout/verify-session/route.js` — Verifies a completed Stripe Checkout Session and activates the user's subscription. Hardened 2026-09-28 (audit H1): the upgrade is now SINGLE-USE and idempotent — previously every call re-ran the same `findByIdAndUpdate`, so a paying user could re-POST their own paid `sessionId` forever to reset `creditsUsed` and to revive a cancelled or expired subscription.
 
-- `POST` — sessionId read via readJson guard; verifies payment_status 'paid', that the session belongs to the requesting user, **and that metadata.planName === 'PRO'** (refuses to activate anything else). Expiry derived from the Stripe subscription's current_period_end (fallback +1 month). Updates the user to SUBSCRIBER (response whitelisted via select('-otp -otpExpires')) and upserts the Transaction idempotently.
+- `POST` — sessionId read via `readJson` guard; verifies `payment_status === 'paid'`, that the session belongs to the requesting user, **and that `metadata.planName === 'PRO'`** (refuses to activate anything else). Expiry derived from the Stripe subscription's `current_period_end` (fallback +1 month). Then: (1) **replay guard** — an existing `Transaction` with the same `stripePaymentId` means the session was already consumed → `409`, no writes, plus a `subscription.upgrade.replay_blocked` audit event; (2) **no reactivation** — a user whose `subscriptionStatus` is canceled/expired/past_due/unpaid/incomplete/paused is refused with `409` (only the signed webhook may change that state); (3) the `Transaction` row is **created first** (unique index on `stripePaymentId`, so a concurrent replay loses) and released again if the user update fails; (4) the user is updated to SUBSCRIBER/active **without touching `creditsUsed`** — a plan upgrade never refunds consumed credits. Writes a `subscription.upgraded` audit event.
 
 ### `src/app/api/cover-letters/[id]/route.js` — Fetch, update, or delete a single cover letter by ID. Uses CoverLetterService for all database operations, resolveUserId() for dual auth (JWT/API key). Uses `ok()` for GET (unwrapped response) and `success()` for DELETE/PATCH (enveloped).
 
 - `GET` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.getCoverLetterById() to find a cover letter by ID and userId, returns it via `ok()` (unwrapped, consistent with listing endpoint), or a 404.
 - `DELETE` — Requires DELETE_COVER_LETTER permission. Uses resolveUserId() for auth, then CoverLetterService.deleteCoverLetter() to remove a cover letter by ID and userId.
-- `PATCH` — Requires VIEW_COVER_LETTERS permission. Body parsed via readJson size guard (fixed 2026-09-21). Uses resolveUserId() for auth, then CoverLetterService.updateCoverLetter() to update the content and/or metadata fields on a cover letter by ID and userId.
+- `PATCH` — Requires EDIT_COVER_LETTER permission (doc corrected 2026-09-28 — it previously claimed VIEW_COVER_LETTERS, which the code never enforced). Body parsed via readJson size guard (fixed 2026-09-21). Uses resolveUserId() for auth, then CoverLetterService.updateCoverLetter() to update the content and/or metadata fields on a cover letter by ID and userId.
 
-### `src/app/api/cover-letters/route.js` — List all cover letters for the user or create a new cover letter. Uses CoverLetterService for all database operations and resolveUserId() for dual auth.
+### `src/app/api/cover-letters/route.js` — List all cover letters for the user or create a new cover letter. Uses CoverLetterService for all database operations and resolveUserId() for dual auth. Size-guarded and metered 2026-09-28 (see POST below).
 
 - `GET` — Requires VIEW_COVER_LETTERS permission. Uses resolveUserId() for auth, then CoverLetterService.getCoverLettersByUserId() to return the user's cover letters sorted by createdAt descending, limited to 50.
-- `POST` — Requires GENERATE_COVER_LETTER permission. Uses resolveUserId() for auth, then CoverLetterService.createCoverLetter() to accept content and optional metadata, returns the created document with a 201 status.
+- `POST` — Requires GENERATE_COVER_LETTER permission. Body parsed via `readJson` (fixed 2026-09-28 — was a raw `request.json()` with no size cap). Metered 2026-09-28: charges one credit via `SubscriptionService.trackUsage(userId, 1)` with a `refundUsage` on failure, so this AI-backed write is no longer a free alternative to the metered `POST /api/generate-cover-letter`. Then CoverLetterService.createCoverLetter() accepts content and optional metadata and returns the created document with a 201 status.
 
 ### `src/app/api/edit-resume-with-ai/route.js` — Edits a resume or cover letter using AI, with credit tracking, plan-gated features, proper resume naming with incrementing suffixes ("Name" → "Name 1"), and multi-resume support. Hardened 2026-08-21: all cover-letter/resume reads & writes are scoped by userId (IDOR fix) and credits are deducted BEFORE the AI call with automatic refund on failure. Fixed 2026-08-22: CREATE_NEW_RESUME_ON_EDIT check now passes the user object (was passing the numeric role — always denied); the name-suffix heuristic only bumps 1–2 digit suffixes so "Resume 2024" no longer becomes "Resume 2025".
 
-- `POST` — Requires EDIT_RESUME_WITH_AI permission. Verifies ownership (`{ _id, userId }`) of any requested coverLetterId/resumeId BEFORE spending AI tokens (404 otherwise). Deducts a credit atomically first; refunds it if the AI edit throws. For type='cover-letter', edits content via AI and saves only via `findOneAndUpdate({ _id, userId })`. For resume editing: accepts `resumeId` for multi-resume support; if `createNewResume`, names the source resume with an incrementing suffix ("Name" → "Name 1") using metadata, gives the new resume the original name, and only sets it as main if editing the master. Sanitizes Mongo _id fields from the AI output before saving.
+- `POST` — Requires EDIT_RESUME_WITH_AI permission. Resolves user identity via `resolveUserId(req, { rateLimit: API_KEY_LIMITS.EDIT_RESUME_WITH_AI })` (2026-09-28 — `checkRateLimit` was dead code because no route passed the option). Verifies ownership (`{ _id, userId }`) of any requested coverLetterId/resumeId BEFORE spending AI tokens (404 otherwise). Deducts a credit atomically first; refunds it if the AI edit throws. For type='cover-letter', edits content via AI and saves only via `findOneAndUpdate({ _id, userId })`. For resume editing: accepts `resumeId` for multi-resume support; if `createNewResume`, names the source resume with an incrementing suffix ("Name" → "Name 1") using metadata, gives the new resume the original name, and only sets it as main if editing the master. Sanitizes Mongo _id fields from the AI output before saving.
 
 ### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with deduct-first/refund-on-failure credit handling. Fixed 2026-09-21: persistence now uses ResumeService.createResume + UserService.addGeneratedResume (was raw Resume.create with an embedded metadata object → Mongoose CastError, resumeId null, client double-spend).
 
-- `POST` — Requires GENERATE_RESUME permission. Resolves user identity via resolveUserId(). Sanitizes the job description via sanitize.js utility, deducts a credit atomically BEFORE generation (refunds on failure), checks USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves via ResumeService (correct ResumeMetadata document + generatedResumes link). Returns the generated content with a resumeId if saved.
+- `POST` — Requires GENERATE_RESUME permission. Resolves user identity via `resolveUserId(request, { rateLimit: API_KEY_LIMITS.GENERATE_CONTENT })` (2026-09-28 — a leaked API key previously got unmetered AI access). The `USE_SPECIAL_INSTRUCTIONS` check now uses the DB-backed `checkPermissionDB` instead of the compile-time `checkPermission` (2026-09-28 — this was the last server-side route authorizing from constants, so a revoked grant was ignored here). Sanitizes the job description via sanitize.js utility, deducts a credit atomically BEFORE generation (refunds on failure), checks USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves via ResumeService (correct ResumeMetadata document + generatedResumes link). Returns the generated content with a resumeId if saved.
 
-### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with deduct-first/refund-on-failure credit handling. Supports JWT auth via resolveUserId().
+### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with deduct-first/refund-on-failure credit handling. Supports JWT auth via resolveUserId(). Hardened 2026-09-28: `recipientName` and the profile name are run through `sanitizeJobDescription` and capped at 200 chars before reaching the prompt (they were interpolated raw, leaving an unblocked prompt-injection lane), and identity resolution carries a daily API-key rate limit.
 
-- `POST` — Requires GENERATE_COVER_LETTER permission. Resolves user identity, sanitizes the job description, **rejects an empty/missing master resume before spending a credit**, deducts a credit atomically BEFORE generation (refunds on failure), calls generateCoverLetter(). Persists by default; callers may pass `save:false` for preview-only generation. Returns the generated content with a coverLetterId if saved.
+- `POST` — Requires GENERATE_COVER_LETTER permission. Resolves user identity via `resolveUserId(request, { rateLimit: API_KEY_LIMITS.GENERATE_COVER_LETTER })`, sanitizes the job description, sanitizes + caps `recipientName` and the sender name at `MAX_PROMPT_NAME_LENGTH` (200), **rejects an empty/missing master resume before spending a credit**, deducts a credit atomically BEFORE generation (refunds on failure), calls generateCoverLetter(). Persists by default; callers may pass `save:false` for preview-only generation. Returns the generated content with a coverLetterId if saved.
 
 ### `src/app/api/health/route.js` — Simple health-check endpoint for monitoring.
 
@@ -257,7 +257,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/api/parse-resume/route.js` — Parses an uploaded resume file (PDF/DOCX) and extracts structured data. Hardened 2026-08-21: 5MB size cap (413), MIME allowlist, PDF/ZIP magic-byte verification (415). Metered 2026-08-22: deducts a credit before the AI call, refunds on failure.
 
-- `POST` — Requires PARSE_RESUME permission. Resolves user identity via resolveUserId(). Accepts a multipart form upload with field 'resumeFile', validates size/type/content signature, deducts 1 credit (refund on failure), then passes the verified Buffer to parseResume() and returns parsed JSON via ok().
+- `POST` — Requires PARSE_RESUME permission. Resolves user identity via `resolveUserId(request, { rateLimit: API_KEY_LIMITS.PARSE_RESUME })` (2026-09-28). Accepts a multipart form upload with field 'resumeFile', validates size/type/content signature, deducts 1 credit (refund on failure), then passes the verified Buffer to parseResume() and returns parsed JSON via ok().
 
 ### `src/app/api/render-pdf-react/route.js` — Generates a downloadable PDF for a resume or cover letter using React PDF renderer.
 
@@ -276,18 +276,18 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/app/api/resumes/master/route.js` — Creates/updates or deletes the user's master (primary) resume.
 
 - `validateContent` — Internal helper that validates resume content against RESUME_FIELD_SCHEMA, checking that required fields exist in object sections and array items. Returns an array of error messages.
-- `PUT` — Requires UPLOAD_MAIN_RESUME permission. Validates resume content against the field schema, then either updates the existing master resume or creates a new one and sets it as the user's mainResume. Returns the updated user (populated with resume metadata) and the resume.
+- `PUT` — Requires UPLOAD_MAIN_RESUME permission. Body parsed via `readJson` size guard (fixed 2026-09-28 — was a raw `req.json()` with no size cap). Validation failures return `422` **with a `details` array** of per-field messages (2026-09-28 — `ManualResumeForm` renders `data.details`, which the route never sent). Validates resume content against the field schema, then either updates the existing master resume or creates a new one and sets it as the user's mainResume. Returns the updated user (populated with resume metadata) and the resume.
 - `DELETE` — Requires DELETE_OWN_RESUME permission. Removes the user's mainResume reference and deletes the resume document.
 
 ### `src/app/api/resumes/route.js` — Lists the user's generated resumes or creates a new resume. Uses resolveUserId() for dual auth (JWT/API key).
 
 - `GET` — Requires VIEW_OWN_RESUMES permission. Loads the user with populated generatedResumes (each with populated metadata) and returns the array.
-- `POST` — Requires CREATE_RESUME permission. Accepts content and optional metadata, deducts a credit via SubscriptionService.trackUsage(), creates the resume via ResumeService, and adds it to the user's generatedResumes list. Fixed 2026-09-21: creation wrapped in try/catch with refundUsage on DB failure (was a credit leak).
+- `POST` — Requires CREATE_RESUME permission. Body parsed via `readJson` size guard (fixed 2026-09-28 — was a raw `req.json()` with no size cap). Accepts content and optional metadata, deducts a credit via SubscriptionService.trackUsage(), creates the resume via ResumeService, and adds it to the user's generatedResumes list. Fixed 2026-09-21: creation wrapped in try/catch with refundUsage on DB failure (was a credit leak).
 
 ### `src/app/api/user/profile/route.js` — Get and update the authenticated user's profile. Uses DB-backed `requirePermission`, validates input shapes, and returns a server-computed `creditsRemaining` field (single source of truth for billing UI). GET also returns real billing fields (subscriptionId, subscriptionStatus, subscriptionExpiresAt) so the UI never guesses.
 
 - `GET` — Requires VIEW_OWN_PROFILE permission (DB-backed). Returns whitelisted fields incl. `creditsRemaining` computed via SubscriptionService.getLimit() plus subscription status/expiry.
-- `PUT` — Body parsed via readJson size guard; name/dateOfBirth format-validated; requires EDIT_OWN_PROFILE permission (DB-backed). Creates a new Resume document if mainResume is provided (structure strictly validated against RESUME_FIELD_SCHEMA section types + must contain some resume signal) **and deletes the superseded master Resume + its metadata unless it's still in generatedResumes** (no more orphan accumulation). Returns the updated profile.
+- `PUT` — Body parsed via `readJson` size guard (2026-09-28 — the doc claimed this before the code did; the handler used a raw `await req.json()` with no size cap); name/dateOfBirth format-validated; requires EDIT_OWN_PROFILE permission (DB-backed). Creates a new Resume document if mainResume is provided (structure strictly validated against RESUME_FIELD_SCHEMA section types + must contain some resume signal) **and deletes the superseded master Resume + its metadata unless it's still in generatedResumes** (no more orphan accumulation). Returns the updated profile.
 
 ### `src/app/api/webhooks/stripe/route.js` — Handles incoming Stripe webhook events for subscription lifecycle management.
 
@@ -378,6 +378,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `handleAiEdit` — Async function that sends a natural-language edit query to POST /api/edit-resume-with-ai to modify the master resume content via AI.
 - `handleDeleteMasterResume` — Async function that deletes the master resume via DELETE /api/resumes/master.
 - `handleUpgrade` — Async function that initiates a Stripe checkout session sending planName 'PRO'.
+- Fixed 2026-09-28: toggling the manual resume form no longer silently discards edits — the toggle is intercepted with a `window.confirm` while `ManualResumeForm` reports unsaved changes via `onDirtyChange` (`manualFormDirty` state).
 - `handleManageSubscription` — Async function that opens the Stripe billing portal for subscription management.
 
 
@@ -389,12 +390,13 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/components/profile/ManualResumeForm.js` — Multi-section form for manually entering resume data. Driven entirely by RESUME_FIELD_SCHEMA -- add a field there, it appears here. Available to all users (no AI parsing required).
 
-- `TagInputField` — Standalone TAG_LIST input component (own useState draft state) — extracted so FieldInput has no conditional hooks
-- `FieldInput` — Renders primitive form field inputs based on field type (checkbox, textarea, bullet list, tag list via TagInputField, text/email/url/month)
+- `TagInputField` — Standalone TAG_LIST input component (own useState draft state) — extracted so FieldInput has no conditional hooks. Tags are keyed by their value (tags are de-duplicated on add, so the value is a stable unique key).
+- `BulletListField` — Standalone BULLET_LIST input component, extracted for the same "no conditional hooks" reason.
+- `FieldInput` — Renders primitive form field inputs based on field type (checkbox, textarea, bullet list via BulletListField, tag list via TagInputField, text/email/url/month). Fixed 2026-09-28: text/textarea inputs now carry `required` from the field schema.
 - `ObjectSection` — Renders an object-type section (profile, additional_info) with a grid of field inputs
 - `ArrayItemCard` — Renders a single item card for array sections (work_experience, education, skills) with field inputs and remove button
-- `ArraySection` — Wrapper for array-type sections that manages add/update/remove of items
-- `ManualResumeForm (default export)` — Main component: multi-section form with sidebar navigation, section content panels, and save-to-API functionality
+- `ArraySection` — Wrapper for array-type sections that manages add/update/remove of items. Fixed 2026-09-28: rows are keyed by a generated stable id allocated on add and retired on remove instead of the array index (the index-as-key bug), falling back to the index if the parent ever changes the list length behind its back.
+- `ManualResumeForm (default export)` — Main component: multi-section form with sidebar navigation, section content panels, and save-to-API functionality. Fixed 2026-09-28: accepts `onDirtyChange` and reports unsaved edits (compared against the initial snapshot, reset on successful save) so the page can confirm before discarding; the save error path now receives real per-field messages because `PUT /api/resumes/master` returns a `details` array.
 
 ### `src/components/profile/ResumeUpload.js` — A component for uploading a resume file (PDF or DOCX). Shows a file input trigger button and a dashed drop zone.
 
@@ -439,7 +441,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/config/env.js` — Single source of truth for environment variable access. Centralizes all process.env references so renaming a variable only requires a change here. Also exports `validateEnv()` for boot-time validation of required vars (see `src/instrumentation.js`).
 
-- `env (default export)` — Object mapping config keys to environment variables for auth secrets, MongoDB URI, AI keys (Gemini + DeepSeek), Stripe keys, Brevo email config, and app URL.
+- `env (default export)` — Object mapping config keys to environment variables for auth secrets, MongoDB URI, AI keys (Gemini + DeepSeek), Stripe keys, Brevo email config, app URL, and `allowedOrigins` (the raw comma-separated `ALLOWED_ORIGINS` string consumed by the CSRF allow-list in `src/lib/csrf.js`). Added 2026-09-28.
 - `validateEnv(opts)` — Returns `{ missing, warnings }`; throws when `opts.throwOnError` and required vars are absent.
 
 
@@ -478,13 +480,17 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ## lib
 
-### `src/lib/accessControl.js` — Permission checking utilities. Centralized access control using role-based permission lists with 'ALL' wildcard support for admin. Supports both synchronous (constants-only) and async DB-first checking paths.
+### `src/lib/accessControl.js` — The single authorization service. Role-based permission lists with 'ALL' wildcard support for admin, plus the canonical root-Admin rule and the fail-closed DB policy. **Fail-closed on store failure (2026-09-28, audit M2):** the old `hasPermissionDB` silently fell back to the compile-time `ROLE_PERMISSIONS` constants when the database was unreachable, so a revoked permission came back during an outage — an outage that *widened* access, which AGENTS.md §12 forbids.
 
-- `hasPermission` — SYNC: Checks if a numeric userRole has a specific permission string against ROLE_PERMISSIONS mapping. Supports 'ALL' wildcard (ADMIN role returns true for any permission check). Returns false for unknown roles. Fallback when DB is unavailable.
-- `hasPermissionDB` — ASYNC: Checks if a numeric userRole has a permission, trying the database first (with 60-second in-memory cache) and falling back to hasPermission(). Server-side code should use this for real-time permission changes from admin UI.
-- `checkPermission` — SYNC: Checks if a user object (containing role) has a specific permission using constants-only. Safe for client components.
-- `checkPermissionDB` — ASYNC: Server-side variant of checkPermission that tries DB first. Use in API routes and server actions.
-- `getPermissionMetadata` — Retrieves metadata (name, description, requiredPlan) for a given permission key from PERMISSION_METADATA
+- `hasPermission` — SYNC: Checks a numeric userRole against the compile-time ROLE_PERMISSIONS map, with 'ALL' wildcard support. Returns false for unknown roles. Client-component safe. **Not used as a server-side fallback any more** (see the policy below).
+- `hasPermissionDB` — ASYNC: Authoritative server-side check. Rejects a missing/empty permission identifier, then resolves the policy through `resolveRolePolicy` and denies when none is available.
+- `checkPermission` — SYNC: Constants-only check for client components.
+- `checkPermissionDB` — ASYNC: Server-side check on a user object; denies when the user is missing or has no role.
+- `getPermissionMetadata` — Retrieves metadata (name, description, requiredPlan) for a permission key.
+- `invalidateRoleCache` — Drops the cached role snapshot. Called by `PUT /api/admin/roles` so a permission revocation takes effect on the next check instead of after the 60-second TTL.
+- `isRootAdmin` — **The** canonical root-Admin predicate (`role === ROLES.ADMIN`). Routes/services must call this (or `hasPermissionDB`) instead of testing `role === 0` themselves, so there is exactly one unrestricted path (AGENTS.md §3A/§14).
+- `getNonDelegablePermissions` — Returns the permission keys whose metadata sets `delegable: false` (today: `delegate_role_management`). No delegated manager may ever assign them.
+- Internal: `loadDbRoles` — reads all roles into the snapshot; returns `{ ok: false }` on failure instead of throwing or falling back. Internal: `resolveRolePolicy` — resolution order: fresh cache → reload → **verified last-known-good DB snapshot (max 5 min old)** → `null` (caller denies) → deny. The compile-time constants are consulted only when the store loaded successfully and is genuinely **empty** (bootstrap, `node scripts/seed.mjs` never run), which is logged as a warning. **Documented fallback behaviour:** an unreachable store never widens access; the only availability fallback is the last verified DB snapshot, bounded to 5 minutes.
 
 ### `src/lib/ai/client.js` — Unified AI client that routes AI calls to the configured provider (Gemini or DeepSeek) for any task, with optional JSON parsing and automatic retry/backoff for transient provider failures (429/5xx, timeouts, network errors — max 3 attempts).
 
@@ -514,13 +520,14 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `authenticateRequest` — Validates a Bearer API key from the Authorization header, checks expiration, updates last-used timestamp, and returns the associated user document. **Dormant** — only consumer (archived gatekeeper route) removed.
 - `resolveUserId` — Resolves a userId from either an API key (Bearer token) or the x-user-id header (JWT proxy), supporting both auth methods. Accepts optional `{ rateLimit }` option to apply daily rate limiting for API-key-authenticated calls. **Actively used** across live routes (JWT path).
-- `checkRateLimit` — Checks and increments daily API call count for a user against a configurable limit (default 100), returns 429 error if exceeded. **Dormant** — only caller was the archived gatekeeper route.
-- `generateApiKey` — Generates a new API key with 'rb_' prefix, random 32-byte hex, and returns { plainKey, hashedKey, keyPrefix }. **Dormant** — only caller was the archived api-keys POST route.
+- `checkRateLimit` — Checks and increments the daily API-call count for a user against a configurable limit (default 100), returning a 429 error when exceeded. **No longer dormant (2026-09-28):** `generate-content`, `generate-cover-letter`, `edit-resume-with-ai` and `parse-resume` now pass `{ rateLimit: API_KEY_LIMITS.* }` to `resolveUserId`, so a leaked API key is metered instead of granting unlimited unthrottled AI access.
+- `generateApiKey` — **Deleted 2026-09-28** (unreferenced since the api-keys routes were archived).
 
-### `src/lib/apiPermissionGuard.js` — Route-level permission guard that retrieves a user by ID and checks if they have a required permission before allowing access. Now uses DB-backed checkPermissionDB with fallback to constants.
+### `src/lib/apiPermissionGuard.js` — Route-level permission guard that retrieves a user by ID and checks if they have a required permission before allowing access. Uses the fail-closed DB-backed `checkPermissionDB`. Status codes aligned with AGENTS.md §22 on 2026-09-28: **401** for a missing, malformed, or unresolvable identity (was a bare 401 with no code, a 404 for a missing user record, and a 500 CastError for a malformed id), **403** for a permission denial (now with a machine-readable `code`).
 
-- `requirePermission` — Fetches a user by ID, checks the required permission via async checkPermissionDB (DB-first, falls back to constants), and returns the user object or an error response
-- `isPermissionError` — Helper that returns true if a requirePermission result contains an error
+- `requirePermission(userId, permission)` — Validates the identity, loads the user, checks the permission via `checkPermissionDB`, and returns `{ user }` or `{ error }` with 401 (`UNAUTHENTICATED` / `INVALID_IDENTITY` / `IDENTITY_UNRESOLVABLE`) or 403 (`PERMISSION_DENIED`).
+- `isPermissionError(result)` — Helper that returns true if a requirePermission result contains an error.
+- `isValidObjectId(id)` — Validates the shape of a Mongo ObjectId **before** it reaches Mongoose, so client-supplied ids on `/api/admin/users/[id]/*` produce a clean 400 instead of a CastError 500.
 
 ### `src/lib/apiResponse.js` — Standardized API response helpers for Next.js route handlers, providing success/error responses, enveloped success, custom error classes, and error wrapping.
 
@@ -537,13 +544,12 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `readJson(request, maxBytes)` — Reads a JSON body with a hard size cap (default 256KB) **measured in actual UTF-8 bytes**, returning `{ok, body}` or `{ok:false, response}` with 400/413 errors. Used by AI/PDF routes to bound payload size.
 - `withErrorHandler` — Higher-order function that wraps a route handler, catching AppError subclasses for status-specific responses and generic errors for a 500 response
 
-### `src/lib/sanitize.js` — Shared utility for sanitizing user-provided text (e.g. job descriptions) against prompt injection patterns. The identity-override pattern only matches AI/system targets ("act as the system"), so legitimate job text like "act as a mentor" survives.
+### `src/lib/sanitize.js` — Shared utility for sanitizing user-provided text (e.g. job descriptions, recipient names) against prompt injection patterns. The identity-override pattern only matches AI/system targets ("act as the system"), so legitimate job text like "act as a mentor" survives. Also exports `MAX_JOB_DESCRIPTION_LENGTH`. `sanitizeJobDescriptionWithInfo` was **deleted 2026-09-28** (unreferenced).
 
 - `sanitizeJobDescription` — Strips prompt injection patterns from text and truncates to 8000 characters (logs a warning when truncation occurs)
-- `sanitizeJobDescriptionWithInfo` — Same sanitization, returns `{ text, wasTruncated }` for callers that want to surface a notice
 - `MAX_JOB_DESCRIPTION_LENGTH` — Exported truncation limit (8000)
 
-### `src/lib/auth-edge.js` — Edge-runtime JWT verification using the jose library. Used in middleware/edge functions for fast token validation without database access. Asserts the embedded `type` claim matches the expected token type.
+### `src/lib/auth-edge.js` — Edge-runtime JWT verification using the jose library. Used in middleware/edge functions for fast token validation without database access. Asserts the embedded `type` claim matches the expected token type. Fixed 2026-09-28: `jwtVerify` now passes `algorithms: JWT_ALGORITHMS` (HS256 only), so an HS384/HS512 token signed with the same secret is rejected.
 
 - `verifyTokenEdge` — Verifies a JWT token (access or refresh) using jose and the appropriate secret key, returns the decoded payload
 - `verifyAuthEdge` — Verifies authentication from access/refresh token cookies at the edge; returns { ok, userId, role } on success, or { ok: false } if invalid (cannot rotate at edge)
@@ -556,11 +562,13 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/lib/constants.js` — Application-wide constants including role/permission enums, plan definitions, token config, routes, and API endpoints.
 
 - `ROLES` — Enum mapping role names (ADMIN: 0, DEVELOPER: 70, SUBSCRIBER: 99, USER: 100) to numeric levels
-- `PERMISSIONS` — Enum of 30 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, and billing. Includes EDIT_COVER_LETTER (cover letter editing) and MANAGE_ROLES (admin permission management) — both PRO-tier permissions. (Automation permission strings were removed in the 2026-09-11 purge; pre-purge DBs may still hold them as inert rows.)
+- `PERMISSIONS` — Enum of 31 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, and billing. `MANAGE_ROLES` is developer-tier (view/edit role matrix), while `DELEGATE_ROLE_MANAGEMENT` (added 2026-09-28) is the **root-ADMIN-only** permission required to actually rewrite a role's permission set. (Automation permission strings were removed in the 2026-09-11 purge; pre-purge DBs may still hold them as inert rows.)
 - `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN uses 'ALL' wildcard (any permission check passes), DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base plus a free trial (GENERATE_RESUME + VIEW_OWN_RESUMES, added 2026-09-22) so free users can test generation with 3 daily credits. No more duplicated arrays.
-- `PERMISSION_METADATA` — Maps all 30 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments.
+- `PERMISSION_METADATA` — Maps all 31 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments. `delegate_role_management` additionally carries `systemProtected: true`, `adminOnly: true`, `delegable: false` and a `nonDelegableReason` — the metadata the backend enforces through `getNonDelegablePermissions()`.
 - `PLANS` — Defines Free (3 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
 - `TOKEN_CONFIG` — JWT token configuration: access token expiry (15m), refresh token expiry (15 days), and type identifiers
+- `JWT_ALGORITHMS` — `['HS256']`, the only algorithm ever issued and the allowlist passed to every `jwtVerify` call (added 2026-09-28)
+- `API_KEY_LIMITS` — Daily per-key request caps for the AI-backed routes (added 2026-09-28): `GENERATE_CONTENT` 50, `GENERATE_COVER_LETTER` 50, `EDIT_RESUME_WITH_AI` 50, `PARSE_RESUME` 20
 - `COOKIE_NAMES` — App-specific auth cookie names (`ats_accessToken`, `ats_refreshToken`, `ats_subCheckedAt`) used by proxy.js, serverAuth.js, verify-otp and logout routes. Added 2026-08-22: cookies are scoped by host (not port), so generic names were being clobbered by another localhost app on a different port, randomly logging users out
 - `DEFAULTS` — Default values such as credits on signup
 - `OTP_CONFIG` — OTP expiry configuration (5 minutes)
@@ -569,7 +577,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/lib/coverLetter-generator.js` — Shared core for cover letter generation via AI. Builds prompts and calls the AI client to produce a cover letter JSON object.
 
-- `generateCoverLetter` — Generates a cover letter by constructing a detailed prompt from the user's resume, job description, and optional recipient/sender info, then calling the AI client.
+- `generateCoverLetter` — Generates a cover letter by constructing a detailed prompt from the user's resume, job description, and optional recipient/sender info, then calling the AI client. Fixed 2026-09-28: `recipientName` and `userName` are scrubbed with `sanitizeJobDescription` and capped at `MAX_NAME_LENGTH` (200) **inside the library** as defence in depth, in addition to the route-level scrubbing — they used to be interpolated raw, leaving a prompt-injection lane into the INSTRUCTIONS block.
 
 ### `src/lib/coverLetterFields.js` — Source of truth for the cover letter content structure — defines all fields, their types, labels, and required flags. Also provides schema generation helper mirroring resumeFields.js.
 
@@ -639,12 +647,11 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 ### `src/lib/stripe.js` — Lazy Stripe SDK singleton (fixed 2026-09-26: was throwing at import time, which broke `next build` without keys).
 
 - `getStripe()` — Returns the cached Stripe instance (apiVersion 2023-10-16), creating it on first use. Throws only when called without `STRIPE_SECRET_KEY` set — never at import. All 5 consumers (checkout create/verify/portal, admin user delete, webhook) call it inside handlers and return 503 when billing is unconfigured.
-- `isStripeConfigured()` — Boolean helper; true when `STRIPE_SECRET_KEY` is set.
 
 ### `src/lib/subscriptionChecker.js` — Subscription expiration checking and automatic user downgrade logic.
 
 - `checkAndDowngradeExpiredSubscription` — Checks if a user's subscription has expired and downgrades their role to USER if so; **clears `subscriptionId`** so credit limits no longer treat them as PRO.
-- `isSubscriptionActive` — Returns true if the user's subscription status is active and the expiration date is in the future.
+- `isSubscriptionActive` — Returns a strict boolean: `subscriptionStatus === 'active'` **and** `subscriptionExpiresAt` strictly in the future. No longer dead code (2026-09-28): `SubscriptionService.getLimit` now calls it, so an expired subscriber cannot keep Pro limits when the periodic downgrade job has not run yet. Also hardened to return `false` (not `undefined`) when no expiry is recorded.
 
 ### `src/lib/utils.js` — Utility functions for SHA-256 hashing (hex string and raw Buffer variants) and JWT access/refresh token generation and verification. `generateRefreshToken` accepts an optional `expiresIn` (default '15d') for remember-me sessions; `resolveRotationLifetime` (pure, tested) carries a longer lifetime forward on rotation.
 
@@ -653,9 +660,34 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `sha256Buffer` — SHA-256 hash returning a raw Buffer (for key derivation, etc.). No live importers since `src/lib/encryption.js` was purged with the automation archive (2026-09-11); kept for reuse.
 - `generateAccessToken` — Creates and signs a JWT access token containing `type: 'access'`, userId and role, using the configured expiry.
 - `generateRefreshToken` — Creates and signs a JWT refresh token containing `type: 'refresh'` and userId, with a configurable expiry (default 15 days, '30d' for remember-me).
-- `verifyToken` — Verifies a JWT token (access or refresh) using the corresponding secret and asserts the embedded `type` claim matches (legacy claim-less tokens tolerated).
+- `verifyToken` — Verifies a JWT token (access or refresh) using the corresponding secret, **pinned to `algorithms: ['HS256']`** (2026-09-28 — verification previously accepted any HMAC algorithm, so HS384/HS512 tokens signed with the same secret were accepted although only HS256 is ever issued), and asserts the embedded `type` claim matches (legacy claim-less tokens tolerated).
 - `resolveRotationLifetime` — Pure helper returning `{ expiresAt, maxAgeSeconds, jwtExp }`: preserves remaining lifetime when it exceeds 15 days, otherwise the default 15-day window.
 
+
+### `src/lib/clientIp.js` — Resolves the **platform-provided** client IP and derives non-reversible rate-limit keys (added 2026-09-28).
+
+- `getClientIp(request)` — Returns the first present value among `x-vercel-forwarded-for`, `cf-connecting-ip`, `x-real-ip`, else `'unknown'`. `x-forwarded-for` is deliberately ignored: it is client-supplied and trivially forged, which was the root cause of the bypassable OTP throttle.
+- `buildOtpThrottleKey(request, normalizedEmail)` — SHA-256 hash of the client IP joined with a SHA-256 hash of the normalized email. Hashing keeps raw addresses out of memory/logs.
+
+### `src/lib/csrf.js` — Origin / Sec-Fetch-Site allow-list for state-changing API requests, enforced by `src/proxy.js` (added 2026-09-28). Fails closed on any mismatch, consistent with the existing nonce CSP.
+
+- `checkCsrfRequest(request, { pathname, allowedOrigins })` — Returns `null` when the request may proceed or a 403 `NextResponse` otherwise. Safe methods pass. Bearer API-key callers pass (no ambient cookie authority). `Sec-Fetch-Site` of anything other than `same-origin`/`none` → `CSRF_CROSS_SITE`. A present `Origin` must be in the normalized allow-list → otherwise `CSRF_BAD_ORIGIN`. Requests with neither header (server-to-server SDK, curl, the proxy's own internal fetch) proceed.
+- `isCsrfExempt(pathname)` — `/api/webhooks/*` is exempt (Stripe authenticates by signature, not cookies). Look-alike paths are not exempt.
+- `normalizeOrigins(origins)` — Trims, URL-parses and de-duplicates the allow-list; malformed entries are dropped rather than widening the list.
+
+### `src/lib/roleAuthorization.js` — Centralized guards for delegated role/user administration (added 2026-09-28). Every guard returns a plain `{ allowed: true }` / `{ allowed: false, reason, code, deniedPermissions? }` decision so routes stay thin and the rules are unit-testable. Numeric ranks are used here **only** for administrative hierarchy boundaries; feature authorization always resolves named permissions through `hasPermissionDB()`.
+
+- `evaluateRootRoleWrite(roleValue)` — Refuses `roleValue === ROLES.ADMIN` outright (`ROOT_ROLE_PROTECTED`): only root ADMIN may write the root role, and it can never be created, cloned or renamed into through ordinary CRUD.
+- `evaluateRankCeiling(actor, targetRank, { newRank })` — Root ADMIN may manage any rank. Otherwise: an unknown/malformed caller rank fails closed (`CALLER_RANK_UNKNOWN`), a target rank higher than the caller's is refused (`RANK_CEILING_EXCEEDED`), and so is an assignment above the caller's own rank (`RANK_ASSIGNMENT_EXCEEDED`).
+- `evaluateSelfChange({ actorId, targetId, newRank, currentRank })` — Self-escalation guard. Blocks **any** change to the caller's own account: a higher rank is `SELF_ESCALATION_BLOCKED`, any other change `SELF_ROLE_CHANGE_BLOCKED`. Replaces the old self-demotion-only check that permitted self-promotion to root.
+- `evaluateRolePermissionWrite({ actor, roleValue, permissions })` — Full pre-write evaluation for `PUT /api/admin/roles`, in order: well-formed list (invalid / duplicate / >200 entries rejected) → delegation authority → root-role protection → rank ceiling → no rewrite of the caller's own role (`SELF_ROLE_REWRITE_BLOCKED`) → no `ALL` wildcard (`WILDCARD_FORBIDDEN`) → no non-delegable permission (`NON_DELEGABLE_PERMISSION`) → no unknown key (`UNKNOWN_PERMISSION`) → **permission ceiling**: a non-root caller can never grant a permission they do not hold (`PERMISSION_CEILING_EXCEEDED`). Root ADMIN is exempt from the permission ceiling by design (wildcard authority).
+- `evaluateUserRoleChange({ actor, actorId, targetId, newRank, currentRank })` — Composes the self-change guard with the rank ceiling for role changes on a user account. The `CHANGE_USER_ROLE` permission itself is checked by `requirePermission` first.
+
+### `src/lib/auditLog.js` — Durable audit trail for security-sensitive mutations (added 2026-09-28). Writes are best-effort and never throw into the request path, but a failed write is logged as an error.
+
+- `recordAuthorizationEvent({ actorId, actorRole, action, targetType, targetId, outcome, before, after, request })` — Persists one `AuthorizationEvent`. `outcome` is `allowed` or `denied`. Values are reduced to scalars, truncated, and any key matching a credential pattern (token/secret/password/otp/authorization/apiKey/cookie/signature/customerId/…) is replaced with `[redacted]` — secrets and full tokens are never written.
+- `resolveRequestId(request)` — Honours an inbound `X-Request-Id` (validated) or generates a UUID, so proxy and API logs can be correlated.
+- Internal: `sanitizeValue` — depth-limited, length-capped, credential-redacting serializer used for the before/after snapshots.
 
 ---
 
@@ -679,9 +711,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `Permission (default export)` — Mongoose model with fields: key (unique), name, description, group (Admin/AI/Resume etc.), requiredPlan (FREE/PRO/DEVELOPER/ADMIN), timestamps. Used by the admin permission management UI and seed script.
 
-### `src/models/plan.js` — Mongoose model for subscription plans defining name, price, credits, billing interval, and Stripe price ID.
+### `src/models/AuthorizationEvent.js` — Mongoose model for the authorization/audit event log (added 2026-09-28). One document per sensitive mutation or blocked attempt.
 
-- `default export (Plan model)` — Reuses existing Mongoose model or creates a new 'Plan' model with fields: name, price, currency, credits, interval, stripePriceId.
+- `AuthorizationEvent (default export)` — Fields: `actor` (ref User, indexed), `actorRole` (number), `action` (indexed), `targetType`, `targetId` (indexed), `outcome` (`allowed` | `denied`), `before`/`after` (Mixed, redacted snapshots), `requestId`, `ip` (platform-provided), `userAgent`, `createdAt` (timestamps, no updatedAt). Actions currently written: `role.permissions.updated`, `role.permissions.denied`, `user.role.updated`, `user.role.denied`, `user.credits.adjusted`, `user.credits.reset`, `user.deleted`, `user.delete.denied`, `subscription.upgraded`, `subscription.upgrade.denied`, `subscription.upgrade.replay_blocked`.
 
 ### `src/models/refreshToken.js` — Mongoose model for authentication refresh tokens with a compound index on userId+token and a TTL index on expiresAt for automatic MongoDB document deletion.
 
@@ -712,12 +744,14 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ## proxy.js
 
-### `src/proxy.js` — Next.js Edge Middleware that handles authentication (JWT verification and token rotation), subscription status checking, route-level access control (admin/protected/public), and cookie management. Fixed 2026-09-21: protects /cover-letters/* + /ai-edit/* (were unauthenticated); internal fetches use req.nextUrl.origin + 5s AbortSignal.timeout. Fixed 2026-09-22: rotated refresh cookie honors the rotation response's maxAge (validated, capped at 31 days) so remember-me sessions survive rotation.
+### `src/proxy.js` — Next.js Middleware that handles authentication (JWT verification and token rotation), subscription status checking, route-level access control (admin/protected/public), CSRF screening, and cookie management. Fixed 2026-09-21: protects /cover-letters/* + /ai-edit/* (were unauthenticated); internal fetches use req.nextUrl.origin + 5s AbortSignal.timeout. Fixed 2026-09-22: rotated refresh cookie honors the rotation response's maxAge (validated, capped at 31 days) so remember-me sessions survive rotation. Hardened 2026-09-28: **CSRF check on every non-GET `/api/*` request** before any auth work, and the bare 401 now carries `code: 'UNAUTHENTICATED'`.
 
 - `proxy(req)` — Main middleware handler. Validates authentication via verifyAuthEdge, attempts token rotation using refresh tokens on failure, periodically checks subscription status, enforces role-based routing (redirects unauthenticated users to login, admins-only for /admin, authenticated users away from /login), injects x-user-id header on API requests, and manages cookie setting/clearing for tokens and subscription check timestamps. All auth cookies are read/written via the `COOKIE_NAMES` constants (`ats_*` prefix — added 2026-08-22 so other localhost apps on different ports can't clobber the session).
 - `config` — Next.js middleware matcher configuration specifying which route patterns trigger the proxy: /api/:path*, /dashboard/:path*, /profile/:path*, /onboarding/:path*, /admin/:path*, /login, /resume-history/:path*, /checkout/:path*, /cover-letters/:path*, /ai-edit/:path*.
 - Hardened 2026-08-21: `/api/health` is exempted at the top of the handler so uptime monitors can reach it without auth; the internal subscription-check fetch now forwards the request Cookie header instead of trusting a client-settable x-user-id.
 - Hardened 2026-08-22: on failed rotation the proxy checks whether the refresh JWT is still structurally valid — if so (rotation race in flight) cookies are NOT cleared, preventing random logouts; `subCheckedAt` cookie is now httpOnly+secure so client JS can't postpone periodic downgrade checks.
+- `allowedOrigins(req)` — Builds the CSRF allow-list: `env.appUrl` (NEXT_PUBLIC_APP_URL) + the comma-separated `ALLOWED_ORIGINS` env var + the request's own origin.
+- CSRF (2026-09-28): every non-GET `/api/*` request runs `checkCsrfRequest()` **first**, before authentication. A mismatched `Origin`, a `Sec-Fetch-Site` of `cross-site`/`same-site`, or a malformed Origin is refused with 403 and a machine-readable code — failing closed. Bearer API-key callers and `/api/webhooks/*` (server-to-server, signature-authenticated) are exempt, as are safe methods.
 
 
 ---
@@ -756,9 +790,9 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `CoverLetterService.updateCoverLetter(id, userId, updates, returnNew)` — Updates a cover letter's content and/or metadata fields using findOneAndUpdate scoped to userId.
 - `CoverLetterService.deleteCoverLetter(id, userId)` — Deletes a cover letter by ID and userId using findOneAndDelete.
 
-### `src/services/subscriptionService.js` — Subscription and credit usage management service that tracks per-user daily/weekly credit limits, resets usage for free users, and enforces plan boundaries.
+### `src/services/subscriptionService.js` — Subscription and credit usage management service that tracks per-user daily/weekly credit limits, resets usage for free users, and enforces plan boundaries. Fixed 2026-09-28 (audit H2): `getLimit` granted Pro credits on `role === SUBSCRIBER` + `subscriptionStatus === 'active'` and never compared `subscriptionExpiresAt`, so a lapsed subscriber kept Pro limits whenever the periodic downgrade had not run (the proxy only triggers it every 5 minutes, best-effort).
 
-- `SubscriptionService.getLimit(user)` — Async; DB-backed UNLIMITED_CREDITS check (checkPermissionDB with the full user object) so admin revocations apply immediately; PRO limits require role SUBSCRIBER **and a live subscription status** — a stale subscriptionId alone no longer grants Pro (downgrade leak closed).
+- `SubscriptionService.getLimit(user)` — Async; DB-backed UNLIMITED_CREDITS check (checkPermissionDB with the full user object, fail-closed) so admin revocations apply immediately. PRO limits now require `role === SUBSCRIBER` **and `isSubscriptionActive(user)`** — status `active` *plus* an expiry strictly in the future. A stale `subscriptionId`, a missing expiry, or an elapsed one all fall back to Free limits, so an expired subscriber cannot keep Pro credits between periodic downgrade runs.
 - `SubscriptionService.trackUsage(userId, amount)` — Atomically increments a user's creditsUsed counter only if it would not exceed the limit. Automatically checks/resets daily limits for free users. Returns true on success, false if limit would be exceeded.
 - `SubscriptionService.hasCredits(userId, amount)` — Checks whether a user has enough remaining credits for a given operation without deducting. Returns boolean.
 - `SubscriptionService.checkAndResetDailyLimits(user)` — Resets a free user's creditsUsed to 0 if the current day differs from lastCreditResetDate. Skips reset for subscriber-role users.
@@ -790,7 +824,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 **Usage:** `node scripts/sync-free-tier.mjs [--dry-run]` (reads MONGODB_URI from env or `.env.local`)
 
-### `vitest.config.mjs` — Vitest test runner config: `@/*` alias + an Oxc-based plugin that compiles JSX inside the app's `.js` source files (Next.js convention) so templates can be imported in tests. Tests live in `tests/` and run via `npm test`. (Renamed from `.js` on 2026-09-26 to silence the Vite ESM/CommonJS loader warning.)
+### `vitest.config.mjs` — Vitest test runner config: `@/*` alias + an Oxc-based plugin that compiles JSX inside the app's `.js` source files (Next.js convention) so templates can be imported in tests. Tests live in `tests/` and run via the single entry point `npm test` (11 files / 139 tests as of 2026-09-28). (Renamed from `.js` on 2026-09-26 to silence the Vite ESM/CommonJS loader warning.)
 
 ### `tests/aiParsers.test.js` — Regression tests for AI JSON parsers (added 2026-09-21 for audit H2 fix).
 
@@ -812,9 +846,33 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `resolveRotationLifetime` — Verifies standard sessions keep the 15-day window, 30-day tokens carry remaining lifetime forward, expired tokens fall back to 15 days.
 
-### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections. Updated 2026-09-22: USER mirror includes the free trial (`generate_resume`, `view_own_resumes`, requiredPlan FREE).
+### `tests/accessControl.test.js` — Authorization-service regression tests (added 2026-09-28). Mongoose/Mongo mocked via `vi.mock`; no live database.
 
-Populates the database with all 30 permissions and 4 roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) using a hand-mirrored copy of constants.js metadata. **Must be run when switching to a fresh database** — without it, the admin permissions page shows nothing.
+Covers: the `delegate_role_management` registry entry and that only root ADMIN holds it; `evaluateRolePermissionWrite` refusals (DELEGATION_NOT_PERMITTED for a DEVELOPER, ROOT_ROLE_PROTECTED for roleValue 0, PERMISSION_CEILING_EXCEEDED laundering, NON_DELEGABLE_PERMISSION, WILDCARD_FORBIDDEN, malformed/duplicate/unknown lists) and the root-ADMIN success path; rank-ceiling and self-escalation guards (including the still-blocked self-demotion); **store-outage fail-closed behaviour** (a revoked permission is not restored from the constants, ADMIN is denied too, unknown roles deny, last-known-good snapshot serves briefly, roles-PUT cache invalidation is immediate); and HS256-only JWT verification (HS384/HS512 rejected by `verifyToken` and `verifyTokenEdge`).
+
+### `tests/adminAuthorization.test.js` — Route-level authorization tests for the highest-risk admin/billing paths (added 2026-09-28). Mongoose models are mocked.
+
+Covers: `PUT /api/admin/roles` (DEVELOPER 403, unauthenticated 401, roleValue 0 refused, laundering refused, wildcard refused, root ADMIN 200 + cache invalidation, audit events for allowed and denied writes); `PATCH /api/admin/users/[id]/role` (self-promotion blocked, self-demotion still blocked, rank ceiling, root ADMIN allowed + audited, malformed id 400); `DELETE /api/admin/users/[id]` (DEVELOPER 403 because DELETE_USER is admin-only, delete_user holder allowed with cascade, unauthenticated 401, malformed id 400, self-delete blocked); `POST /api/checkout/verify-session` (single-use: replay → 409 with no writes, no `creditsUsed` refund, cancelled/expired subscriptions never reactivated, cross-user/unpaid/non-PRO refused, 401, 413); and unauthenticated/cross-user (IDOR) coverage on the resume and cover-letter id routes plus 401 vs 403 status-code behaviour.
+
+### `tests/subscriptionLimits.test.js` — Credit-limit entitlement tests (added 2026-09-28). Fake timers pin the boundary.
+
+Covers: Pro limits for an active unexpired subscriber; Free limits when the subscription is expired, missing an expiry, or not `active`; the exact-expiry instant treated as expired; no Pro for a non-subscriber role; `UNLIMITED_CREDITS` still short-circuiting; and `isSubscriptionActive` agreement at every boundary.
+
+### `tests/csrf.test.js` — CSRF allow-list tests for `checkCsrfRequest` (added 2026-09-28).
+
+Covers: same-origin POST passes; a configured secondary origin passes; trailing slashes normalized; mismatched and malformed Origins refused; **no Origin but `Sec-Fetch-Site: cross-site` refused**; `same-site` refusals; an empty allow-list refuses; safe methods never blocked; Bearer API-key callers exempt; `/api/webhooks/*` exempt but look-alikes are not; header-less server-to-server requests allowed.
+
+### `tests/securityControls.test.js` — Prompt-injection, body-size and IP-throttle tests (added 2026-09-28).
+
+Covers: `recipientName`/sender-name injection payloads scrubbed out of the cover-letter prompt while legitimate names survive; `readJson` size guard (413 for oversized, byte-not-character measurement, 400 for malformed JSON); API-key daily caps defined for every AI-backed route; and the OTP throttle key ignoring a forged `x-forwarded-for` while keying on the platform IP, never embedding the raw IP or email.
+
+### `tests/aiRouteHardening.test.js` — Route-boundary tests for the AI write paths (added 2026-09-28).
+
+Covers: `POST /api/generate-cover-letter` passes a sanitized, ≤200-char recipient name to the generator, actually passes a daily API-key rate limit to `resolveUserId`, and `POST /api/cover-letters` charges one credit, refunds on failure, refuses without credits, and enforces the body size guard.
+
+### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections. Updated 2026-09-22: USER mirror includes the free trial (`generate_resume`, `view_own_resumes`, requiredPlan FREE). Updated 2026-09-28: mirrors the new `delegate_role_management` permission (requiredPlan ADMIN) and its `Admin` group so the drift guard stays green.
+
+Populates the database with all 31 permissions and 4 roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) using a hand-mirrored copy of constants.js metadata. **Must be run when switching to a fresh database** — without it, the admin permissions page shows nothing.
 
 Includes a **drift guard**: before writing, it parses `src/lib/constants.js` and compares every permission's requiredPlan against the seed map, exiting with an error listing mismatches. (Historical note: a requiredPlan drift for 5 admin permissions was found and fixed on 2026-08-21 — the guard prevents recurrence.)
 
@@ -867,13 +925,13 @@ node scripts/seed.mjs
 
 - No exported functions — markdown documentation.
 
-### `audit.md` (repo root) — Newest audit record: full 2026-09-11 findings table plus the 2026-09-26 follow-up re-verifying all 10 code items fixed and recording the Stripe/Mongo lazy-init fixes. (Note: `docs/audit.md` is an older copy without the 2026-09-26 section — see suggestions log 2026-09-26.)
+### `audit.md` (repo root) — A **pointer stub only**: it links to the canonical `docs/audit.md` (project docs live in `docs/` per AGENTS.md). It holds no findings of its own. (Corrected 2026-09-28 — the doc previously described this file as the newest audit record and claimed `docs/audit.md` was the older copy; the reverse is true: `docs/audit.md` carries the full 2026-09-11 and 2026-09-26 tables.)
 
 - No exported functions — markdown documentation.
 
 ### `package.json` — NPM manifest: scripts (`dev`, `build`, `start`, `lint` → eslint, `test` → `vitest run`) and dependencies (next, react, mongoose, stripe, @react-pdf/renderer, unpdf, mammoth, jose, brevo).
 
-- No exported functions — manifest only. Single test entry point: `npm test`.
+- No exported functions — manifest only. Single test entry point: `npm test`. Removed 2026-09-28: the unreferenced devDependencies `@types/formidable` and `baseline-browser-mapping`.
 
 ### `package-lock.json` — Locked dependency tree for reproducible installs.
 
@@ -918,7 +976,8 @@ The job-automation feature and API-key management UI were archived on 2026-08-21
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification | `src/config/env.js` → stripe webhook route |
 | `BREVO_API_KEY` | Brevo transactional email API key | `src/config/env.js` → OTP email sending |
 | `BREVO_SENDER_EMAIL` | Verified sender address for emails | `src/config/env.js` → OTP email sending |
-| `NEXT_PUBLIC_APP_URL` | Public app base URL (default localhost:3000) | `src/config/env.js` → OTP magic link, checkout success/cancel URLs |
+| `NEXT_PUBLIC_APP_URL` | Public app base URL (default localhost:3000); also the primary CSRF allow-list origin | `src/config/env.js` → OTP magic link, checkout success/cancel URLs, `src/proxy.js` → `src/lib/csrf.js` |
+| `ALLOWED_ORIGINS` | Optional comma-separated extra origins allowed to make state-changing API requests (CSRF allow-list). Optional — when unset only `NEXT_PUBLIC_APP_URL` and the request's own origin are allowed. **Fails closed**: an unlisted `Origin` or a cross-site `Sec-Fetch-Site` is refused with 403 | `src/config/env.js` (`env.allowedOrigins`) → `src/proxy.js` → `src/lib/csrf.js` |
 | `AI_TASK_<KEY>` | Optional per-task AI override (`provider:model`) | `src/lib/ai/config.js` |
 
 > `NODE_ENV` (`production`/`development`) is also read via `env.isProduction` / `env.isDevelopment` (proxy cookie security, logger verbosity, instrumentation warnings). Required vars (`ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `MONGODB_URI`) are enforced at boot by `validateEnv()` in `src/instrumentation.js`; missing AI/Stripe/Brevo keys only produce feature warnings.

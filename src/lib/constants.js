@@ -19,6 +19,7 @@ export const PERMISSIONS = {
   ACCESS_ADMIN_PANEL: 'access_admin_panel',
   DELETE_USER: 'delete_user', // Permanently delete user accounts
   MANAGE_ROLES: 'manage_roles', // Create, edit, delete roles and their permissions
+  DELEGATE_ROLE_MANAGEMENT: 'delegate_role_management', // Root ADMIN only — grant/rewrite role permission sets
   
   // ==========================================
   // AI & Content Generation Features
@@ -280,6 +281,15 @@ export const PERMISSION_METADATA = {
     description: "Create, edit, and delete user roles and their permission assignments from the admin dashboard.",
     requiredPlan: "DEVELOPER"
   },
+  [PERMISSIONS.DELEGATE_ROLE_MANAGEMENT]: {
+    name: "Delegate Role Management",
+    description: "Root Administrator only. Grants or rewrites the permission set of an existing role. Non-delegable: it can never be assigned to another role or user.",
+    requiredPlan: "ADMIN",
+    systemProtected: true,
+    adminOnly: true,
+    delegable: false,
+    nonDelegableReason: "Only the existing root ADMIN may hold permission-delegation authority.",
+  },
 };
 
 export const PLANS = {
@@ -298,9 +308,12 @@ export const PLANS = {
   },
 };
 
+// Only HS256 is ever issued. Verifying without this allowlist would also accept
+// HS384/HS512 tokens signed with the same secret.
+export const JWT_ALGORITHMS = ['HS256'];
+
 export const TOKEN_CONFIG = {
-  ACCESS_TOKEN_EXPIRY: '15m',
-  ACCESS_TOKEN_EXPIRY_SECONDS: 15 * 60, // Must match ACCESS_TOKEN_EXPIRY
+  ACCESS_TOKEN_EXPIRY: '15m',  ACCESS_TOKEN_EXPIRY_SECONDS: 15 * 60, // Must match ACCESS_TOKEN_EXPIRY
   REFRESH_TOKEN_EXPIRY_DAYS: 15,
   REFRESH_TOKEN_EXPIRY_MS: 15 * 24 * 60 * 60 * 1000,
   // "Remember this device" lifetime — a 30-day refresh window issued at login
@@ -323,6 +336,17 @@ export const COOKIE_NAMES = {
 
 export const DEFAULTS = {
   CREDITS_ON_SIGNUP: 3,
+};
+
+// ── Daily request caps for API-key (Bearer) callers ─────────────────────────
+// Cookie sessions are metered by credits; a leaked API key would otherwise be
+// an unmetered AI-spend lane, so every AI-backed route passes one of these to
+// resolveUserId({ rateLimit }).
+export const API_KEY_LIMITS = {
+  GENERATE_CONTENT: 50,
+  GENERATE_COVER_LETTER: 50,
+  EDIT_RESUME_WITH_AI: 50,
+  PARSE_RESUME: 20,
 };
 
 export const OTP_CONFIG = {

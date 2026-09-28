@@ -80,6 +80,7 @@ const PERMISSION_METADATA = {
   access_admin_panel:      { name: "Admin Panel Access", description: "Access the administrative control panel.", requiredPlan: "DEVELOPER" },
   delete_user:             { name: "Delete User", description: "Permanently delete user accounts.", requiredPlan: "ADMIN" },
   manage_roles:            { name: "Manage Roles", description: "Create, edit, and delete roles and their permissions.", requiredPlan: "DEVELOPER" },
+  delegate_role_management:{ name: "Delegate Role Management", description: "Root ADMIN only — grant or rewrite a role's permission set.", requiredPlan: "ADMIN" },
   generate_resume:         { name: "AI Resume Generation", description: "Generate tailored resumes from job descriptions using AI.", requiredPlan: "FREE" },
   edit_resume_with_ai:     { name: "AI Resume Editor", description: "Edit and improve your resume with AI.", requiredPlan: "PRO" },
   create_new_resume_on_edit:{ name: "Version Control", description: "Create unlimited versions of your resume.", requiredPlan: "PRO" },
@@ -128,7 +129,7 @@ const ROLE_PERMISSIONS = {
 };
 
 function deriveGroup(key) {
-  const adminKeys = ['view_users','manage_users','change_user_role','view_all_subscriptions','manage_credits','unlimited_credits','view_analytics','access_admin_panel','delete_user','manage_roles'];
+  const adminKeys = ['view_users','manage_users','change_user_role','view_all_subscriptions','manage_credits','unlimited_credits','view_analytics','access_admin_panel','delete_user','manage_roles','delegate_role_management'];
   const aiKeys = ['generate_resume','edit_resume_with_ai','create_new_resume_on_edit','use_special_instructions','parse_resume'];
   const resumeKeys = ['create_resume','view_own_resumes','delete_own_resume','edit_resume_metadata','download_pdf'];
   const coverLetterKeys = ['generate_cover_letter','view_cover_letters','edit_cover_letter','delete_cover_letter'];

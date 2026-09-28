@@ -2,7 +2,7 @@ import { generateCoverLetter } from '@/lib/coverLetter-generator';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { sanitizeJobDescription } from '@/lib/sanitize';
-import { PERMISSIONS } from '@/lib/constants';
+import { API_KEY_LIMITS, PERMISSIONS } from '@/lib/constants';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
@@ -10,10 +10,14 @@ import User from '@/models/User';
 import CoverLetter from '@/models/CoverLetter';
 import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
+// Names are interpolated into the prompt; cap them so a caller cannot push an
+// unbounded blob into the model's context.
+const MAX_PROMPT_NAME_LENGTH = 200;
+
 export const POST = withErrorHandler(async (request) => {
   await dbConnect();
 
-  const resolved = await resolveUserId(request);
+  const resolved = await resolveUserId(request, { rateLimit: API_KEY_LIMITS.GENERATE_COVER_LETTER });
   if (resolved.error) return resolved.error;
   const { userId } = resolved;
 
@@ -48,6 +52,14 @@ export const POST = withErrorHandler(async (request) => {
     return fail('Please save a master resume in your Profile before generating a cover letter.', 400);
   }
 
+  // recipientName and the profile name are interpolated into the prompt too, so
+  // they get the same injection scrubbing and a tight length cap as the job
+  // description — otherwise they are an unblocked override lane.
+  const cleanRecipientName = sanitizeJobDescription(recipientName).slice(0, MAX_PROMPT_NAME_LENGTH);
+  const cleanUserName = sanitizeJobDescription(user.name).slice(0, MAX_PROMPT_NAME_LENGTH);
+  const userEmail = user.email || '';
+  const userPhone = user.mainResume?.content?.profile?.phone || '';
+
   // Deduct credit BEFORE generating (atomic); refund on failure below
   const tracked = await SubscriptionService.trackUsage(userId, 1);
   if (!tracked) {
@@ -55,15 +67,11 @@ export const POST = withErrorHandler(async (request) => {
     return fail('Insufficient credits. Please upgrade your plan.', 403);
   }
 
-  const userName = user.name || '';
-  const userEmail = user.email || '';
-  const userPhone = user.mainResume?.content?.profile?.phone || '';
-
   try {
     const coverLetterData = await generateCoverLetter(
       resumeData,
       cleanJobDescription,
-      { recipientName, userName, userEmail, userPhone }
+      { recipientName: cleanRecipientName, userName: cleanUserName, userEmail, userPhone }
     );
 
     // Default is to persist; callers may pass save:false for preview-only use

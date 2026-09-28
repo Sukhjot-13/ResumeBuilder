@@ -8,7 +8,7 @@ import { PERMISSIONS } from '@/lib/constants';
 import { RESUME_FIELD_SCHEMA } from '@/lib/resumeFields';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { logger } from '@/lib/logger';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 // Whitelist of fields returned to clients — never expose otp/otpExpires/customerId etc.
 const PROFILE_FIELDS = (user) => ({
@@ -90,14 +90,9 @@ export const PUT = withErrorHandler(async (req) => {
   const { userId, error } = await resolveUserId(req);
   if (error) return error;
 
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return fail('Invalid JSON body', 400);
-  }
-
-  const { mainResume, name, dateOfBirth } = body || {};
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
+  const { mainResume, name, dateOfBirth } = parsed.body || {};
 
   if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0 || name.length > 100)) {
     return fail('Invalid name', 400);

@@ -21,7 +21,8 @@ npm run dev             # http://localhost:3000
 ```
 
 Environment variables live in `.env.local` — see the Environment Variables
-section of `docs/architecture.md` for the full list.
+section of `docs/architecture.md` for the full list. `ALLOWED_ORIGINS` is
+optional and controls which origins may make state-changing API calls.
 
 ## Scripts
 
@@ -37,11 +38,5 @@ section of `docs/architecture.md` for the full list.
 
 - [`docs/architecture.md`](docs/architecture.md) — every file's purpose and functions, env vars
 - [`docs/audit.md`](docs/audit.md) — site audit findings and open items
-- [`docs/to-do.md`](docs/to-do.md) — task list
+- [`docs/to-do.md`](docs/to-do.md) — open task list
 - [`docs/suggestions.md`](docs/suggestions.md) — improvement/vulnerability log
-
-## Archived Feature
-
-The job-automation feature (LinkedIn/Indeed auto-apply worker) was moved out of
-the active codebase into [`automation/`](automation/README.md). It is kept there
-for reference and can be restored following its README.

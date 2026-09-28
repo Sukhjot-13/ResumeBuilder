@@ -1,13 +1,20 @@
-import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
+import { requirePermission, isPermissionError, isValidObjectId } from '@/lib/apiPermissionGuard';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { PERMISSIONS, ROLES } from '@/lib/constants';
+import { evaluateUserRoleChange } from '@/lib/roleAuthorization';
+import { recordAuthorizationEvent } from '@/lib/auditLog';
+import { logger } from '@/lib/logger';
 import User from '@/models/User';
-import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
+import { ok, fail, failWithCode, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 export const PATCH = withErrorHandler(async (req, { params }) => {
   const { userId: adminId, error } = await resolveUserId(req);
   if (error) return error;
   const { id } = await params;
+
+  if (!isValidObjectId(id)) {
+    return fail('Invalid user id', 400);
+  }
 
   const parsed = await readJson(req);
   if (!parsed.ok) return parsed.response;
@@ -15,23 +22,61 @@ export const PATCH = withErrorHandler(async (req, { params }) => {
 
   const permResult = await requirePermission(adminId, PERMISSIONS.CHANGE_USER_ROLE);
   if (isPermissionError(permResult)) {
+    await recordAuthorizationEvent({
+      actorId: adminId,
+      action: 'user.role.denied',
+      targetType: 'User',
+      targetId: id,
+      outcome: 'denied',
+      after: { code: 'PERMISSION_DENIED', permission: PERMISSIONS.CHANGE_USER_ROLE },
+      request: req,
+    });
     return permResult.error;
   }
+  const { user: actor } = permResult;
 
   // Validate against the ROLES enum (rejects NaN / unknown values)
   if (!Number.isInteger(role) || !Object.values(ROLES).includes(role)) {
     return fail('Invalid role', 400);
   }
 
-  // Prevent self-demotion lockout
-  if (id === adminId && role !== ROLES.ADMIN) {
-    return fail('You cannot change your own role.', 400);
-  }
-
   const user = await User.findById(id);
   if (!user) {
     return fail('User not found', 404);
   }
+
+  // Self-escalation + rank ceiling. Previously only self-DEMOTION was blocked,
+  // so a caller could promote their own account to root ADMIN.
+  const decision = evaluateUserRoleChange({
+    actor,
+    actorId: adminId,
+    targetId: id,
+    newRank: role,
+    currentRank: user.role,
+  });
+  if (!decision.allowed) {
+    logger.warn('Role change refused', {
+      actorId: adminId,
+      actorRole: actor.role,
+      targetId: id,
+      newRole: role,
+      code: decision.code,
+    });
+    await recordAuthorizationEvent({
+      actorId: adminId,
+      actorRole: actor.role,
+      action: 'user.role.denied',
+      targetType: 'User',
+      targetId: id,
+      outcome: 'denied',
+      before: { role: user.role },
+      after: { role, code: decision.code },
+      request: req,
+    });
+    return failWithCode(decision.reason, decision.code, 403);
+  }
+
+  const previousRole = user.role;
 
   // Keep subscription state in sync with manual role changes so an
   // admin-promoted subscriber actually receives Pro credits (getLimit
@@ -73,5 +118,17 @@ export const PATCH = withErrorHandler(async (req, { params }) => {
     return fail('User not found', 404);
   }
 
+  await recordAuthorizationEvent({
+    actorId: adminId,
+    actorRole: actor.role,
+    action: 'user.role.updated',
+    targetType: 'User',
+    targetId: id,
+    before: { role: previousRole },
+    after: { role, subscriptionStatus: set.subscriptionStatus },
+    request: req,
+  });
+
   return ok({ user: updated });
 });
+

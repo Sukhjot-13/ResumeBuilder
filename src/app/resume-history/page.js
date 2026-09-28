@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApiClient } from '@/hooks/useApiClient';
 import { useProfile } from '@/hooks/useProfile';
 import ResumeList from '@/components/ResumeList';
@@ -14,6 +14,7 @@ export default function ResumeHistoryPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
   const [tailoredResume, setTailoredResume] = useState(null);
+  const previewDialogRef = useRef(null);
   const apiClient = useApiClient();
   const { profile } = useProfile();
 
@@ -58,6 +59,12 @@ export default function ResumeHistoryPage() {
 
     fetchData();
   }, [apiClient, fetchResumes]);
+
+  useEffect(() => {
+    if (tailoredResume) {
+      previewDialogRef.current?.focus();
+    }
+  }, [tailoredResume]);
 
   const handleDeleteResume = async (resumeId) => {
     setDeletingId(resumeId);
@@ -108,11 +115,13 @@ export default function ResumeHistoryPage() {
 
         {tailoredResume && (
           <div
+            ref={previewDialogRef}
             className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
             onClick={() => setTailoredResume(null)}
             role="dialog"
             aria-modal="true"
             aria-label="Resume preview"
+            tabIndex={-1}
             onKeyDown={(e) => {
               if (e.key === 'Escape') setTailoredResume(null);
             }}

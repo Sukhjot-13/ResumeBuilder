@@ -8,9 +8,17 @@
  * Available to ALL users (no AI parsing required).
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { RESUME_FIELD_SCHEMA, FIELD_TYPES, buildEmptyResume, buildEmptyArrayItem } from "@/lib/resumeFields";
 import { useApiClient } from "@/hooks/useApiClient";
+
+let rowKeyCounter = 0;
+
+function nextRowKey() {
+  rowKeyCounter += 1;
+  return `row-${rowKeyCounter}`;
+}
+
 
 // ─── Section icons ────────────────────────────────────────────────────────────
 const SECTION_ICONS = {
@@ -59,15 +67,15 @@ function TagInputField({ field, value, onChange, baseInput }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        {tags.map((tag, idx) => (
+        {tags.map((tag) => (
           <span
-            key={`${tag}-${idx}`}
+            key={tag}
             className="flex items-center gap-1 bg-blue-500/20 text-blue-300 text-xs px-2.5 py-1 rounded-full border border-blue-500/30"
           >
             {tag}
             <button
               type="button"
-              onClick={() => removeTag(idx)}
+              onClick={() => removeTag(tags.indexOf(tag))}
               className="hover:text-red-400 transition-colors ml-0.5"
               aria-label={`Remove ${tag}`}
             >
@@ -102,6 +110,66 @@ function TagInputField({ field, value, onChange, baseInput }) {
   );
 }
 
+// ─── Bullet list input (own component so hooks stay unconditional) ───────────
+function BulletListField({ field, value, onChange, baseInput }) {
+  const lines = Array.isArray(value) ? value : [];
+  // Keys are allocated per row and retired on removal, so a row is never
+  // re-keyed while it is being typed into (the index-as-key bug).
+  const [rowKeys, setRowKeys] = useState(() => Array.from({ length: lines.length }, nextRowKey));
+  const inSync = rowKeys.length === lines.length;
+
+  const handleLineChange = (idx, val) => {
+    const next = [...lines];
+    next[idx] = val;
+    onChange(next);
+  };
+  const addLine = () => {
+    setRowKeys((prev) => [...prev, nextRowKey()]);
+    onChange([...lines, ""]);
+  };
+  const removeLine = (idx) => {
+    setRowKeys((prev) => prev.filter((_, i) => i !== idx));
+    onChange(lines.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className="space-y-2">
+      {lines.map((line, idx) => (
+        <div key={inSync ? rowKeys[idx] : idx} className="flex gap-2 items-center">
+          <span className="text-slate-500 text-xs mt-0.5">•</span>
+          <input
+            type="text"
+            value={line}
+            onChange={(e) => handleLineChange(idx, e.target.value)}
+            placeholder={field.placeholder || "Add bullet point…"}
+            className={`${baseInput} flex-1`}
+          />
+          <button
+            type="button"
+            onClick={() => removeLine(idx)}
+            className="text-slate-500 hover:text-red-400 transition-colors p-1 rounded"
+            aria-label="Remove bullet"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addLine}
+        className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-1"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+        Add bullet
+      </button>
+    </div>
+  );
+}
+
 // ─── Primitive field renderer ─────────────────────────────────────────────────
 function FieldInput({ fieldKey, field, value, onChange }) {
   const baseInput =
@@ -128,56 +196,15 @@ function FieldInput({ fieldKey, field, value, onChange }) {
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder || ""}
         rows={4}
+        required={!!field.required}
         className={`${baseInput} resize-none`}
       />
     );
   }
 
   if (field.type === FIELD_TYPES.BULLET_LIST) {
-    const lines = Array.isArray(value) ? value : [];
-    const handleLineChange = (idx, val) => {
-      const next = [...lines];
-      next[idx] = val;
-      onChange(next);
-    };
-    const addLine = () => onChange([...lines, ""]);
-    const removeLine = (idx) => onChange(lines.filter((_, i) => i !== idx));
-
     return (
-      <div className="space-y-2">
-        {lines.map((line, idx) => (
-          <div key={idx} className="flex gap-2 items-center">
-            <span className="text-slate-500 text-xs mt-0.5">•</span>
-            <input
-              type="text"
-              value={line}
-              onChange={(e) => handleLineChange(idx, e.target.value)}
-              placeholder={field.placeholder || "Add bullet point…"}
-              className={`${baseInput} flex-1`}
-            />
-            <button
-              type="button"
-              onClick={() => removeLine(idx)}
-              className="text-slate-500 hover:text-red-400 transition-colors p-1 rounded"
-              aria-label="Remove bullet"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={addLine}
-          className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-1"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add bullet
-        </button>
-      </div>
+      <BulletListField field={field} value={value} onChange={onChange} baseInput={baseInput} />
     );
   }
 
@@ -192,6 +219,7 @@ function FieldInput({ fieldKey, field, value, onChange }) {
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={field.placeholder || ""}
+      required={!!field.required}
       className={baseInput}
     />
   );
@@ -285,7 +313,14 @@ function ArrayItemCard({ sectionKey, section, item, index, onUpdate, onRemove })
 
 // ─── Array section wrapper ────────────────────────────────────────────────────
 function ArraySection({ sectionKey, section, items, onChange }) {
-  const addItem = () => onChange([...items, buildEmptyArrayItem(sectionKey)]);
+  // Stable per-row keys instead of the array index (see BulletListField).
+  const [rowKeys, setRowKeys] = useState(() => Array.from({ length: items.length }, nextRowKey));
+  const inSync = rowKeys.length === items.length;
+
+  const addItem = () => {
+    setRowKeys((prev) => [...prev, nextRowKey()]);
+    onChange([...items, buildEmptyArrayItem(sectionKey)]);
+  };
 
   const updateItem = (idx, fieldKey, val) => {
     const next = items.map((item, i) =>
@@ -294,13 +329,16 @@ function ArraySection({ sectionKey, section, items, onChange }) {
     onChange(next);
   };
 
-  const removeItem = (idx) => onChange(items.filter((_, i) => i !== idx));
+  const removeItem = (idx) => {
+    setRowKeys((prev) => prev.filter((_, i) => i !== idx));
+    onChange(items.filter((_, i) => i !== idx));
+  };
 
   return (
     <div className="space-y-3">
       {items.map((item, idx) => (
         <ArrayItemCard
-          key={idx}
+          key={inSync ? rowKeys[idx] : idx}
           sectionKey={sectionKey}
           section={section}
           item={item}
@@ -324,7 +362,7 @@ function ArraySection({ sectionKey, section, items, onChange }) {
 }
 
 // ─── Main Form Component ──────────────────────────────────────────────────────
-export default function ManualResumeForm({ initialData, onSaved }) {
+export default function ManualResumeForm({ initialData, onSaved, onDirtyChange }) {
   const [formData, setFormData] = useState(() => {
     if (initialData) return initialData;
     return buildEmptyResume();
@@ -334,6 +372,13 @@ export default function ManualResumeForm({ initialData, onSaved }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const apiClient = useApiClient();
+  const initialSnapshot = useRef(JSON.stringify(formData));
+
+  const isDirty = JSON.stringify(formData) !== initialSnapshot.current;
+
+  useEffect(() => {
+    if (onDirtyChange) onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   const sectionKeys = Object.keys(RESUME_FIELD_SCHEMA);
 
@@ -370,6 +415,8 @@ export default function ManualResumeForm({ initialData, onSaved }) {
         setError(msg);
       } else {
         setSuccess("Resume saved successfully!");
+        initialSnapshot.current = JSON.stringify(formData);
+        if (onDirtyChange) onDirtyChange(false);
         if (onSaved) onSaved(data.resume);
       }
     } catch {

@@ -1,27 +1,30 @@
 import User from '@/models/User';
 import { PLANS, PERMISSIONS, ROLES } from '@/lib/constants';
 import { checkPermissionDB } from '@/lib/accessControl';
+import { isSubscriptionActive } from '@/lib/subscriptionChecker';
 import { now } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 
 export const SubscriptionService = {
   /**
    * Determines the credit limit for a user based on their role and subscription.
-   * Uses DB-backed permission check so admin revocations apply immediately.
+   * Uses DB-backed permission check so admin revocations apply immediately, and
+   * the shared expiry check so a lapsed subscriber can never keep Pro limits
+   * just because the periodic downgrade job has not run yet.
    * @param {object} user
    * @returns {Promise<number>} The credit limit
    */
   async getLimit(user) {
-    // If admin or has unlimited permission (DB-first with constants fallback)
+    // If admin or has unlimited permission (DB-first, fail-closed)
     if (await checkPermissionDB(user, PERMISSIONS.UNLIMITED_CREDITS)) {
       return Infinity;
     }
 
-    // PRO only when the role says so AND the subscription is genuinely live.
-    // A stale subscriptionId alone must NOT grant Pro credits (downgrade leak).
-    const isPro =
-      user.role === ROLES.SUBSCRIBER &&
-      (!user.subscriptionStatus || user.subscriptionStatus === 'active');
+    // PRO requires the SUBSCRIBER role AND a genuinely live subscription:
+    // status 'active' plus an expiry strictly in the future. A stale
+    // subscriptionId, a missing expiry, or an elapsed one all fall back to
+    // Free limits instead of leaking Pro credits.
+    const isPro = user.role === ROLES.SUBSCRIBER && isSubscriptionActive(user);
 
     if (isPro) {
       return PLANS.PRO.credits;

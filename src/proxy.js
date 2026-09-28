@@ -1,8 +1,13 @@
 
 import { NextResponse } from 'next/server';
 import { verifyAuthEdge, verifyTokenEdge } from '@/lib/auth-edge';
+import { checkCsrfRequest } from '@/lib/csrf';
 import { ROLES, TOKEN_CONFIG, COOKIE_NAMES } from '@/lib/constants';
 import env from '@/config/env';
+
+function allowedOrigins(req) {
+  return [env.appUrl, env.allowedOrigins, req.nextUrl.origin];
+}
 
 export async function proxy(req) {
   const { pathname } = req.nextUrl;
@@ -21,6 +26,14 @@ export async function proxy(req) {
   const isProtectedRoute = ['/dashboard', '/profile', '/onboarding', '/resume-history', '/checkout', '/cover-letters', '/ai-edit'].some(p => pathname.startsWith(p));
   const isAdminRoute = pathname.startsWith('/admin');
   const isLoginPage = pathname === '/login';
+
+  // CSRF: refuse cross-site / unlisted-origin state-changing API calls before
+  // any auth work. Cookie sessions are ambient authority, so this must fail
+  // closed (see src/lib/csrf.js and ALLOWED_ORIGINS).
+  if (isApiRoute) {
+    const csrfError = checkCsrfRequest(req, { pathname, allowedOrigins: allowedOrigins(req) });
+    if (csrfError) return csrfError;
+  }
 
   // If the route doesn't require auth, just continue
   if (!isProtectedApiRoute && !isProtectedRoute && !isAdminRoute && !isLoginPage) {
@@ -148,7 +161,10 @@ export async function proxy(req) {
     // User is not authenticated
     if (isApiRoute) {
       // For API routes, return 401 Unauthorized
-      response = new NextResponse(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      response = new NextResponse(
+        JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHENTICATED' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
     } else if (isProtectedRoute || isAdminRoute) {
       // For protected pages, redirect to login
       response = NextResponse.redirect(new URL('/login', req.url));

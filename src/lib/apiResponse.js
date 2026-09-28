@@ -27,10 +27,32 @@ export function success(data, message = undefined, status = 200) {
 
 /**
  * Error response.
- * Shape: { success: false, error: message }
+ * Shape: { success: false, error: message, details? }
+ *
+ * @param {string} message
+ * @param {number} [status=400]
+ * @param {string[]} [details] - Optional per-field validation messages
  */
-export function fail(message, status = 400) {
-  return NextResponse.json({ success: false, error: message }, { status });
+export function fail(message, status = 400, details = undefined) {
+  const body = { success: false, error: message };
+  if (details !== undefined) body.details = details;
+  return NextResponse.json(body, { status });
+}
+
+/**
+ * Error response with a machine-readable code (AGENTS.md §22 — clients get a
+ * safe reason code, never internal policy detail).
+ * Shape: { success: false, error: message, code, details? }
+ *
+ * @param {string} message
+ * @param {string} code
+ * @param {number} [status=400]
+ * @param {string[]} [details]
+ */
+export function failWithCode(message, code, status = 400, details = undefined) {
+  const body = { success: false, error: message, code };
+  if (details !== undefined) body.details = details;
+  return NextResponse.json(body, { status });
 }
 
 // ---------------------------------------------------------------------------

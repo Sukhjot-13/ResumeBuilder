@@ -16,7 +16,7 @@ import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
 import { RESUME_FIELD_SCHEMA } from '@/lib/resumeFields';
-import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler, readJson } from '@/lib/apiResponse';
 
 // ---------------------------------------------------------------------------
 // Validator
@@ -56,21 +56,17 @@ export const PUT = withErrorHandler(async (req) => {
   const permResult = await requirePermission(userId, PERMISSIONS.UPLOAD_MAIN_RESUME);
   if (isPermissionError(permResult)) return permResult.error;
 
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return fail('Invalid JSON body', 400);
-  }
+  const parsed = await readJson(req);
+  if (!parsed.ok) return parsed.response;
 
-  const { content } = body;
+  const { content } = parsed.body || {};
   if (!content || typeof content !== 'object') {
     return fail('Resume content is required', 400);
   }
 
   const validationErrors = validateContent(content);
   if (validationErrors.length > 0) {
-    return fail('Validation failed', 422);
+    return fail('Validation failed', 422, validationErrors);
   }
 
   const user = await User.findById(userId).populate('mainResume');

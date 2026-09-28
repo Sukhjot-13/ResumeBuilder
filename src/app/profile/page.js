@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [masterResume, setMasterResume] = useState(null);
   const [showAiEditor, setShowAiEditor] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [manualFormDirty, setManualFormDirty] = useState(false);
   const [deletingMaster, setDeletingMaster] = useState(false);
   const [confirmDeleteMaster, setConfirmDeleteMaster] = useState(false);
   const [aiEditQuery, setAiEditQuery] = useState("");
@@ -410,7 +411,15 @@ export default function ProfilePage() {
                         </button>
                       )}
                       <button
-                        onClick={() => setShowManualForm((v) => !v)}
+                        onClick={() => {
+                          if (showManualForm && manualFormDirty) {
+                            const discard = window.confirm(
+                              "You have unsaved changes to your master resume. Discard them and close the form?"
+                            );
+                            if (!discard) return;
+                          }
+                          setShowManualForm((v) => !v);
+                        }}
                         className="btn-secondary px-3 py-1.5 text-xs font-semibold rounded-lg"
                       >
                         {showManualForm ? "Close Form" : masterResume ? "Edit Details" : "Add Manually"}
@@ -443,6 +452,7 @@ export default function ProfilePage() {
                     <div className="pt-2">
                       <ManualResumeForm
                         initialData={masterResume || undefined}
+                        onDirtyChange={setManualFormDirty}
                         onSaved={(saved) => {
                           setMasterResume(saved.content);
                           setShowManualForm(false);

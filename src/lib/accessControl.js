@@ -1,17 +1,35 @@
-import { ROLE_PERMISSIONS, ROLES, PERMISSION_METADATA } from './constants';
+import { ROLE_PERMISSIONS, ROLES, PERMISSIONS, PERMISSION_METADATA } from './constants';
 import { logger } from './logger';
 
 /**
  * In-memory cache for DB role permissions (cleared on server restart).
  * Maps role value -> permissions array.
+ *
+ * The cache doubles as the verified last-known-good policy snapshot: it is
+ * only ever populated from a SUCCESSFUL database read, so a later outage can
+ * fall back on it (bounded by LAST_KNOWN_GOOD_MAX_AGE_MS) without ever widening
+ * access the way the compile-time constants would.
  */
 let dbRoleCache = null;
 let cacheTimestamp = 0;
 const CACHE_TTL_MS = 60_000; // 1 minute
+const LAST_KNOWN_GOOD_MAX_AGE_MS = 5 * 60_000; // 5 minutes
+
+/**
+ * Drops the cached role snapshot. Called after any role/permission write so a
+ * revocation takes effect on the very next permission check.
+ */
+export function invalidateRoleCache() {
+  dbRoleCache = null;
+  cacheTimestamp = 0;
+}
 
 /**
  * Loads all roles from the database into the in-memory cache.
- * Falls back to null on DB error (callers use constants instead).
+ * Never throws and never falls back to the constants: on failure it reports
+ * that the current policy is unavailable so the caller can fail closed.
+ *
+ * @returns {Promise<{ok: true, roles: object} | {ok: false, roles: null}>}
  */
 async function loadDbRoles() {
   try {
@@ -19,17 +37,68 @@ async function loadDbRoles() {
     await dbConnect();
     const Role = (await import('@/models/Role')).default;
     const roles = await Role.find({}).lean();
-    dbRoleCache = {};
+    const snapshot = {};
     for (const role of roles) {
-      dbRoleCache[role.value] = role;
+      snapshot[role.value] = role;
     }
+    dbRoleCache = snapshot;
     cacheTimestamp = Date.now();
-    return dbRoleCache;
+    return { ok: true, roles: snapshot };
   } catch (e) {
-    // DB unavailable — fall through to constants
-    return null;
+    logger.error('Role store unavailable — permission checks fail closed', e);
+    return { ok: false, roles: null };
   }
 }
+
+/**
+ * Resolves the authoritative permission list for a role.
+ *
+ * Precedence (never widens access):
+ *   1. valid cache                -> cached DB policy
+ *   2. reload attempt succeeds    -> fresh DB policy
+ *   3. reload fails, recent LKG   -> last verified DB snapshot
+ *   4. reload fails, no/stale LKG -> null (caller denies)
+ *   5. store loaded but EMPTY     -> compile-time defaults (bootstrap only:
+ *                                   `node scripts/seed.mjs` has never run)
+ *
+ * @returns {Promise<{permissions: string[]|'ALL'|null, source: string}>}
+ */
+async function resolveRolePolicy(userRole) {
+  if (!Number.isInteger(userRole)) {
+    return { permissions: null, source: 'invalid-role' };
+  }
+
+  const cacheIsFresh = dbRoleCache && (Date.now() - cacheTimestamp) <= CACHE_TTL_MS;
+  if (!cacheIsFresh) {
+    const result = await loadDbRoles();
+    if (result.ok) {
+      if (Object.keys(result.roles).length === 0) {
+        logger.warn('Role store is empty — using compile-time defaults until seeded', { userRole });
+        return { permissions: ROLE_PERMISSIONS[userRole] || null, source: 'constants-unseeded' };
+      }
+    } else if (!dbRoleCache) {
+      return { permissions: null, source: 'store-unavailable' };
+    }
+  }
+
+  if (dbRoleCache) {
+    const age = Date.now() - cacheTimestamp;
+    if (age > CACHE_TTL_MS && age > LAST_KNOWN_GOOD_MAX_AGE_MS) {
+      logger.error('Role store unavailable and last-known-good snapshot expired — denying', {
+        userRole,
+        ageMs: age,
+      });
+      return { permissions: null, source: 'stale-snapshot' };
+    }
+    const role = dbRoleCache[userRole];
+    if (!role) return { permissions: null, source: 'role-not-in-store' };
+    if (role.isAdmin) return { permissions: 'ALL', source: 'db' };
+    return { permissions: Array.isArray(role.permissions) ? role.permissions : [], source: 'db' };
+  }
+
+  return { permissions: null, source: 'store-unavailable' };
+}
+
 
 /**
  * SYNC: Checks if a user role has a specific permission using constants only.
@@ -65,35 +134,67 @@ export function hasPermission(userRole, permission) {
 
 /**
  * ASYNC DB-aware: Checks if a user role has a specific permission.
- * Tries the database first (with cache), falls back to constants.
- * Use this in server-side code (API routes, server actions) where DB access is available.
+ * Resolves the authoritative policy from the database (cached) and FAILS
+ * CLOSED when that policy cannot be read — it never falls back to the broader
+ * compile-time constants, because a store outage must not restore a grant
+ * that an admin already revoked.
+ * Use this in server-side code (API routes, server actions).
  *
  * @param {number} userRole - The user's role level (from ROLES enum).
  * @param {string} permission - The permission to check (from PERMISSIONS enum).
  * @returns {Promise<boolean>} - True if the user has the permission, false otherwise.
  */
 export async function hasPermissionDB(userRole, permission) {
-  // Try cache first (refresh if expired)
-  if (!dbRoleCache || (Date.now() - cacheTimestamp) > CACHE_TTL_MS) {
-    await loadDbRoles();
+  if (typeof permission !== 'string' || permission.length === 0) {
+    logger.debug('Permission check failed: Missing permission identifier');
+    return false;
   }
 
-  // DB hit path
-  if (dbRoleCache && dbRoleCache[userRole]) {
-    const role = dbRoleCache[userRole];
-    if (role.isAdmin || (Array.isArray(role.permissions) && role.permissions[0] === 'ALL')) {
-      return true;
-    }
-    const hasAccess = Array.isArray(role.permissions) && role.permissions.includes(permission);
-    if (!hasAccess) {
-      logger.debug('Permission denied (DB)', { userRole, permission });
-    }
-    return hasAccess;
+  const { permissions, source } = await resolveRolePolicy(userRole);
+
+  if (!permissions) {
+    logger.warn('Permission denied — no authoritative policy available', {
+      userRole,
+      permission,
+      source,
+    });
+    return false;
   }
 
-  // Fallback to sync constants
-  return hasPermission(userRole, permission);
+  if (permissions === 'ALL' || (Array.isArray(permissions) && permissions[0] === 'ALL')) {
+    return true;
+  }
+
+  const hasAccess = Array.isArray(permissions) && permissions.includes(permission);
+  if (!hasAccess) {
+    logger.debug('Permission denied (DB)', { userRole, permission, source });
+  }
+  return hasAccess;
 }
+
+/**
+ * CANONICAL root-Admin rule. The single place that recognises the protected
+ * ADMIN (rank 0) system role — routes and services must call this (or
+ * hasPermissionDB) rather than testing `role === 0` themselves.
+ *
+ * @param {object} user
+ * @returns {boolean}
+ */
+export function isRootAdmin(user) {
+  return Boolean(user) && user.role === ROLES.ADMIN;
+}
+
+/**
+ * Non-delegable permissions: root-Admin only, never assignable through the
+ * role/permission CRUD surface.
+ * @returns {string[]}
+ */
+export function getNonDelegablePermissions() {
+  return Object.keys(PERMISSION_METADATA).filter(
+    (permission) => PERMISSION_METADATA[permission]?.delegable === false
+  );
+}
+
 
 /**
  * SYNC: Checks if a user object has a specific permission using constants.
