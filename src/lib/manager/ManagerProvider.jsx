@@ -6,7 +6,7 @@
  */
 import { useEffect } from 'react';
 import { managerConfig, managerTrackerScript } from './index';
-import { initLogger } from './logger';
+import { initLogger } from './logger.js';
 
 export default function ManagerProvider() {
   useEffect(() => {

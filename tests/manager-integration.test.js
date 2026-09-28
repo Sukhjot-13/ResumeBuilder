@@ -92,23 +92,27 @@ describe('manager integration module', () => {
     expect(() => managerLog('error', 'x', { error: new Error('boom') })).not.toThrow();
   });
 
-  it('managerLog flushes so serverless cannot freeze the batch', async () => {
+  it('batches routine levels but flushes errors immediately (leading edge)', async () => {
     setEnv(MANAGER_ENV);
     const { managerLog } = await loadManager();
-    const { initLogger } = await import('@/lib/manager/logger.js');
-    const log = {
-      info: vi.fn(),
-      error: vi.fn(),
-      flush: vi.fn(async () => {}),
-    };
-    vi.spyOn(await import('@/lib/manager/index.js'), 'getManagerLogger');
-    globalThis.__managerServerLogger = log;
+    const info = vi.fn();
+    const error = vi.fn();
     const flush = vi.fn(async () => {});
-    log.flush = flush;
-    log.info = vi.fn();
-    managerLog('info', 'server_event', { route: '/api/health' });
-    expect(log.info).toHaveBeenCalledWith('server_event', { route: '/api/health' });
-    expect(flush).toHaveBeenCalled();
+    globalThis.__managerServerLogger = { info, error, flush };
+
+    managerLog('info', 'routine_1');
+    managerLog('info', 'routine_2');
+    expect(flush).not.toHaveBeenCalled();
+
+    managerLog('error', 'urgent_1');
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(flush).toHaveBeenCalledTimes(1);
+
+    // A second error inside the gap must not start another request on its own.
+    managerLog('error', 'urgent_2');
+    expect(flush).toHaveBeenCalledTimes(1);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(flush).toHaveBeenCalledTimes(2);
   });
 
   it('falls back to info for an unknown level', async () => {
