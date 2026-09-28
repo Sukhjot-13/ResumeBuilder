@@ -981,3 +981,17 @@ The job-automation feature and API-key management UI were archived on 2026-08-21
 | `AI_TASK_<KEY>` | Optional per-task AI override (`provider:model`) | `src/lib/ai/config.js` |
 
 > `NODE_ENV` (`production`/`development`) is also read via `env.isProduction` / `env.isDevelopment` (proxy cookie security, logger verbosity, instrumentation warnings). Required vars (`ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `MONGODB_URI`) are enforced at boot by `validateEnv()` in `src/instrumentation.js`; missing AI/Stripe/Brevo keys only produce feature warnings.
+
+## Manager integration (added 2026-09-28)
+
+| File | Purpose | Exports |
+|---|---|---|
+| `src/lib/manager/logger.js` | The vendored `@manager/logger` SDK: single file, zero dependencies, TypeScript types in the header, refreshed with `curl -H "x-manager-key: …" "…/api/sdk/logger?format=js"` | `initLogger`, `traceIdFromHeaders`, `shutdownLoggers`, `fingerprint`, `LOG_SDK_VERSION`, `LOG_SDK_PATH`, `TRACE_HEADER` |
+| `src/lib/manager/index.js` | Integration facade. Reads `MANAGER_*` env, exposes a no-op logger when unconfigured, creates the real logger lazily on first use and caches it on `globalThis` so every module instance shares one queue, and flushes on every write (serverless can freeze timers). Never throws. | `managerConfig`, `startManagerLogger`, `getManagerLogger`, `managerLog`, `logServerEvent`, `logServerError`, `managerTrackerScript` |
+| `src/lib/manager/ManagerProvider.jsx` | Client component mounted in the root layout: starts the browser logger and injects the analytics `<script>` once, guarded against double injection | `ManagerProvider` (default) |
+| `src/lib/logger.js` (modified) | Existing app logger now fans every `info/warn/error/debug` out to Manager through `managerLog`, so all existing call sites are captured without per-route changes | `logger` (unchanged API) |
+| `src/instrumentation.js` (modified) | No longer creates the logger at boot — a boot-created instance is not the one route handlers see | `register` |
+| `src/app/layout.js` (modified) | Mounts `<ManagerProvider />` | `RootLayout` |
+| `tests/manager-integration.test.js` | 11 tests: disabled-when-unconfigured no-ops, enablement rules, blank values, tracker tag construction, flush-on-write, unknown-level fallback, shared globalThis instance, real SDK surface | — |
+| `scripts/check-manager-integration.mjs` | `npm run manager:check` — live check against a running Manager (key kinds, rejection paths, own health route) | — |
+| `.env.example` (new) | Documents the optional `MANAGER_*` block | — |
