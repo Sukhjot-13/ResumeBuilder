@@ -336,7 +336,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - No exported functions — static binary asset.
 
-### `src/app/login/page.js` — Login page with an email-based OTP authentication flow: send a login code to the user's email, then verify the code to redirect to onboarding (new users) or dashboard (existing users). Fixed 2026-09-21: email/OTP inputs now carry explicit padding/typography (bare `app-input` has no padding); resend button with 60s cooldown matching the server throttle. Upgraded 2026-09-22: six per-digit OTP boxes (auto-advance, backspace nav, paste-split, auto-submit on complete, mobile numeric keyboard + one-time-code autofill), visible 5:00 code-expiry countdown, error shake + attempt counter (X of 5, lockout state on 429), "remember this device for 30 days" checkbox, magic-link auto-sign-in from `?email=&code=` (with Suspense boundary for useSearchParams).
+### `src/app/login/page.js` — Login page with an email-based OTP authentication flow: send a login code to the user's email, then verify the code to redirect to onboarding (new users) or dashboard (existing users). Fixed 2026-09-21: email/OTP inputs now carry explicit padding/typography (bare `app-input` has no padding); resend button with 60s cooldown matching the server throttle. Upgraded 2026-09-22: six per-digit OTP boxes (auto-advance, backspace nav, paste-split, auto-submit on complete, mobile numeric keyboard + one-time-code autofill), visible 5:00 code-expiry countdown, error shake + attempt counter (X of 5, lockout state on 429), "remember this device for 30 days" checkbox, magic-link auto-sign-in from `?email=&code=` (with Suspense boundary for useSearchParams). **Fixed 2026-09-28:** the auto-submit effect tested `otp.length === OTP_LENGTH`, but `handleBoxChange` pads unfilled slots with spaces, so the state string was always 6 characters and the verify request fired on the **first** digit. The padded string (`"1     "`) was posted to `/api/auth/verify-otp`, which increments `otpAttempts` on every mismatch — so typing a real code burned all 5 attempts and the user was locked out at the 429 before finishing. Completion is now derived from the digits via `isOtpComplete()` in `src/lib/otpInput.js`, and only the clean digit string is sent. Covered by `tests/otpInput.test.js`.
 
 - `LoginPage` — Default export. Suspense wrapper around LoginForm (required for useSearchParams).
 - `LoginForm` — Two-stage login form managing loading, errors, resend countdown, expiry ticker, attempts/lockout, and post-auth redirect based on newUser flag.
@@ -664,6 +664,15 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `resolveRotationLifetime` — Pure helper returning `{ expiresAt, maxAgeSeconds, jwtExp }`: preserves remaining lifetime when it exceeds 15 days, otherwise the default 15-day window.
 
 
+### `src/lib/otpInput.js` — Pure helpers for the six-box OTP input (added 2026-09-28). The boxes render from a fixed-width state string padded with spaces, so the raw string is **always** `OTP_LENGTH` characters from the first keystroke; completeness is therefore derived from the digits and never from `.length`. See the bug note on `src/app/login/page.js`.
+
+- `OTP_LENGTH` — Canonical digit count (6), shared by the component and its tests.
+- `otpDigits(value)` — Strips every non-digit, turning the padded state string and pasted/magic-link input into a clean digit string.
+- `isOtpComplete(value, length)` — True only when exactly `length` digits are present. Guards the auto-submit effect and the submit button.
+- `sanitizeBoxInput(value)` — Reduces one box's input to its last digit, or `''` to clear it.
+- `setOtpBox(value, index, digit, length)` — Writes one box, pads the rest, and preserves digits in the other boxes so retyping an earlier box does not wipe later ones.
+- `clearOtpBoxBefore(value, index, length)` — Backs up one box, used by the Backspace-over-empty-box handler.
+
 ### `src/lib/clientIp.js` — Resolves the **platform-provided** client IP and derives non-reversible rate-limit keys (added 2026-09-28).
 
 - `getClientIp(request)` — Returns the first present value among `x-vercel-forwarded-for`, `cf-connecting-ip`, `x-real-ip`, else `'unknown'`. `x-forwarded-for` is deliberately ignored: it is client-supplied and trivially forged, which was the root cause of the bypassable OTP throttle.
@@ -869,6 +878,10 @@ Covers: `recipientName`/sender-name injection payloads scrubbed out of the cover
 ### `tests/aiRouteHardening.test.js` — Route-boundary tests for the AI write paths (added 2026-09-28).
 
 Covers: `POST /api/generate-cover-letter` passes a sanitized, ≤200-char recipient name to the generator, actually passes a daily API-key rate limit to `resolveUserId`, and `POST /api/cover-letters` charges one credit, refunds on failure, refuses without credits, and enforces the body size guard.
+
+### `tests/otpInput.test.js` — Regression tests for the six-box OTP input helpers (added 2026-09-28).
+
+Covers the padded-state-string bug: `isOtpComplete` is false for every partial code (`"1     "` → `false`) and true only for six digits; the raw state stays `OTP_LENGTH` characters throughout a simulated six-keystroke entry; `otpDigits` strips box padding and pasted/magic-link formatting; `setOtpBox` places, clears and preserves boxes; `clearOtpBoxBefore` keeps the fixed width.
 
 ### `scripts/seed.mjs` — Standalone seed script for Permission and Role collections. Updated 2026-09-22: USER mirror includes the free trial (`generate_resume`, `view_own_resumes`, requiredPlan FREE). Updated 2026-09-28: mirrors the new `delegate_role_management` permission (requiredPlan ADMIN) and its `Admin` group so the drift guard stays green.
 

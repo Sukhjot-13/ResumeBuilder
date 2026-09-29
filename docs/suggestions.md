@@ -11,6 +11,21 @@
 
 ## 🔴 Vulnerabilities
 
+### 2026-09-28 — OTP form was unusable and self-inflicted a lockout (**FIXED**)
+
+The auto-submit effect fired on `otp.length === OTP_LENGTH`, but `handleBoxChange`
+pads unfilled boxes with spaces so the state string is always six characters from
+the first keystroke. The verify request therefore fired after **one** digit, and
+posted a padded string such as `"1     "` to `/api/auth/verify-otp`. The server
+compares `sha256(otp)` and increments `otpAttempts` on every mismatch, so typing a
+genuine six-digit code consumed an attempt per keystroke and the fifth digit hit
+the 429 lockout — the OTP form could never succeed. The visible symptom was
+"it submits as soon as I type a digit".
+
+Fixed by deriving completeness from the digits (`isOtpComplete`) in the new
+`src/lib/otpInput.js`, sending only the clean digit string, and gating the submit
+button on the same check. Regression-locked by `tests/otpInput.test.js`.
+
 ### 2026-09-28 — Privilege escalation: DEVELOPER could self-promote to root ADMIN (**FIXED**)
 
 `PUT /api/admin/roles` was guarded only by `manage_roles`, which the DEVELOPER

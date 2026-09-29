@@ -5,8 +5,15 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { OTP_CONFIG } from '@/lib/constants';
+import {
+  OTP_LENGTH,
+  otpDigits,
+  isOtpComplete,
+  sanitizeBoxInput,
+  setOtpBox,
+  clearOtpBoxBefore,
+} from '@/lib/otpInput';
 
-const OTP_LENGTH = 6;
 const MAX_OTP_ATTEMPTS = 5;
 const RESEND_COOLDOWN_S = 60;
 const OTP_EXPIRY_MS = OTP_CONFIG.EXPIRY_MS;
@@ -38,6 +45,7 @@ function LoginForm() {
   const boxRefs = useRef([]);
 
   const codeExpired = otpSent && now - otpSentAt > OTP_EXPIRY_MS;
+  const otpComplete = isOtpComplete(otp);
 
   const handleSendOtp = async (e) => {
     e?.preventDefault();
@@ -73,7 +81,8 @@ function LoginForm() {
   };
 
   const handleVerifyOtp = useCallback(async (code) => {
-    if (verifyingRef.current || code.length !== OTP_LENGTH) return;
+    const digits = otpDigits(code);
+    if (verifyingRef.current || digits.length !== OTP_LENGTH) return;
     verifyingRef.current = true;
     setLoading(true);
     setError('');
@@ -82,7 +91,7 @@ function LoginForm() {
       const response = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp: code, remember }),
+        body: JSON.stringify({ email, otp: digits, remember }),
       });
 
       if (response.ok) {
@@ -122,7 +131,7 @@ function LoginForm() {
 
   // Auto-submit the moment a complete code is present (typed, pasted, magic link)
   useEffect(() => {
-    if (otpSent && otp.length === OTP_LENGTH && !loading && !codeExpired && !lockedOut) {
+    if (otpSent && otpComplete && !loading && !codeExpired && !lockedOut) {
       handleVerifyOtp(otp);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -132,7 +141,7 @@ function LoginForm() {
   useEffect(() => {
     if (magicConsumedRef.current) return;
     const linkEmail = searchParams.get('email');
-    const linkCode = (searchParams.get('code') || '').replace(/\D/g, '');
+    const linkCode = otpDigits(searchParams.get('code'));
     if (linkEmail && linkCode.length === OTP_LENGTH) {
       magicConsumedRef.current = true;
       setMagicLink(true);
@@ -172,26 +181,22 @@ function LoginForm() {
   const focusBox = (index) => boxRefs.current[index]?.focus();
 
   const handleBoxChange = (index, value) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
+    const digit = sanitizeBoxInput(value);
     if (!digit && value !== '') return;
-    const next = (otp + '      ').split('').slice(0, OTP_LENGTH);
-    next[index] = digit;
-    setOtp(next.join('').slice(0, OTP_LENGTH));
+    setOtp(setOtpBox(otp, index, digit));
     if (digit && index < OTP_LENGTH - 1) focusBox(index + 1);
   };
 
   const handleBoxKeyDown = (index, e) => {
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
       e.preventDefault();
-      const next = otp.split('');
-      next[index - 1] = '';
-      setOtp(next.join(''));
+      setOtp(clearOtpBoxBefore(otp, index));
       focusBox(index - 1);
     }
   };
 
   const handlePaste = (e) => {
-    const digits = (e.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, OTP_LENGTH);
+    const digits = otpDigits(e.clipboardData?.getData('text')).slice(0, OTP_LENGTH);
     if (!digits) return;
     e.preventDefault();
     setOtp(digits);
@@ -300,7 +305,7 @@ function LoginForm() {
             </div>
             <button
               type="submit"
-              disabled={loading || otp.length !== OTP_LENGTH || lockedOut || codeExpired}
+              disabled={loading || !otpComplete || lockedOut || codeExpired}
               className="btn-primary w-full py-3 text-xs sm:text-sm font-semibold rounded-xl flex items-center justify-center gap-2"
             >
               {loading ? (
