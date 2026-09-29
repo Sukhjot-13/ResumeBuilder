@@ -2,11 +2,12 @@
  * Logger Service
  * 
  * This service provides a centralized way to log messages.
- * Currently, it logs to the console, but it is designed to be easily extended
- * to log to a database, file, or external service in the future.
+ * Writes structured console output and forwards entries to Manager with the current
+ * request's trace so browser and server failures can be inspected together.
  */
 
 import env from '@/config/env';
+import { managerLog } from '@/lib/manager';
 
 const LOG_LEVELS = {
   INFO: 'INFO',
@@ -44,7 +45,7 @@ class Logger {
   info(message, meta = {}) {
     const logEntry = this._format(LOG_LEVELS.INFO, message, meta);
     console.log(JSON.stringify(logEntry));
-    // Future: Save to DB
+    this._toManager('info', message, meta);
   }
 
   /**
@@ -55,7 +56,7 @@ class Logger {
   warn(message, meta = {}) {
     const logEntry = this._format(LOG_LEVELS.WARN, message, meta);
     console.warn(JSON.stringify(logEntry));
-    // Future: Save to DB
+    this._toManager('warn', message, meta);
   }
 
   /**
@@ -73,7 +74,7 @@ class Logger {
 
     const logEntry = this._format(LOG_LEVELS.ERROR, message, { ...meta, error: errorDetails });
     console.error(JSON.stringify(logEntry));
-    // Future: Save to DB
+    this._toManager('error', message, { ...meta, error: errorDetails });
   }
 
   /**
@@ -86,6 +87,15 @@ class Logger {
       const logEntry = this._format(LOG_LEVELS.DEBUG, message, meta);
       console.debug(JSON.stringify(logEntry));
     }
+    this._toManager('debug', message, meta);
+  }
+
+  /**
+   * Forwards to the Manager central logger. Every existing call site in this app
+   * therefore lands in Manager with no per-route changes. Never throws.
+   */
+  _toManager(level, message, meta) {
+    managerLog(level, message, meta);
   }
 }
 

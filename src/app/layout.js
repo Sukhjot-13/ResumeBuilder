@@ -4,6 +4,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { AuthProvider } from "@/context/AuthContext";
 import ToastProvider from "@/components/common/ToastProvider";
+import ManagerProvider from "@/lib/manager/ManagerProvider";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -20,6 +21,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={outfit.variable}>
       <body className="antialiased min-h-screen flex flex-col">
+        <ManagerProvider />
         <AuthProvider>
           <ToastProvider>
             <Navbar />

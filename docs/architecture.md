@@ -212,6 +212,8 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 - `POST` — Normalizes email casing, generic invalid-OTP response (no user enumeration); on success clears OTP state, rotates refresh token into DB, sets HttpOnly cookies (named via `COOKIE_NAMES`), returns newUser flag
 
+Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=local-only` branch accepts the test code for an existing account. Token generation is awaited and includes the user's role; refresh cookie and database expiry both match the signed token's 15-day lifetime. The branch refuses production even when the switch is set. The bypass remains a local testing change and must not be included in a deployment commit.
+
 ### `src/app/api/auth/verify-token/route.js` — API route to rotate a refresh token and issue new access/refresh tokens. Fixed 2026-09-28: the body is read through the `readJson` size guard (was a raw `await req.json()`, which 500'd on malformed input and accepted unbounded bodies), and the recorded client IP now comes from `getClientIp()` (platform headers only) instead of the forgeable `x-forwarded-for`.
 
 - `POST` — Accept refresh token, rotate it (with a 60s grace window so parallel requests carrying the same token aren't logged out — see `src/lib/auth.js`), and return new access and refresh tokens with userId
@@ -542,7 +544,7 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 - `AuthError` — AppError subclass defaulting to 401
 - `ForbiddenError` — AppError subclass defaulting to 403
 - `readJson(request, maxBytes)` — Reads a JSON body with a hard size cap (default 256KB) **measured in actual UTF-8 bytes**, returning `{ok, body}` or `{ok:false, response}` with 400/413 errors. Used by AI/PDF routes to bound payload size.
-- `withErrorHandler` — Higher-order function that wraps a route handler, catching AppError subclasses for status-specific responses and generic errors for a 500 response
+- `withErrorHandler` — Wraps every API route handler in a request trace, catches AppError subclasses for status-specific responses, logs unexpected exceptions before a safe 500, and schedules Manager delivery with Next.js `after` on all outcomes.
 
 ### `src/lib/sanitize.js` — Shared utility for sanitizing user-provided text (e.g. job descriptions, recipient names) against prompt injection patterns. The identity-override pattern only matches AI/system targets ("act as the system"), so legitimate job text like "act as a mentor" survives. Also exports `MAX_JOB_DESCRIPTION_LENGTH`. `sanitizeJobDescriptionWithInfo` was **deleted 2026-09-28** (unreferenced).
 
@@ -976,6 +978,8 @@ The job-automation feature and API-key management UI were archived on 2026-08-21
 
 ## Environment Variables
 
+Local-only testing: `TEST_LOGIN_BYPASS` is read in `src/app/api/auth/verify-otp/route.js`; the exact value `local-only` enables the temporary uncommitted login bypass outside production. Enabled in ignored `.env.local`; the route refuses production regardless of the switch. Leave unset for deployed builds.
+
 ### Next.js App (`.env.local`, accessed via `src/config/env.js`)
 
 | Variable | Purpose | Referenced in |
@@ -994,3 +998,34 @@ The job-automation feature and API-key management UI were archived on 2026-08-21
 | `AI_TASK_<KEY>` | Optional per-task AI override (`provider:model`) | `src/lib/ai/config.js` |
 
 > `NODE_ENV` (`production`/`development`) is also read via `env.isProduction` / `env.isDevelopment` (proxy cookie security, logger verbosity, instrumentation warnings). Required vars (`ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `MONGODB_URI`) are enforced at boot by `validateEnv()` in `src/instrumentation.js`; missing AI/Stripe/Brevo keys only produce feature warnings.
+
+## Manager integration (added 2026-09-28)
+
+### `tests/localLoginBypass.test.js` — Temporary local-bypass regression tests (2026-09-29). `login(setting)` loads the route with a test-only environment switch and submits a mocked-account request. Covers awaited token generation, user role, matching 15-day refresh lifetimes, rejection without the exact switch, and rejection of unknown users, and production refusal even with the switch. Database and token signing are mocked; no real account is modified.
+
+| File | Purpose | Exports |
+|---|---|---|
+| `src/lib/manager/logger.js` | The vendored `@manager/logger` SDK: single file, zero dependencies, generated from Manager's `packages/logger/dist/logger.js`. Native and serialized metadata errors retain redacted, bounded top-level stacks and distinct fingerprints. Refresh with `curl -H "x-manager-key: …" "…/api/sdk/logger?format=js"` once the updated SDK is deployed. | `initLogger`, `traceIdFromHeaders`, `shutdownLoggers`, `fingerprint`, `LOG_SDK_VERSION`, `LOG_SDK_PATH`, `TRACE_HEADER` |
+
+| `src/lib/manager/index.js` | Isomorphic integration facade. Separate server and static `NEXT_PUBLIC_*` browser config; shared lazy server logger, 250ms batching, urgent error flush, safe `flushManagerLogs` for request completion. `managerLog` adopts the current global request storage's trace through a child logger without importing server-only modules into browser code. Never throws. | `managerConfig`, `managerClientConfig`, `startManagerLogger`, `getManagerLogger`, `flushManagerLogs`, `managerLog`, `getManagerDroppedCount`, `logServerEvent`, `logServerError`, `managerTrackerScript` |
+| `src/lib/manager/server.js` | Server-only request helpers: `withManagerRequest` adopts bounded incoming `x-trace-id` or generates a unique request trace in shared AsyncLocalStorage; `getManagerRequestTrace` exposes only the current request's trace; `scheduleManagerFlush` registers delivery with `after`, keeping it alive after responses. Concurrent requests never change the root logger's trace. | `withManagerRequest`, `getManagerRequestTrace`, `scheduleManagerFlush` |
+| `src/lib/manager/ManagerProvider.jsx` | Client component mounted in the root layout: shares one browser logger across repeated mounts; injects the analytics script independently of browser logging enablement | `ManagerProvider` (default) |
+| `src/lib/apiResponse.js` (modified) | `withErrorHandler` runs the handler in its request trace context, reports unhandled errors through the app logger and always schedules Manager queue delivery after the response, including early returns and errors | existing exports unchanged |
+| `src/lib/logger.js` (modified) | Shared console logger: `Logger._toManager` forwards every `info/warn/error/debug` to `managerLog`, which adopts server request context when present. Remains browser-safe for shared access-control imports. `error` preserves error name/message/stack. | `logger` (unchanged API) |
+| `src/instrumentation.js` (modified) | No longer creates the logger at boot — a boot-created instance is not the one route handlers see | `register` |
+| `src/app/layout.js` (modified) | Mounts `<ManagerProvider />` | `RootLayout` |
+| `tests/manager-integration.test.js` | Integration facade tests: unconfigured no-ops, enablement, blank values, static browser configuration, tracker construction, routine batching/urgent flush, unknown-level fallback, shared instance, request trace binding and real SDK metadata-error delivery | — |
+| `tests/managerProvider.test.js` | Provider effect tests: analytics-only configuration, repeated mounts, logger failure and missing analytics key | mocked provider effects only |
+| `tests/managerRequestCompletion.test.js` | Route-completion tests: success, early rejection, expected/unhandled errors, unconfigured integration and outside-request behavior; verifies flush is deferred via Next.js `after` | mocked after callbacks only |
+| `tests/managerRequestTrace.test.js` | Request trace tests: concurrent requests retain separate browser traces in real app logger calls, thrown failures retain correlation, headerless requests get distinct traces, oversized traces are bounded, outside-request logs remain safe | synthetic mocked transport; no live usage |
+| `tests/managerRouteCoverage.test.js` | PDF success/permission rejection/pre-render failure; logout still clears cookies on logged revocation failure; webhook unconfigured/invalid-signature/body failure responses. Every path schedules Manager completion. | mocked DB/PDF/Stripe; no paid provider calls |
+| `scripts/check-manager-integration.mjs` | `npm run manager:check` — eight key-contract/health checks: server and client log acceptance, analytics acceptance, key-kind rejection, unknown key rejection, app health. `check` records results, `post` sends synthetic batches. Health is explicitly not claimed as proof of app log delivery. | — |
+| `.env.example` (new) | Documents the optional `MANAGER_*` block | — |
+
+SDK fetch tracing normalizes all same-origin header forms and preserves caller headers; third-party fetch headers are unchanged. Pending log delivery does not suppress unrelated console errors or request traces. The canonical SDK tests live in Manager; consumer tests verify the generated JavaScript error-delivery contract.
+
+SDK repeat grouping is limited to queued entries within one trace. Matching errors after a flush are delivered again; Manager's ingest now keeps distinct source/trace rows and honors bounded queued-repeat occurrence counts.
+
+The remaining direct handlers (`src/app/api/render-pdf-react/route.js`, `src/app/api/webhooks/stripe/route.js`, `src/app/api/auth/logout/route.js`) also use `withErrorHandler`: they retain their existing PDF/webhook/logout responses while gaining request traces and guaranteed deferred delivery. Logout logs token-revocation database failures without exposing tokens and still clears cookies.
+
+`docs/manager-verification-2026-09-29.md` records the authenticated browser/live Manager results, fixes, automated checks, diagnostic cleanup and usage limits (no functions).

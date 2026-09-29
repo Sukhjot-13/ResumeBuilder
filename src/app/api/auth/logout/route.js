@@ -1,11 +1,12 @@
 import { cookies } from 'next/headers';
-import { ok } from '@/lib/apiResponse';
+import { ok, withErrorHandler } from '@/lib/apiResponse';
+import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
 import RefreshToken from '@/models/refreshToken';
 import { hashToken } from '@/lib/utils';
 import { COOKIE_NAMES } from '@/lib/constants';
 
-export async function POST() {
+export const POST = withErrorHandler(async () => {
   // Revoke the refresh token server-side so a captured token
   // can't outlive "logout" (shared machines, XSS elsewhere, logs).
   try {
@@ -17,8 +18,9 @@ export async function POST() {
         // token hashes are unique per device; deleteMany is defensive
       });
     }
-  } catch {
+  } catch (error) {
     // Never block logout on DB issues — still clear cookies below.
+    logger.error('Could not revoke refresh token during logout', error);
   }
 
   const response = ok(null);
@@ -39,5 +41,4 @@ export async function POST() {
   });
 
   return response;
-}
-
+});
