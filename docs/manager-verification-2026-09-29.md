@@ -40,3 +40,10 @@ pushed or deployed during this check.
 
 AI/email/payment provider workflows were covered by existing tests and the new
 mocked webhook regressions. Paid generation and real transactions were not run.
+
+## Main merge verification
+
+The Manager integration branch was merged into `main` on 2026-09-29, preserving
+the OTP form fix already on `main`. With the local login bypass and its tests
+stashed, the merged deployable tree passed all 190 tests, lint and production
+build. The bypass remains local-only and is excluded from the merge.

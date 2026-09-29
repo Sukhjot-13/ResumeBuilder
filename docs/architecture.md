@@ -1028,4 +1028,4 @@ SDK repeat grouping is limited to queued entries within one trace. Matching erro
 
 The remaining direct handlers (`src/app/api/render-pdf-react/route.js`, `src/app/api/webhooks/stripe/route.js`, `src/app/api/auth/logout/route.js`) also use `withErrorHandler`: they retain their existing PDF/webhook/logout responses while gaining request traces and guaranteed deferred delivery. Logout logs token-revocation database failures without exposing tokens and still clears cookies.
 
-`docs/manager-verification-2026-09-29.md` records the authenticated browser/live Manager results, fixes, automated checks, diagnostic cleanup and usage limits (no functions).
+`docs/manager-verification-2026-09-29.md` records the authenticated browser/live Manager results, fixes, automated checks, diagnostic cleanup and usage limits (no functions). Its merge addendum records preservation of main's OTP form fix and fresh verification of the deployable merged tree: 190 tests, lint and production build, with local bypass files excluded.
