@@ -5,18 +5,18 @@
  * Renders nothing. Safe to mount in the root layout on every app.
  */
 import { useEffect } from 'react';
-import { managerConfig, managerTrackerScript } from './index';
+import { managerClientConfig, managerTrackerScript } from './index.js';
 import { initLogger } from './logger.js';
 
 export default function ManagerProvider() {
   useEffect(() => {
-    if (!managerConfig.enabled || typeof window === 'undefined') return;
+    if (!managerClientConfig.enabled || typeof window === 'undefined') return;
 
     try {
       const log = initLogger({
-        endpoint: managerConfig.endpoint,
-        appId: managerConfig.appId,
-        apiKey: managerConfig.apiKey,
+        endpoint: managerClientConfig.endpoint,
+        appId: managerClientConfig.appId,
+        apiKey: managerClientConfig.apiKey,
         environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
         release: process.env.NEXT_PUBLIC_RELEASE || 'web',
         captureConsole: ['warn', 'error'],

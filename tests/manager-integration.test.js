@@ -1,4 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const CLIENT_ENV = {
+  NEXT_PUBLIC_MANAGER_ENDPOINT: 'http://127.0.0.1:3300',
+  NEXT_PUBLIC_MANAGER_APP_ID: 'resume-builder',
+  NEXT_PUBLIC_MANAGER_CLIENT_KEY: 'mck_test_key',
+  NEXT_PUBLIC_MANAGER_ANALYTICS_KEY: 'mak_test_key',
+};
 
 const MANAGER_ENV = {
   MANAGER_ENDPOINT: 'http://127.0.0.1:3300',
@@ -8,7 +17,7 @@ const MANAGER_ENV = {
 };
 
 function setEnv(values) {
-  for (const key of ['MANAGER_ENDPOINT', 'MANAGER_APP_ID', 'MANAGER_LOG_KEY', 'MANAGER_ANALYTICS_KEY', 'MANAGER_LOG_SOURCE']) {
+  for (const key of ['MANAGER_ENDPOINT', 'MANAGER_APP_ID', 'MANAGER_LOG_KEY', 'MANAGER_ANALYTICS_KEY', 'MANAGER_LOG_SOURCE', 'NEXT_PUBLIC_MANAGER_ENDPOINT', 'NEXT_PUBLIC_MANAGER_APP_ID', 'NEXT_PUBLIC_MANAGER_CLIENT_KEY', 'NEXT_PUBLIC_MANAGER_ANALYTICS_KEY']) {
     delete process.env[key];
   }
   for (const [key, value] of Object.entries(values ?? {})) {
@@ -69,7 +78,7 @@ describe('manager integration module', () => {
   });
 
   it('builds a versioned tracker script tag only when analytics is configured', async () => {
-    setEnv(MANAGER_ENV);
+    setEnv({ ...MANAGER_ENV, ...CLIENT_ENV });
     const { managerTrackerScript } = await loadManager();
     const tracker = managerTrackerScript();
     expect(tracker).toEqual({
@@ -77,6 +86,32 @@ describe('manager integration module', () => {
       appId: 'resume-builder',
       key: 'mak_test_key',
     });
+  });
+
+  it('keeps the browser config separate and reads NEXT_PUBLIC_* statically', async () => {
+    setEnv(MANAGER_ENV);
+    const { managerConfig, managerClientConfig } = await loadManager();
+    expect(managerConfig.enabled).toBe(true);
+    expect(managerClientConfig.enabled).toBe(false);
+
+    setEnv({ ...MANAGER_ENV, ...CLIENT_ENV });
+    const withClient = await loadManager();
+    expect(withClient.managerConfig.enabled).toBe(true);
+    expect(withClient.managerClientConfig.enabled).toBe(true);
+    expect(withClient.managerClientConfig.apiKey).toBe('mck_test_key');
+    // The server key must never reach the browser config.
+    expect(withClient.managerClientConfig.apiKey).not.toBe('mlk_test_key');
+  });
+
+  it('never reads a plain process.env lookup in the client-facing module', async () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/lib/manager/index.js'),
+      'utf8',
+    );
+    const clientBlock = source.slice(source.indexOf('export const managerClientConfig'));
+    // Only literal NEXT_PUBLIC_* member access is allowed there.
+    expect(clientBlock).not.toMatch(/process\.env\[[^\]]*\]/);
+    expect(clientBlock).toMatch(/process\.env\.NEXT_PUBLIC_MANAGER_ENDPOINT/);
   });
 
   it('omits the tracker when the analytics key is missing', async () => {

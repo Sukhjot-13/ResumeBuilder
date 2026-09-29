@@ -32,6 +32,27 @@ export const managerConfig = {
   enabled: Boolean(env('MANAGER_ENDPOINT') && env('MANAGER_APP_ID') && env('MANAGER_LOG_KEY')),
 };
 
+/**
+ * Browser configuration.
+ *
+ * Deliberately separate from the server config, and read as static member accesses:
+ * Next.js only inlines `process.env.NEXT_PUBLIC_*` when it is written literally, and
+ * `process.env` in a 'use client' module is otherwise an empty object at runtime. A
+ * `process.env[name]` lookup here would leave the browser logger and the analytics
+ * tracker silently dead while every test still passed.
+ */
+export const managerClientConfig = {
+  endpoint: process.env.NEXT_PUBLIC_MANAGER_ENDPOINT || null,
+  appId: process.env.NEXT_PUBLIC_MANAGER_APP_ID || null,
+  apiKey: process.env.NEXT_PUBLIC_MANAGER_CLIENT_KEY || null,
+  analyticsKey: process.env.NEXT_PUBLIC_MANAGER_ANALYTICS_KEY || null,
+  enabled: Boolean(
+    process.env.NEXT_PUBLIC_MANAGER_ENDPOINT &&
+      process.env.NEXT_PUBLIC_MANAGER_APP_ID &&
+      process.env.NEXT_PUBLIC_MANAGER_CLIENT_KEY,
+  ),
+};
+
 const noop = () => {};
 
 const NOOP_LOGGER = {
@@ -209,9 +230,9 @@ export function logServerError(message, error, meta = {}) {
 
 /** Tracker <script> for the browser, or null when analytics is not configured. */
 export function managerTrackerScript() {
-  const endpoint = managerConfig.endpoint;
-  const appId = managerConfig.appId;
-  const analyticsKey = managerConfig.analyticsKey;
+  const endpoint = managerClientConfig.endpoint;
+  const appId = managerClientConfig.appId;
+  const analyticsKey = managerClientConfig.analyticsKey;
   if (!endpoint || !appId || !analyticsKey) return null;
   return {
     src: `${endpoint}/t.js?v=1`,
