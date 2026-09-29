@@ -3,7 +3,7 @@ import { generatePdf, generateCoverLetterPdf } from '@/lib/pdf-generator';
 import { resolveUserId } from '@/lib/apiKeyAuth';
 import { requirePermission, isPermissionError } from '@/lib/apiPermissionGuard';
 import { PERMISSIONS } from '@/lib/constants';
-import { fail, readJson } from '@/lib/apiResponse';
+import { fail, readJson, withErrorHandler } from '@/lib/apiResponse';
 import { rateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import dbConnect from '@/lib/mongodb';
@@ -14,7 +14,7 @@ const MAX_BODY_BYTES = 1024 * 1024;
 const PDF_RATE_LIMIT = 10;          // renders
 const PDF_RATE_WINDOW_MS = 60_000;  // per minute
 
-export async function POST(request) {
+export const POST = withErrorHandler(async request => {
   const { userId, error } = await resolveUserId(request);
   if (error) return error;
 
@@ -73,4 +73,4 @@ export async function POST(request) {
     logger.error('Error generating React PDF', error, { userId });
     return fail('Error generating PDF', 500);
   }
-}
+});

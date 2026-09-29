@@ -4,7 +4,7 @@ import User from '@/models/User';
 import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongodb';
 import { PLANS, ROLES } from '@/lib/constants';
-import { ok, fail } from '@/lib/apiResponse';
+import { ok, fail, withErrorHandler } from '@/lib/apiResponse';
 import { logger } from '@/lib/logger';
 import env from '@/config/env';
 
@@ -23,7 +23,7 @@ async function computeExpiry(stripe, subscriptionId) {
   return fallback;
 }
 
-export async function POST(req) {
+export const POST = withErrorHandler(async req => {
   let stripe;
   try {
     stripe = getStripe();
@@ -217,4 +217,4 @@ export async function POST(req) {
   }
 
   return ok({ received: true });
-}
+});

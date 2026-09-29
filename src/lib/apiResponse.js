@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { scheduleManagerFlush, withManagerRequest } from '@/lib/manager/server';
+import { logger } from '@/lib/logger';
 
 /**
  * Successful response (200 / 201).
@@ -128,15 +130,17 @@ export class ForbiddenError extends AppError {
  * Supports AppError subclasses (custom status codes) and generic errors (500).
  */
 export function withErrorHandler(handler) {
-  return async (...args) => {
+  return async (...args) => withManagerRequest(args[0], async () => {
     try {
       return await handler(...args);
     } catch (err) {
       if (err instanceof AppError) {
         return fail(err.message, err.status);
       }
-      console.error('Unhandled route error:', err);
+      logger.error('Unhandled route error', err);
       return fail('Internal server error', 500);
+    } finally {
+      scheduleManagerFlush();
     }
-  };
+  });
 }

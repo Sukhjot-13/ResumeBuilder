@@ -106,7 +106,7 @@ let urgentTimer = null;
  *  - a Next.js server (and Vercel functions in particular) can freeze timers once a
  *    response is sent, so a logger that only relies on its background flush timer can
  *    lose entries created outside a request.
- * Creating it on demand inside the request and flushing on every write avoids both.
+ * Creating it on demand and flushing with Next.js after() at request completion avoids both.
  */
 function cachedLogger() {
   return scope[GLOBAL_KEY] ?? null;
@@ -162,6 +162,16 @@ export function getManagerLogger() {
   return cachedLogger() ?? startManagerLogger();
 }
 
+/** Flush an existing queue at request completion without creating a logger. */
+export async function flushManagerLogs() {
+  if (!managerConfig.enabled) return;
+  try {
+    await cachedLogger()?.flush();
+  } catch {
+    /* observability must never throw */
+  }
+}
+
 /**
  * Emits a server log.
  *
@@ -169,10 +179,12 @@ export function getManagerLogger() {
  * error/fatal flush straight away so a crash right after logging cannot strand the entry.
  * Fire-and-forget: never awaits, never throws.
  */
-export function managerLog(level, message, meta = {}) {
+export function managerLog(level, message, meta = {}, traceId = '') {
   if (!managerConfig.enabled) return;
   try {
-    const log = getManagerLogger();
+    const root = getManagerLogger();
+    const activeTrace = traceId || scope.__managerRequestContext?.getStore?.() || '';
+    const log = activeTrace ? root.withTrace(activeTrace) : root;
     const fn = typeof log[level] === 'function' ? log[level] : log.info;
     fn.call(log, message, meta);
     if (IMMEDIATE_LEVELS.has(level)) {

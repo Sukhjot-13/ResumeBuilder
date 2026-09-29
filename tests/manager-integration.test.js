@@ -37,7 +37,13 @@ async function loadManager() {
 
 describe('manager integration module', () => {
   beforeEach(() => setEnv({}));
-  afterEach(() => setEnv({}));
+  afterEach(async () => {
+    const { shutdownLoggers } = await import('@/lib/manager/logger.js');
+    shutdownLoggers();
+    delete globalThis.__managerServerLogger;
+    vi.unstubAllGlobals();
+    setEnv({});
+  });
 
   it('is fully disabled (no-ops) when nothing is configured', async () => {
     const { managerConfig, getManagerLogger, logServerEvent, logServerError, managerTrackerScript } =
@@ -179,5 +185,47 @@ describe('manager integration module', () => {
     expect(typeof log.child).toBe('function');
     expect(typeof log.flush).toBe('function');
     expect(typeof log.traceId).toBe('function');
+  });
+
+  it('uses a request-bound child without changing the shared logger trace', async () => {
+    setEnv(MANAGER_ENV);
+    const { managerLog } = await loadManager();
+    const info = vi.fn();
+    const withTrace = vi.fn(() => ({ info }));
+    globalThis.__managerServerLogger = { withTrace };
+    globalThis.__managerRequestContext = { getStore: () => 'browser-trace' };
+    try {
+      managerLog('info', 'request_event', { synthetic: true });
+    } finally {
+      delete globalThis.__managerRequestContext;
+    }
+    expect(withTrace).toHaveBeenCalledWith('browser-trace');
+    expect(info).toHaveBeenCalledWith('request_event', { synthetic: true });
+  });
+
+  it('delivers distinct serialized server exceptions with their stack and browser trace', async () => {
+    setEnv(MANAGER_ENV);
+    const batches = [];
+    vi.stubGlobal('fetch', vi.fn(async (_, options) => {
+      batches.push(...JSON.parse(options.body).logs);
+      return { status: 200, ok: true };
+    }));
+    const { managerLog, flushManagerLogs } = await loadManager();
+    managerLog('error', 'Unhandled route error', {
+      error: { name: 'Error', message: 'first failure', stack: 'Error: first failure\n at save (/app.js:1:1)' },
+      password: 'must-be-redacted',
+    }, 'browser-trace');
+    managerLog('error', 'Unhandled route error', {
+      error: { name: 'Error', message: 'second failure', stack: 'Error: second failure\n at load (/app.js:2:1)' },
+    }, 'browser-trace');
+    await flushManagerLogs();
+    const errors = batches.filter(row => row.message === 'Unhandled route error');
+    expect(errors).toHaveLength(2);
+    expect(errors.map(row => row.stack)).toEqual([
+      'Error: first failure\n at save (/app.js:1:1)',
+      'Error: second failure\n at load (/app.js:2:1)',
+    ]);
+    expect(errors.every(row => row.traceId === 'browser-trace')).toBe(true);
+    expect(JSON.stringify(batches)).not.toContain('must-be-redacted');
   });
 });

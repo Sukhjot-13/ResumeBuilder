@@ -2,8 +2,8 @@
  * Logger Service
  * 
  * This service provides a centralized way to log messages.
- * Currently, it logs to the console, but it is designed to be easily extended
- * to log to a database, file, or external service in the future.
+ * Writes structured console output and forwards entries to Manager with the current
+ * request's trace so browser and server failures can be inspected together.
  */
 
 import env from '@/config/env';

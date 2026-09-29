@@ -57,6 +57,15 @@ findings above existed in the tree at that time.)_
 
 ## 🟢 Improvements
 
+### 2026-09-29 — Manager integration verification (**FIXED**)
+
+- Browser logger initialization duplicated across development mounts and analytics depended on a browser log key. Share one logger and initialize analytics independently.
+- Unexpected route errors were only printed to console; queued server logs could be frozen after a serverless response. All route handlers now use request-scoped tracing and Next.js `after` delivery, including PDF, webhook and logout paths.
+- The vendored SDK lost metadata error stacks, did not trace ordinary fetch header forms, and suppressed unrelated console errors during uploads. The SDK fixes and regression tests live in Manager; ResumeBuilder includes the regenerated JavaScript.
+- Repeated errors after a flush were suppressed, and separate journeys/sources could be merged. Queued repeats now stay within one trace and Manager's ingest preserves separate journey rows and occurrence counts.
+- The local-only OTP test branch issued an unresolved access token and mismatched refresh expiry. Fixed locally; the bypass and its regression tests remain outside deployment commits.
+- The key-check script claimed health proved app log delivery and omitted client-key checks. It now makes eight explicit key/health checks; real app delivery was checked in the authenticated browser and live Manager viewer.
+
 - **Per-deploy authorization version** — `invalidateRoleCache()` clears one
   process. A shared `authorizationVersion` (or pub/sub invalidation) would make
   revocations immediate across all instances.
