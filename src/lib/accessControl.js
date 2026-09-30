@@ -54,29 +54,31 @@ async function loadDbRoles() {
  * Resolves the authoritative permission list for a role.
  *
  * Precedence (never widens access):
- *   1. valid cache                -> cached DB policy
- *   2. reload attempt succeeds    -> fresh DB policy
+ *   1. protected root ADMIN       -> system policy (independent of role rows)
+ *   2. valid cache/reload         -> current DB policy
  *   3. reload fails, recent LKG   -> last verified DB snapshot
  *   4. reload fails, no/stale LKG -> null (caller denies)
- *   5. store loaded but EMPTY     -> compile-time defaults (bootstrap only:
+ *   5. fresh store is EMPTY       -> compile-time defaults (bootstrap only:
  *                                   `node scripts/seed.mjs` has never run)
  *
  * @returns {Promise<{permissions: string[]|'ALL'|null, source: string}>}
  */
 async function resolveRolePolicy(userRole) {
-  if (!Number.isInteger(userRole)) {
+  if (!Number.isInteger(userRole) || userRole < 0) {
     return { permissions: null, source: 'invalid-role' };
+  }
+
+  // The authenticated user's role comes from the User document at the API
+  // guard. The built-in root role cannot be disabled by missing/edited policy
+  // rows, and database flags must never manufacture another root role.
+  if (isRootAdmin({ role: userRole })) {
+    return { permissions: 'ALL', source: 'system-root' };
   }
 
   const cacheIsFresh = dbRoleCache && (Date.now() - cacheTimestamp) <= CACHE_TTL_MS;
   if (!cacheIsFresh) {
     const result = await loadDbRoles();
-    if (result.ok) {
-      if (Object.keys(result.roles).length === 0) {
-        logger.warn('Role store is empty — using compile-time defaults until seeded', { userRole });
-        return { permissions: ROLE_PERMISSIONS[userRole] || null, source: 'constants-unseeded' };
-      }
-    } else if (!dbRoleCache) {
+    if (!result.ok && !dbRoleCache) {
       return { permissions: null, source: 'store-unavailable' };
     }
   }
@@ -90,9 +92,12 @@ async function resolveRolePolicy(userRole) {
       });
       return { permissions: null, source: 'stale-snapshot' };
     }
+    if (Object.keys(dbRoleCache).length === 0 && age <= CACHE_TTL_MS) {
+      logger.warn('Role store is empty — using compile-time defaults until seeded', { userRole });
+      return { permissions: ROLE_PERMISSIONS[userRole] || null, source: 'constants-unseeded' };
+    }
     const role = dbRoleCache[userRole];
     if (!role) return { permissions: null, source: 'role-not-in-store' };
-    if (role.isAdmin) return { permissions: 'ALL', source: 'db' };
     return { permissions: Array.isArray(role.permissions) ? role.permissions : [], source: 'db' };
   }
 
@@ -104,23 +109,20 @@ async function resolveRolePolicy(userRole) {
  * SYNC: Checks if a user role has a specific permission using constants only.
  * This is the original synchronous function — safe for client components.
  *
- * Supports the 'ALL' wildcard for admin roles (any permission check returns true).
+ * The canonical root-Admin rule grants every registered permission.
  *
  * @param {number} userRole - The user's role level (from ROLES enum).
  * @param {string} permission - The permission to check (from PERMISSIONS enum).
  * @returns {boolean} - True if the user has the permission, false otherwise.
  */
 export function hasPermission(userRole, permission) {
+  if (!isKnownPermission(permission) || !Number.isInteger(userRole) || userRole < 0) return false;
+  if (isRootAdmin({ role: userRole })) return true;
   const permissions = ROLE_PERMISSIONS[userRole];
 
   if (!permissions) {
     logger.debug('Permission check failed: Unknown role', { userRole, permission });
     return false;
-  }
-
-  // Admin wildcard — admins have every permission
-  if (permissions === 'ALL' || (Array.isArray(permissions) && permissions[0] === 'ALL')) {
-    return true;
   }
 
   const hasAccess = Array.isArray(permissions) && permissions.includes(permission);
@@ -135,9 +137,9 @@ export function hasPermission(userRole, permission) {
 /**
  * ASYNC DB-aware: Checks if a user role has a specific permission.
  * Resolves the authoritative policy from the database (cached) and FAILS
- * CLOSED when that policy cannot be read — it never falls back to the broader
+ * CLOSED for ordinary roles when that policy cannot be read — it never falls back to the broader
  * compile-time constants, because a store outage must not restore a grant
- * that an admin already revoked.
+ * that an admin already revoked. Root ADMIN uses the immutable system policy.
  * Use this in server-side code (API routes, server actions).
  *
  * @param {number} userRole - The user's role level (from ROLES enum).
@@ -145,8 +147,8 @@ export function hasPermission(userRole, permission) {
  * @returns {Promise<boolean>} - True if the user has the permission, false otherwise.
  */
 export async function hasPermissionDB(userRole, permission) {
-  if (typeof permission !== 'string' || permission.length === 0) {
-    logger.debug('Permission check failed: Missing permission identifier');
+  if (!isKnownPermission(permission)) {
+    logger.debug('Permission check failed: Unknown or missing permission identifier');
     return false;
   }
 
@@ -161,7 +163,7 @@ export async function hasPermissionDB(userRole, permission) {
     return false;
   }
 
-  if (permissions === 'ALL' || (Array.isArray(permissions) && permissions[0] === 'ALL')) {
+  if (source === 'system-root') {
     return true;
   }
 
@@ -170,6 +172,11 @@ export async function hasPermissionDB(userRole, permission) {
     logger.debug('Permission denied (DB)', { userRole, permission, source });
   }
   return hasAccess;
+}
+
+/** Unknown permission names (including prototype keys and ALL) fail closed. */
+function isKnownPermission(permission) {
+  return typeof permission === 'string' && Object.hasOwn(PERMISSION_METADATA, permission);
 }
 
 /**
@@ -214,7 +221,7 @@ export function checkPermission(user, permission) {
 
 /**
  * ASYNC DB-aware: Checks if a user object has a specific permission.
- * Tries the database first (with cache), falls back to constants.
+ * Uses the protected root policy or authoritative DB policy for ordinary roles.
  * Use this in server-side code.
  *
  * @param {object} user - The user object (must contain role).

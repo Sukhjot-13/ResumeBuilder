@@ -4,7 +4,7 @@ const RoleSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },       // 'USER', 'SUBSCRIBER', 'DEVELOPER', 'ADMIN'
   value: { type: Number, required: true, unique: true },      // 100, 99, 70, 0
   permissions: [{ type: String }],                             // ['view_own_profile', ...]
-  isAdmin: { type: Boolean, default: false },                  // true -> 'ALL' wildcard
+  isAdmin: { type: Boolean, default: false },                  // display metadata; only protected ADMIN rank 0 has root access
   description: { type: String, default: '' },
 }, { timestamps: true });
 

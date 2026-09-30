@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Regression guards for the 2026-09-28 security audit:
 //
@@ -62,12 +62,15 @@ const DEVELOPER = { _id: 'b'.repeat(24), role: ROLES.DEVELOPER };
 const SUBSCRIBER = { _id: 'c'.repeat(24), role: ROLES.SUBSCRIBER };
 
 beforeEach(() => {
+  vi.clearAllMocks();
   roleState.docs = ROLE_DOCS;
   roleState.failWith = null;
   findImpl.mockImplementation(() => ({ lean: async () => roleState.docs }));
   dbConnectMock.mockImplementation(async () => {});
   invalidateRoleCache();
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('T1 delegate permission registry', () => {
   it('exposes delegate_role_management, marked non-delegable and admin-only', () => {
@@ -260,11 +263,11 @@ describe('T5 permission store outage fails closed', () => {
     expect(granted).toBe(false);
   });
 
-  it('denies every role, including ADMIN, when the store is unreachable', async () => {
+  it('keeps root system authority but denies ordinary roles when the store is unreachable', async () => {
     dbConnectMock.mockImplementation(async () => {
       throw new Error('mongo unreachable');
     });
-    expect(await hasPermissionDB(ROLES.ADMIN, PERMISSIONS.VIEW_USERS)).toBe(false);
+    expect(await hasPermissionDB(ROLES.ADMIN, PERMISSIONS.VIEW_USERS)).toBe(true);
     expect(await hasPermissionDB(ROLES.USER, PERMISSIONS.GENERATE_RESUME)).toBe(false);
   });
 
@@ -322,16 +325,75 @@ describe('T5 permission store outage fails closed', () => {
   });
 
   it('serves a verified last-known-good snapshot when the store is briefly down', async () => {
+    const timestamp = Date.now();
     expect(await hasPermissionDB(ROLES.DEVELOPER, PERMISSIONS.VIEW_USERS)).toBe(true);
     // Simulate the cache expiring while the DB is unreachable.
+    vi.spyOn(Date, 'now').mockReturnValue(timestamp + 61_000);
     dbConnectMock.mockImplementation(async () => {
       throw new Error('mongo unreachable');
     });
     expect(await hasPermissionDB(ROLES.DEVELOPER, PERMISSIONS.VIEW_USERS)).toBe(true);
   });
+
+  it('expires the last-known-good policy rather than preserving stale access indefinitely', async () => {
+    const timestamp = Date.now();
+    expect(await hasPermissionDB(ROLES.DEVELOPER, PERMISSIONS.VIEW_USERS)).toBe(true);
+    vi.spyOn(Date, 'now').mockReturnValue(timestamp + 301_000);
+    dbConnectMock.mockRejectedValue(new Error('mongo unreachable'));
+    expect(await hasPermissionDB(ROLES.DEVELOPER, PERMISSIONS.VIEW_USERS)).toBe(false);
+    expect(await hasPermissionDB(ROLES.ADMIN, PERMISSIONS.VIEW_USERS)).toBe(true);
+  });
 });
 
 describe('canonical root-admin rule', () => {
+  it.each([
+    [],
+    [{ value: 100, isAdmin: false, permissions: ['view_own_profile'] }],
+    [{ value: 0, isAdmin: false, permissions: [] }],
+  ])('keeps every registered root permission with incomplete/edited role data: %j', async (docs) => {
+    roleState.docs = docs;
+    for (const permission of Object.values(PERMISSIONS)) {
+      expect(await checkPermissionDB(ROOT, permission)).toBe(true);
+      expect(hasPermission(ROLES.ADMIN, permission)).toBe(true);
+    }
+    expect(findImpl).not.toHaveBeenCalled();
+    expect(dbConnectMock).not.toHaveBeenCalled();
+  });
+
+  it('cannot manufacture a root role using database flags or wildcards', async () => {
+    roleState.docs = [{ value: 70, isAdmin: true, permissions: ['ALL', 'view_own_profile'] }];
+    expect(await hasPermissionDB(70, PERMISSIONS.MANAGE_USERS)).toBe(false);
+    expect(await hasPermissionDB(70, PERMISSIONS.VIEW_OWN_PROFILE)).toBe(true);
+  });
+
+  it.each(['', null, undefined, 'not_registered', 'ALL', 'constructor', '__proto__'])(
+    'denies unknown permission %j even for root', async (permission) => {
+      expect(await hasPermissionDB(ROLES.ADMIN, permission)).toBe(false);
+      expect(hasPermission(ROLES.ADMIN, permission)).toBe(false);
+    },
+  );
+
+  it.each(['0', null, undefined, -1, NaN, 0.5])('rejects malformed role %j', async (role) => {
+    expect(await hasPermissionDB(role, PERMISSIONS.VIEW_OWN_PROFILE)).toBe(false);
+    expect(hasPermission(role, PERMISSIONS.VIEW_OWN_PROFILE)).toBe(false);
+  });
+
+  it('uses a fresh empty-store bootstrap consistently across repeated checks', async () => {
+    roleState.docs = [];
+    expect(await hasPermissionDB(ROLES.USER, PERMISSIONS.VIEW_OWN_PROFILE)).toBe(true);
+    expect(await hasPermissionDB(ROLES.USER, PERMISSIONS.VIEW_OWN_PROFILE)).toBe(true);
+    expect(findImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not restore bootstrap defaults from an empty snapshot during an outage', async () => {
+    roleState.docs = [];
+    const timestamp = Date.now();
+    expect(await hasPermissionDB(ROLES.USER, PERMISSIONS.VIEW_OWN_PROFILE)).toBe(true);
+    vi.spyOn(Date, 'now').mockReturnValue(timestamp + 61_000);
+    dbConnectMock.mockRejectedValue(new Error('mongo unreachable'));
+    expect(await hasPermissionDB(ROLES.USER, PERMISSIONS.VIEW_OWN_PROFILE)).toBe(false);
+  });
+
   it('recognises only rank 0', () => {
     expect(isRootAdmin(ROOT)).toBe(true);
     expect(isRootAdmin(DEVELOPER)).toBe(false);

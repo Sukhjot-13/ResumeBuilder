@@ -383,6 +383,8 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 - Fixed 2026-09-28: toggling the manual resume form no longer silently discards edits — the toggle is intercepted with a `window.confirm` while `ManualResumeForm` reports unsaved changes via `onDirtyChange` (`manualFormDirty` state).
 - `handleManageSubscription` — Async function that opens the Stripe billing portal for subscription management.
 
+- `formatLocalDate(value)` — Formats subscription renewal timestamps in the browser's local timezone; birth dates separately use shared `formatDateInput` to preserve the stored calendar day.
+
 
 ---
 
@@ -482,17 +484,17 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ## lib
 
-### `src/lib/accessControl.js` — The single authorization service. Role-based permission lists with 'ALL' wildcard support for admin, plus the canonical root-Admin rule and the fail-closed DB policy. **Fail-closed on store failure (2026-09-28, audit M2):** the old `hasPermissionDB` silently fell back to the compile-time `ROLE_PERMISSIONS` constants when the database was unreachable, so a revoked permission came back during an outage — an outage that *widened* access, which AGENTS.md §12 forbids.
+### `src/lib/accessControl.js` — The single authorization service. The protected root Admin policy is independent of mutable/missing database Role rows; ordinary role permissions use the fail-closed DB policy. Only numeric ADMIN rank 0 may have unrestricted access: `isAdmin` flags and `ALL` entries on other role rows cannot manufacture root authority. **Fail-closed on store failure (2026-09-28, audit M2):** the old `hasPermissionDB` silently fell back to the compile-time `ROLE_PERMISSIONS` constants when the database was unreachable, so a revoked permission came back during an outage — an outage that *widened* access, which AGENTS.md §12 forbids.
 
-- `hasPermission` — SYNC: Checks a numeric userRole against the compile-time ROLE_PERMISSIONS map, with 'ALL' wildcard support. Returns false for unknown roles. Client-component safe. **Not used as a server-side fallback any more** (see the policy below).
-- `hasPermissionDB` — ASYNC: Authoritative server-side check. Rejects a missing/empty permission identifier, then resolves the policy through `resolveRolePolicy` and denies when none is available.
+- `hasPermission` — SYNC: Validates the registered permission and numeric role, recognizes protected root Admin through `isRootAdmin`, then checks ordinary roles against the compile-time ROLE_PERMISSIONS map. Malformed/unknown roles and permission names fail closed. Client-component safe. **Not used as a server-side fallback any more** (see the policy below).
+- `hasPermissionDB` — ASYNC: Authoritative server-side check. Rejects unknown/missing permission identifiers, then resolves protected root system policy or ordinary DB policy through `resolveRolePolicy`; denies when none is available.
 - `checkPermission` — SYNC: Constants-only check for client components.
 - `checkPermissionDB` — ASYNC: Server-side check on a user object; denies when the user is missing or has no role.
 - `getPermissionMetadata` — Retrieves metadata (name, description, requiredPlan) for a permission key.
 - `invalidateRoleCache` — Drops the cached role snapshot. Called by `PUT /api/admin/roles` so a permission revocation takes effect on the next check instead of after the 60-second TTL.
 - `isRootAdmin` — **The** canonical root-Admin predicate (`role === ROLES.ADMIN`). Routes/services must call this (or `hasPermissionDB`) instead of testing `role === 0` themselves, so there is exactly one unrestricted path (AGENTS.md §3A/§14).
 - `getNonDelegablePermissions` — Returns the permission keys whose metadata sets `delegable: false` (today: `delegate_role_management`). No delegated manager may ever assign them.
-- Internal: `loadDbRoles` — reads all roles into the snapshot; returns `{ ok: false }` on failure instead of throwing or falling back. Internal: `resolveRolePolicy` — resolution order: fresh cache → reload → **verified last-known-good DB snapshot (max 5 min old)** → `null` (caller denies) → deny. The compile-time constants are consulted only when the store loaded successfully and is genuinely **empty** (bootstrap, `node scripts/seed.mjs` never run), which is logged as a warning. **Documented fallback behaviour:** an unreachable store never widens access; the only availability fallback is the last verified DB snapshot, bounded to 5 minutes.
+- Internal: `isKnownPermission` — validates an own key in `PERMISSION_METADATA`, rejecting unknown/prototype/wildcard identifiers. Internal: `loadDbRoles` — reads all roles into the snapshot; returns `{ ok: false }` on failure instead of throwing or falling back. Internal: `resolveRolePolicy` — resolution order: validated numeric role → protected root system policy → fresh cache → reload → **verified last-known-good DB snapshot (max 5 min old)** → `null` (caller denies) → deny. The compile-time constants are consulted only when the store loaded successfully and is genuinely **empty and fresh**, consistently across repeated checks (bootstrap, `node scripts/seed.mjs` never run), which is logged as a warning. **Documented fallback behaviour:** an unreachable store never widens access; the only availability fallback is the last verified DB snapshot, bounded to 5 minutes.
 
 ### `src/lib/ai/client.js` — Unified AI client that routes AI calls to the configured provider (Gemini or DeepSeek) for any task, with optional JSON parsing and automatic retry/backoff for transient provider failures (429/5xx, timeouts, network errors — max 3 attempts).
 
@@ -565,7 +567,7 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 - `ROLES` — Enum mapping role names (ADMIN: 0, DEVELOPER: 70, SUBSCRIBER: 99, USER: 100) to numeric levels
 - `PERMISSIONS` — Enum of 31 permission strings for admin/system, AI/content generation, resume management, cover letters, profile/account, and billing. `MANAGE_ROLES` is developer-tier (view/edit role matrix), while `DELEGATE_ROLE_MANAGEMENT` (added 2026-09-28) is the **root-ADMIN-only** permission required to actually rewrite a role's permission set. (Automation permission strings were removed in the 2026-09-11 purge; pre-purge DBs may still hold them as inert rows.)
-- `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN uses 'ALL' wildcard (any permission check passes), DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base plus a free trial (GENERATE_RESUME + VIEW_OWN_RESUMES, added 2026-09-22) so free users can test generation with 3 daily credits. No more duplicated arrays.
+- `ROLE_PERMISSIONS` — Maps each role to its array of granted permissions -- ADMIN has a legacy 'ALL' marker; the canonical protected root policy grants registered permission names, DEVELOPER inherits base + pro + developer permissions via spread, SUBSCRIBER inherits base + pro permissions via spread, USER has base plus a free trial (GENERATE_RESUME + VIEW_OWN_RESUMES, added 2026-09-22) so free users can test generation with 3 daily credits. No more duplicated arrays.
 - `PERMISSION_METADATA` — Maps all 31 permissions to metadata objects with name, description, and requiredPlan (FREE/PRO/DEVELOPER/ADMIN) matching actual role assignments. `delegate_role_management` additionally carries `systemProtected: true`, `adminOnly: true`, `delegable: false` and a `nonDelegableReason` — the metadata the backend enforces through `getNonDelegablePermissions()`.
 - `PLANS` — Defines Free (3 credits/day, $0) and Pro (200 credits/month, $13.99) subscription plans
 - `TOKEN_CONFIG` — JWT token configuration: access token expiry (15m), refresh token expiry (15 days), and type identifiers
@@ -593,6 +595,8 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 - `addDays` — Returns a new Date shifted by the specified number of days.
 - `isPast` — Returns true if the given date is before the current time.
 - `now` — Returns the current date/time — useful as a mock point in tests.
+
+- `formatDateInput(value)` — Converts a stored UTC birth date or its JSON string into YYYY-MM-DD without shifting to the browser timezone; missing/invalid values become an empty date input.
 
 ### `src/lib/logger.js` — Centralized logging service providing structured JSON log output at INFO, WARN, ERROR, and DEBUG levels.
 
@@ -740,7 +744,7 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ### `src/models/Role.js` — Mongoose model for role documents with embedded permissions array, seeded from constants.js.
 
-- `Role (default export)` — Mongoose model with fields: name (unique, USER/SUBSCRIBER/DEVELOPER/ADMIN), value (unique, 100/99/70/0), permissions (array of strings), isAdmin (boolean, true -> ALL wildcard), description, timestamps. Used by DB-backed permission checking and admin management UI.
+- `Role (default export)` — Mongoose model with fields: name (unique, USER/SUBSCRIBER/DEVELOPER/ADMIN), value (unique, 100/99/70/0), permissions (array of strings), isAdmin (boolean, display metadata only; cannot grant root access), description, timestamps. Used by DB-backed permission checking and admin management UI.
 
 ### `src/models/Transaction.js` — Mongoose model for tracking payment transactions via Stripe, supporting both subscription and one-time payments with status tracking (pending/completed/failed/refunded). Has a **unique index on stripePaymentId** for idempotency against webhook retries.
 
@@ -859,7 +863,17 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ### `tests/accessControl.test.js` — Authorization-service regression tests (added 2026-09-28). Mongoose/Mongo mocked via `vi.mock`; no live database.
 
-Covers: the `delegate_role_management` registry entry and that only root ADMIN holds it; `evaluateRolePermissionWrite` refusals (DELEGATION_NOT_PERMITTED for a DEVELOPER, ROOT_ROLE_PROTECTED for roleValue 0, PERMISSION_CEILING_EXCEEDED laundering, NON_DELEGABLE_PERMISSION, WILDCARD_FORBIDDEN, malformed/duplicate/unknown lists) and the root-ADMIN success path; rank-ceiling and self-escalation guards (including the still-blocked self-demotion); **store-outage fail-closed behaviour** (a revoked permission is not restored from the constants, ADMIN is denied too, unknown roles deny, last-known-good snapshot serves briefly, roles-PUT cache invalidation is immediate); and HS256-only JWT verification (HS384/HS512 rejected by `verifyToken` and `verifyTokenEdge`).
+Covers: the `delegate_role_management` registry entry and that only root ADMIN holds it; `evaluateRolePermissionWrite` refusals (DELEGATION_NOT_PERMITTED for a DEVELOPER, ROOT_ROLE_PROTECTED for roleValue 0, PERMISSION_CEILING_EXCEEDED laundering, NON_DELEGABLE_PERMISSION, WILDCARD_FORBIDDEN, malformed/duplicate/unknown lists) and the root-ADMIN success path; rank-ceiling and self-escalation guards (including the still-blocked self-demotion); **store-outage fail-closed behaviour** (a revoked permission is not restored from the constants, ordinary roles deny, protected root Admin retains system authority, unknown roles deny, last-known-good snapshot serves briefly, roles-PUT cache invalidation is immediate); root access with empty/partial/corrupted policy rows, refusal of forged non-root `isAdmin`/`ALL` authority, rejection of unknown/prototype permission names and malformed ranks, repeated empty-store bootstrap and outage denial; and HS256-only JWT verification (HS384/HS512 rejected by `verifyToken` and `verifyTokenEdge`).
+
+### `tests/dateInput.test.js` — Birth-date display regression coverage (2026-09-30).
+
+Covers MongoDB Date/ISO/date-only values across Toronto, Los Angeles, UTC and Auckland, winter/summer/leap days, repeated profile save/reload preservation, and missing/invalid inputs. Timezone environment stubs are restored after every test.
+
+### `tests/profileAuthorization.test.js` — Profile route regressions with the real authorization resolver and guard (2026-09-30). User/Role storage and Manager completion are mocked; no deployed database is used.
+
+- `query(value)` — Thenable database query fixture supporting profile population.
+- `request(userId, method, body, extraHeaders)` — Builds requests with the identity normally injected by the verified JWT proxy; the separate live verification exercises real JWT cookies/proxy.
+- Covers root profile read/update with a missing Admin Role row, private-field omission, unauthenticated reads/writes, client role/permission spoofing, refusal of non-root isAdmin/ALL authority, ordinary grants/revocation, policy-store failure and inability to bypass account-database failure. Shared completion still runs.
 
 ### `tests/adminAuthorization.test.js` — Route-level authorization tests for the highest-risk admin/billing paths (added 2026-09-28). Mongoose models are mocked.
 
@@ -1045,3 +1059,5 @@ The remaining direct handlers (`src/app/api/render-pdf-react/route.js`, `src/app
 `docs/manager-verification-2026-09-29.md` records the authenticated browser/live Manager results, fixes, automated checks, diagnostic cleanup and usage limits (no functions). Its merge addendum records preservation of main's OTP form fix and fresh verification of the deployable merged tree: 190 tests, lint and production build, with local bypass files excluded.
 
 Documentation synchronization (2026-09-30): `README.md` and the Environment Variables inventory describe the current required/optional configuration and tools. `docs/suggestions.md` records the completed documentation update; no executable functions or runtime behavior changed.
+
+### `docs/profile-verification-2026-09-30.md` — Evidence for the root Admin profile policy fix and birthday regression: automated suites, 29 live production API/browser assertions, synthetic OTP authentication, permission revocation/spoofing checks, isolated-data cleanup and deployment limits. No executable functions.

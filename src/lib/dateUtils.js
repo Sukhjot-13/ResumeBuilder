@@ -51,3 +51,15 @@ export function isPast(date) {
 export function now() {
   return new Date();
 }
+
+/**
+ * Birth dates are stored as UTC dates by MongoDB. Preserve that calendar day
+ * for an HTML date input instead of shifting midnight into the user's zone.
+ * @param {Date|string|null|undefined} value
+ * @returns {string} YYYY-MM-DD, or empty for missing/invalid values.
+ */
+export function formatDateInput(value) {
+  if (!value || (typeof value !== 'string' && !(value instanceof Date))) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+}

@@ -90,3 +90,13 @@ findings above existed in the tree at that time.)_
 ## Implemented documentation update — 2026-09-30
 
 Required, feature-specific and optional environment settings are now listed in README against the current code, including standalone helpers and deployment/rebuild behavior. Fresh database setup and public/private Manager key separation are documented; obsolete provider/secret names are identified. No runtime configuration or credentials changed.
+
+## Implemented root Admin profile access fix — 2026-09-30
+
+The API denied profile permission for a real Admin (`role: 0`) when the database Role collection was partially populated but lacked its Admin policy row. The shared authorization resolver now uses the protected root system policy independently of mutable Role rows; server guards still resolve the authenticated account from the User collection. Non-root roles retain authoritative database grants, revocation and fail-closed outage behavior. `isAdmin` flags or `ALL` entries on ordinary role rows no longer create root access. Unknown permission names and malformed roles fail closed. Fresh empty-store bootstrap defaults now remain consistent across repeated checks; expired empty snapshots cannot restore defaults during an outage. No deployed database or account is modified.
+
+## Implemented profile birthday display fix — 2026-09-30
+
+Live Toronto browser verification found that a stored 1990-01-01 birthday displayed as 1989-12-31: the profile used local calendar parts on a MongoDB UTC midnight Date. The date input now preserves the stored UTC calendar day through a shared `formatDateInput` helper, preventing an unchanged form save from moving the birthday backwards. Regression tests cover four timezones, winter/summer/leap days, repeated save/reload cycles and invalid inputs. No existing birthdays are rewritten.
+
+Verification for both profile fixes: 230/230 tests (including preserved temporary local-login tests), lint and production build passed. Chromium plus real local MongoDB/OTP/JWT/proxy/profile/admin endpoints passed 29/29 assertions. See `docs/profile-verification-2026-09-30.md`. All verification services stopped and isolated fixtures destroyed; fixes remain local.

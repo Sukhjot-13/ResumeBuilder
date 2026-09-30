@@ -9,6 +9,7 @@ import PermissionGate from "@/components/common/PermissionGate";
 import TemplateViewer from "@/components/preview/TemplateViewer";
 import { ROLES, PLANS, PERMISSIONS } from "@/lib/constants";
 import { checkPermission, getPermissionMetadata } from "@/lib/accessControl";
+import { formatDateInput } from "@/lib/dateUtils";
 
 export default function ProfilePage() {
   const [name, setName] = useState("");
@@ -33,17 +34,18 @@ export default function ProfilePage() {
   const [userRole, setUserRole] = useState(ROLES.USER);
   const [subscriptionInfo, setSubscriptionInfo] = useState(null);
 
-  // Format a date string using LOCAL calendar parts (avoids UTC off-by-one-day)
+  // Subscription renewal timestamps display in the user's timezone; birth
+  // dates use formatDateInput below to preserve their stored calendar day.
   const formatLocalDate = (value) => {
     if (!value) return "";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
-  
+
   const hasAiEditAccess = checkPermission({ role: userRole }, PERMISSIONS.EDIT_RESUME_WITH_AI);
   const hasCreateNewResumeAccess = checkPermission({ role: userRole }, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT);
   const canParseResume = checkPermission({ role: userRole }, PERMISSIONS.PARSE_RESUME);
@@ -60,7 +62,7 @@ export default function ProfilePage() {
           setName(data.name || "");
           setUserRole(data.role !== undefined ? data.role : 100);
           if (data.dateOfBirth) {
-            setDateOfBirth(formatLocalDate(data.dateOfBirth));
+            setDateOfBirth(formatDateInput(data.dateOfBirth));
           }
           setSubscriptionInfo({
             status: data.subscriptionStatus || "none",
@@ -615,4 +617,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

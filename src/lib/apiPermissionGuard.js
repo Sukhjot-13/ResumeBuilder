@@ -49,7 +49,7 @@ export async function requirePermission(userId, permission) {
     return { error: unauthorized('IDENTITY_UNRESOLVABLE', 'Unauthorized') };
   }
 
-  // DB-aware check; fails closed when the permission store is unavailable.
+  // The root policy is immutable; ordinary roles use the fail-closed DB policy.
   const permitted = await checkPermissionDB(user, permission);
 
   if (!permitted) {
