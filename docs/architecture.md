@@ -936,7 +936,7 @@ node scripts/seed.mjs
 
 ## Repo Root & Static Assets
 
-### `README.md` — Project overview: ATS-Friendly Resume Builder feature summary, tech stack, and getting-started commands (`npm install`, `node scripts/seed.mjs`, `npm run dev`).
+### `README.md` — Project overview, setup commands, complete required/feature-optional environment tables, all five current AI task overrides, public/server Manager key separation, local helper options and fresh-database permissions/root-account setup (updated 2026-09-30). No executable functions.
 
 - No exported functions — markdown documentation.
 
@@ -999,6 +999,20 @@ Local-only testing: `TEST_LOGIN_BYPASS` is read in `src/app/api/auth/verify-otp/
 
 > `NODE_ENV` (`production`/`development`) is also read via `env.isProduction` / `env.isDevelopment` (proxy cookie security, logger verbosity, instrumentation warnings). Required vars (`ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `MONGODB_URI`) are enforced at boot by `validateEnv()` in `src/instrumentation.js`; missing AI/Stripe/Brevo keys only produce feature warnings.
 
+### Additional integration, task and tool environment variables
+
+| Variable | Purpose | Referenced in |
+|---|---|---|
+| `AI_TASK_RESUME_GENERATION` / `AI_TASK_COVER_LETTER_GENERATION` / `AI_TASK_AI_EDIT` / `AI_TASK_RESUME_PARSING` / `AI_TASK_GATEKEEPER` | Per-task `provider:model` overrides; defaults currently DeepSeek. AI_EDIT serves both editors | `src/lib/ai/config.js` → `getEffectiveConfig` |
+| `MANAGER_ENDPOINT` / `MANAGER_APP_ID` / `MANAGER_LOG_KEY` | Optional server logging origin, project slug and private server key | `src/lib/manager/index.js`; check/measurement scripts |
+| `MANAGER_ANALYTICS_KEY` | Server config field and standalone checker's analytics credential; tracker reads public key | `src/lib/manager/index.js`, `scripts/check-manager-integration.mjs` |
+| `MANAGER_LOG_SOURCE` | Legacy optional source hint, default server; actual source is key-scoped | `src/lib/manager/index.js` |
+| `NEXT_PUBLIC_MANAGER_ENDPOINT` / `NEXT_PUBLIC_MANAGER_APP_ID` / `NEXT_PUBLIC_MANAGER_CLIENT_KEY` / `NEXT_PUBLIC_MANAGER_ANALYTICS_KEY` | Static build-time browser settings; client logging and independent analytics | `src/lib/manager/index.js`, `src/lib/manager/ManagerProvider.jsx`; checker reads client key |
+| `NEXT_PUBLIC_RELEASE` / `VERCEL_GIT_COMMIT_SHA` / `GIT_SHA` | Browser/server release labels; platform SHA takes server precedence | `src/lib/manager/ManagerProvider.jsx`, `src/lib/manager/index.js` |
+| `APP_ORIGIN` | Checker target app origin | `scripts/check-manager-integration.mjs` |
+| `MANAGER_MODULE` / `MEASURE_CHUNK` / `MEASURE_GAP_MS` | Measurement module override and pacing | `scripts/measure-log-delivery.mjs` |
+| `NEXT_RUNTIME` | Framework-managed instrumentation runtime | `src/instrumentation.js` |
+
 ## Manager integration (added 2026-09-28)
 
 ### `tests/localLoginBypass.test.js` — Temporary local-bypass regression tests (2026-09-29). `login(setting)` loads the route with a test-only environment switch and submits a mocked-account request. Covers awaited token generation, user role, matching 15-day refresh lifetimes, rejection without the exact switch, and rejection of unknown users, and production refusal even with the switch. Database and token signing are mocked; no real account is modified.
@@ -1020,7 +1034,7 @@ Local-only testing: `TEST_LOGIN_BYPASS` is read in `src/app/api/auth/verify-otp/
 | `tests/managerRequestTrace.test.js` | Request trace tests: concurrent requests retain separate browser traces in real app logger calls, thrown failures retain correlation, headerless requests get distinct traces, oversized traces are bounded, outside-request logs remain safe | synthetic mocked transport; no live usage |
 | `tests/managerRouteCoverage.test.js` | PDF success/permission rejection/pre-render failure; logout still clears cookies on logged revocation failure; webhook unconfigured/invalid-signature/body failure responses. Every path schedules Manager completion. | mocked DB/PDF/Stripe; no paid provider calls |
 | `scripts/check-manager-integration.mjs` | `npm run manager:check` — eight key-contract/health checks: server and client log acceptance, analytics acceptance, key-kind rejection, unknown key rejection, app health. `check` records results, `post` sends synthetic batches. Health is explicitly not claimed as proof of app log delivery. | — |
-| `.env.example` (new) | Documents the optional `MANAGER_*` block | — |
+| `.env.example` | Placeholder-only template for required auth/database/email, optional AI/task routing/billing/CSRF, Manager browser/server settings and local tools; refreshed 2026-09-30 to match current providers | — |
 
 SDK fetch tracing normalizes all same-origin header forms and preserves caller headers; third-party fetch headers are unchanged. Pending log delivery does not suppress unrelated console errors or request traces. The canonical SDK tests live in Manager; consumer tests verify the generated JavaScript error-delivery contract.
 
@@ -1029,3 +1043,5 @@ SDK repeat grouping is limited to queued entries within one trace. Matching erro
 The remaining direct handlers (`src/app/api/render-pdf-react/route.js`, `src/app/api/webhooks/stripe/route.js`, `src/app/api/auth/logout/route.js`) also use `withErrorHandler`: they retain their existing PDF/webhook/logout responses while gaining request traces and guaranteed deferred delivery. Logout logs token-revocation database failures without exposing tokens and still clears cookies.
 
 `docs/manager-verification-2026-09-29.md` records the authenticated browser/live Manager results, fixes, automated checks, diagnostic cleanup and usage limits (no functions). Its merge addendum records preservation of main's OTP form fix and fresh verification of the deployable merged tree: 190 tests, lint and production build, with local bypass files excluded.
+
+Documentation synchronization (2026-09-30): `README.md` and the Environment Variables inventory describe the current required/optional configuration and tools. `docs/suggestions.md` records the completed documentation update; no executable functions or runtime behavior changed.

@@ -86,3 +86,7 @@ findings above existed in the tree at that time.)_
   revocations immediate across all instances.
 - **Centralize the "role → plan label" mapping** — the admin users route
   derives `plan` inline; `src/lib/planResolver.js` would be a better home.
+
+## Implemented documentation update — 2026-09-30
+
+Required, feature-specific and optional environment settings are now listed in README against the current code, including standalone helpers and deployment/rebuild behavior. Fresh database setup and public/private Manager key separation are documented; obsolete provider/secret names are identified. No runtime configuration or credentials changed.
