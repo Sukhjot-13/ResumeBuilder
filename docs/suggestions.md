@@ -106,3 +106,7 @@ Verification for both profile fixes: 230/230 tests (including preserved temporar
 `POST /api/generate-content` used an undeclared `userRole` both when invoking the generator and logging success, so valid generation requests failed before the provider call. It now derives the role from the authenticated account's database document. New route regressions reproduced the ReferenceError in nine cases before the fix and cover every role, request-role spoofing, preview/persistence, credit refusals/refunds, provider/save failures and Manager completion. An explicit source-wide `no-undef` audit found only these two references; the rule is now part of normal lint so this class of defect is caught before deployment. No paid AI or external provider calls are needed for these regressions.
 
 Generation role fix verification: 242/242 tests, lint with source-wide no-undef, production build and 28/28 live browser/API/database assertions passed. Real saving/metadata/listing and credit deduction/refund were exercised with four local synthetic model responses and zero paid calls. All verification services and isolated fixtures were cleaned up. See `docs/generation-verification-2026-09-30.md`.
+
+## 2026-09-30 — Branded favicon
+
+- Replaced the default Next.js tab icon with a distinct ResumeForge mark, including scalable SVG, small-size ICO fallback and Apple touch icon. Verify readability on both light and dark tab backgrounds.

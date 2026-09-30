@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>ResumeForge</title>
+  <rect width="64" height="64" rx="15" fill="#4f46e5"/>
+  <path d="M20 10h17l10 10v30a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4V14a4 4 0 0 1 4-4Z" fill="#ffffff"/>
+  <path d="M37 10v7a3 3 0 0 0 3 3h7Z" fill="#c7d2fe"/>
+  <path d="M24 29h15M24 37h15M24 45h9" fill="none" stroke="#4f46e5" stroke-width="4" stroke-linecap="round"/>
+</svg>

@@ -1068,3 +1068,15 @@ Documentation synchronization (2026-09-30): `README.md` and the Environment Vari
 ### `docs/profile-verification-2026-09-30.md` — Evidence for the root Admin profile policy fix and birthday regression: automated suites, 29 live production API/browser assertions, synthetic OTP authentication, permission revocation/spoofing checks, isolated-data cleanup and deployment limits. No executable functions.
 
 ### `docs/generation-verification-2026-09-30.md` — Evidence for the missing generation-role fix: failing-before/passing-after route regressions, source-wide lint guard, 242 tests and 28 production API/browser assertions through a temporary local model transport, real storage and credits. Documents zero paid AI calls, cleanup and live-provider/deployment limits. No executable functions.
+
+### Branded browser icons — 2026-09-30
+
+| File | Purpose | Functions |
+|---|---|---|
+| `src/app/icon.svg` | Primary crisp, scalable ResumeForge browser-tab mark; self-contained vector artwork registered through Next.js file metadata. | None (static SVG). |
+| `src/app/favicon.ico` | Replaces the default Next.js favicon with the same mark at 16, 32, 48 and 64 pixels for browser compatibility. | None (static multi-resolution ICO). |
+| `src/app/apple-icon.png` | Matching 180px icon for iOS/home-screen bookmarks. | None (static PNG). |
+
+Next.js automatically emits the icon and Apple icon link tags. The new SVG icon URL receives a generated cache identifier, so supported browsers request the branded asset instead of the old default favicon. No environment variables, authentication behavior or executable functions were changed.
+
+Icon verification: A clean HEAD export plus only favicon/documentation changes passed lint, all 236 tracked tests and the production build; existing uncommitted authentication/bypass work was excluded and preserved. Visual preview checked 16px/32px/64px variants on light and dark browser-tab backgrounds. Browser checks against production builds verified SVG/ICO/Apple metadata links, generated cache identifiers, HTTP 200 and correct image MIME types for every icon without authentication. No page errors occurred. All raster assets were generated from the corresponding SVG; ICO contains 16/32/48/64px frames and Apple PNG is 180px.
