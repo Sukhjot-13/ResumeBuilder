@@ -247,7 +247,7 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ### `src/app/api/generate-content/route.js` — Generates a tailored resume from a job description using AI, with deduct-first/refund-on-failure credit handling. Fixed 2026-09-21: persistence now uses ResumeService.createResume + UserService.addGeneratedResume (was raw Resume.create with an embedded metadata object → Mongoose CastError, resumeId null, client double-spend).
 
-- `POST` — Requires GENERATE_RESUME permission. Resolves user identity via `resolveUserId(request, { rateLimit: API_KEY_LIMITS.GENERATE_CONTENT })` (2026-09-28 — a leaked API key previously got unmetered AI access). The `USE_SPECIAL_INSTRUCTIONS` check now uses the DB-backed `checkPermissionDB` instead of the compile-time `checkPermission` (2026-09-28 — this was the last server-side route authorizing from constants, so a revoked grant was ignored here). Sanitizes the job description via sanitize.js utility, deducts a credit atomically BEFORE generation (refunds on failure), checks USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data and job description, optionally saves via ResumeService (correct ResumeMetadata document + generatedResumes link). Returns the generated content with a resumeId if saved.
+- `POST` — Requires GENERATE_RESUME permission. Resolves user identity via `resolveUserId(request, { rateLimit: API_KEY_LIMITS.GENERATE_CONTENT })` (2026-09-28 — a leaked API key previously got unmetered AI access). The `USE_SPECIAL_INSTRUCTIONS` check now uses the DB-backed `checkPermissionDB` instead of the compile-time `checkPermission` (2026-09-28 — this was the last server-side route authorizing from constants, so a revoked grant was ignored here). Sanitizes the job description via sanitize.js utility, deducts a credit atomically BEFORE generation (refunds on failure), checks USE_SPECIAL_INSTRUCTIONS permission, calls generateResume() with resume data, job description and the authoritative stored `user.role` (fixed 2026-09-30: `userRole` was undeclared and raised ReferenceError before the AI call), optionally saves via ResumeService (correct ResumeMetadata document + generatedResumes link). Returns the generated content with a resumeId if saved.
 
 ### `src/app/api/generate-cover-letter/route.js` — Generates a cover letter from a job description using AI, with deduct-first/refund-on-failure credit handling. Supports JWT auth via resolveUserId(). Hardened 2026-09-28: `recipientName` and the profile name are run through `sanitizeJobDescription` and capped at 200 chars before reaching the prompt (they were interpolated raw, leaving an unblocked prompt-injection lane), and identity resolution carries a daily API-key rate limit.
 
@@ -891,6 +891,11 @@ Covers: same-origin POST passes; a configured secondary origin passes; trailing 
 
 Covers: `recipientName`/sender-name injection payloads scrubbed out of the cover-letter prompt while legitimate names survive; `readJson` size guard (413 for oversized, byte-not-character measurement, 400 for malformed JSON); API-key daily caps defined for every AI-backed route; and the OTP throttle key ignoring a forged `x-forwarded-for` while keying on the platform IP, never embedding the raw IP or email.
 
+### `tests/generateContent.test.js` — Resume generation route regressions (2026-09-30). Real permission resolver/guard, resume generator and role prompt builder; AI transport, model data, persistence, metering and Manager completion are mocked with synthetic fixtures.
+
+- `request(body, userId)` — Builds route requests with the identity normally supplied by the verified proxy.
+- Covers successful generation for all four roles, trusted database role instead of request role claims, special-instruction policy, master/input resume selection, one-credit save/preview behavior, provider-failure refund/logging, nonfatal persistence failure, missing auth/permissions/jobs/credits, malformed/oversized JSON and completion flushing. Before the fix, nine cases reproduced `ReferenceError: userRole is not defined`.
+
 ### `tests/aiRouteHardening.test.js` — Route-boundary tests for the AI write paths (added 2026-09-28).
 
 Covers: `POST /api/generate-cover-letter` passes a sanitized, ≤200-char recipient name to the generator, actually passes a daily API-key rate limit to `resolveUserId`, and `POST /api/cover-letters` charges one credit, refunds on failure, refuses without credits, and enforces the body size guard.
@@ -941,7 +946,7 @@ node scripts/seed.mjs
 
 ### `eslint.config.mjs` — ESLint flat config.
 
-- `default export` — Extends `eslint-config-next` lint rules for the app.
+- `default export` — Extends `eslint-config-next` lint rules for the app and enables `no-undef` for all source JS/JSX so undeclared identifiers fail lint instead of reaching production.
 
 ### `jsconfig.json` — JS project config providing the `@/*` → `src/*` path alias.
 
@@ -1061,3 +1066,5 @@ The remaining direct handlers (`src/app/api/render-pdf-react/route.js`, `src/app
 Documentation synchronization (2026-09-30): `README.md` and the Environment Variables inventory describe the current required/optional configuration and tools. `docs/suggestions.md` records the completed documentation update; no executable functions or runtime behavior changed.
 
 ### `docs/profile-verification-2026-09-30.md` — Evidence for the root Admin profile policy fix and birthday regression: automated suites, 29 live production API/browser assertions, synthetic OTP authentication, permission revocation/spoofing checks, isolated-data cleanup and deployment limits. No executable functions.
+
+### `docs/generation-verification-2026-09-30.md` — Evidence for the missing generation-role fix: failing-before/passing-after route regressions, source-wide lint guard, 242 tests and 28 production API/browser assertions through a temporary local model transport, real storage and credits. Documents zero paid AI calls, cleanup and live-provider/deployment limits. No executable functions.

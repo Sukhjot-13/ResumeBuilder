@@ -39,6 +39,7 @@ export const POST = withErrorHandler(async (request) => {
   if (!user) {
     return fail('User not found', 404);
   }
+  const userRole = user.role;
 
   // Deduct credit BEFORE generating (atomic); refund on failure below
   const tracked = await SubscriptionService.trackUsage(userId, 1);
