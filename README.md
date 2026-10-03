@@ -48,7 +48,7 @@ prevent normal OTP login; missing AI/billing credentials disable those features.
 
 | Variable | Required for / default |
 |---|---|
-| `DEEPSEEK_API_KEY` | DeepSeek tasks. **Current code defaults every AI task to `deepseek:deepseek-chat`.** |
+| `DEEPSEEK_API_KEY` | DeepSeek tasks. **Current code defaults every AI task to `deepseek:deepseek-flash` (DeepSeek V4.1 Flash).** |
 | `GEMINI_API_KEY` | Tasks explicitly configured to use the Gemini adapter. Setting the key alone does not switch providers. |
 | `STRIPE_SECRET_KEY` | Checkout, subscription portal and Stripe API operations. |
 | `STRIPE_WEBHOOK_SECRET` | Verification of Stripe webhooks at `/api/webhooks/stripe`; use the signing secret for that endpoint and environment. |
@@ -59,6 +59,11 @@ prevent normal OTP login; missing AI/billing credentials disable those features.
 The current task overrides accept `deepseek:MODEL_ID` or `gemini:MODEL_ID`. Use the
 exact identifier supported by the provider; model names are not database records.
 These are server configuration and require a restart/redeploy after changes.
+
+The default `deepseek-flash` identifier selects DeepSeek V4.1 Flash
+([official model documentation](https://api-docs.deepseek.com/quick_start/pricing/)).
+Flash requests explicitly disable thinking mode to preserve the site's existing
+chat/JSON behavior; other explicit model overrides retain their provider defaults.
 
 | Variable | AI task |
 |---|---|

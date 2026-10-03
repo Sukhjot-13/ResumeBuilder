@@ -9,7 +9,7 @@ Covers the Next.js app (`src/`), `tests/`, `scripts/`, `public/`, and root confi
 
 ### `docs/architecture.md` — This file: always-current file/function inventory + env vars (updated on every change per `AGENTS.md`).
 
-### `docs/suggestions.md` — Improvement / feature / vulnerability log (date-stamped entries; open items only).
+### `docs/suggestions.md` — Improvement / feature / vulnerability log (date-stamped entries and implementation notes, including the 2026-10-03 DeepSeek V4.1 Flash migration). No executable functions.
 
 ### `AGENTS.md` (repo root) — Repo-local AI behavior guidelines: architecture-docs conventions (`docs/` location, per-file purpose + functions, Env Vars section), testing rules, PermissionGate standard (§1–27), commit workflow.
 
@@ -501,14 +501,15 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 - `callAI` — Calls the AI provider configured for a taskKey with a prompt (with retry), optionally parses the response as JSON, and returns the result
 - `runWithRetry` — Internal helper implementing exponential backoff (500ms, 1s); non-retryable errors fail fast
 
-### `src/lib/ai/config.js` — AI task configuration mapping each task to a provider and model. Supports environment variable overrides per task.
+### `src/lib/ai/config.js` — AI task configuration mapping each task to a provider and model. Supports environment variable overrides per task. Updated 2026-10-03: all defaults use DeepSeek V4.1 Flash's official API identifier, `deepseek-flash`.
 
-- `AI_TASKS` — Object mapping task keys (RESUME_GENERATION, COVER_LETTER_GENERATION, AI_EDIT, RESUME_PARSING, GATEKEEPER) to { provider, model } -- all currently routed to DeepSeek. The GATEKEEPER key is unreferenced since the automation purge (2026-09-11) — no live callers.
+- `AI_TASKS` — Object mapping task keys (RESUME_GENERATION, COVER_LETTER_GENERATION, AI_EDIT, RESUME_PARSING, GATEKEEPER) to `{ provider: 'deepseek', model: 'deepseek-flash' }` (DeepSeek V4.1 Flash). The GATEKEEPER key is unreferenced since the automation purge (2026-09-11) — no live callers.
 - `getEffectiveConfig` — Returns the effective { provider, model } for a task key, checking for environment variable overrides (format: AI_TASK_<KEY>=provider:model) before falling back to AI_TASKS defaults
 
-### `src/lib/ai/runners/deepseek.js` — DeepSeek AI API runner implementing the OpenAI-compatible chat completions endpoint. Requests carry `max_tokens: 4096` and a 60s AbortController timeout. Fixed 2026-09-21: parseDeepSeekJson strips preambles (slices from first `{` to last `}`).
+### `src/lib/ai/runners/deepseek.js` — DeepSeek AI API runner implementing the OpenAI-compatible chat completions endpoint. Requests carry `max_tokens: 4096` and a 60s AbortController timeout. Updated 2026-10-03: `deepseek-flash` requests explicitly send `thinking: { type: 'disabled' }` to preserve chat/JSON output behavior; other model overrides retain provider-default thinking behavior. Fixed 2026-09-21: parseDeepSeekJson strips preambles (slices from first `{` to last `}`).
 
-- `callDeepSeek` — Calls the DeepSeek API (deepseek.com/v1/chat/completions) with model name and prompt, returns raw response text
+- `getApiKey` — Internal helper reading the configured server-side DeepSeek key and rejecting calls when it is missing.
+- `callDeepSeek` — Calls the DeepSeek API (deepseek.com/v1/chat/completions) with model name and prompt, explicitly disables thinking for Flash, returns raw response text, and clears the abort timer on success or failure.
 - `parseDeepSeekJson` — Parses JSON from DeepSeek response text, stripping markdown code block markers and extracting the JSON object between the first `{` and last `}` (preamble-safe)
 
 ### `src/lib/ai/runners/gemini.js` — Gemini AI runner using the @google/generative-ai SDK. Generation is capped at `maxOutputTokens: 4096` with a 60s Promise-race timeout (via `withTimeout`). Fixed 2026-09-21: parseGeminiJson strips preambles (slices from first `{` to last `}`).
@@ -841,6 +842,13 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ### `vitest.config.mjs` — Vitest test runner config: `@/*` alias + an Oxc-based plugin that compiles JSX inside the app's `.js` source files (Next.js convention) so templates can be imported in tests. Tests live in `tests/` and run via the single entry point `npm test` (11 files / 139 tests as of 2026-09-28). (Renamed from `.js` on 2026-09-26 to silence the Vite ESM/CommonJS loader warning.)
 
+### `tests/aiFlash.test.js` — Integration regressions for the DeepSeek V4.1 Flash migration (added 2026-10-03). Uses the real task configuration, unified AI client and DeepSeek runner with a mocked fetch transport; no live provider calls. Included in the single `npm test` runner.
+
+- `beforeEach` — Clears task overrides and installs a mocked JSON-completion transport with a test-only API key.
+- `afterEach` — Restores environment variables and global fetch after each test.
+- Mocked `json` response callback — Supplies a synthetic completion for parser verification.
+- Test callbacks — Check that every configured task sends `deepseek-flash`, explicit non-thinking mode, the prompt, authentication header, abort signal and token cap; verify parsed results, raw text, independent DeepSeek/Gemini overrides, and fallback for incomplete overrides.
+
 ### `tests/aiParsers.test.js` — Regression tests for AI JSON parsers (added 2026-09-21 for audit H2 fix).
 
 - `AI JSON parsers strip preambles` — Verifies parseDeepSeekJson + parseGeminiJson handle leading conversational text, markdown fences, and clean JSON.
@@ -955,7 +963,7 @@ node scripts/seed.mjs
 
 ## Repo Root & Static Assets
 
-### `README.md` — Project overview, setup commands, complete required/feature-optional environment tables, all five current AI task overrides, public/server Manager key separation, local helper options and fresh-database permissions/root-account setup (updated 2026-09-30). No executable functions.
+### `README.md` — Project overview, setup commands, complete required/feature-optional environment tables, all five current AI task overrides, public/server Manager key separation, local helper options and fresh-database permissions/root-account setup (updated 2026-09-30). Updated 2026-10-03: documents `deepseek:deepseek-flash` (DeepSeek V4.1 Flash), explicit non-thinking requests and official provider references. No executable functions.
 
 - No exported functions — markdown documentation.
 
@@ -1007,7 +1015,7 @@ Local-only testing: `TEST_LOGIN_BYPASS` is read in `src/app/api/auth/verify-otp/
 | `REFRESH_TOKEN_SECRET` | JWT refresh token signing secret | `src/config/env.js` → auth/utils |
 | `MONGODB_URI` | MongoDB connection string (read lazily inside `dbConnect()` so build works without env) | `src/config/env.js` → `src/lib/mongodb.js`, `scripts/*.mjs` |
 | `GEMINI_API_KEY` | Gemini AI provider key | `src/config/env.js` → `src/lib/ai/runners/gemini.js` |
-| `DEEPSEEK_API_KEY` | DeepSeek AI provider key | `src/config/env.js` → `src/lib/ai/runners/deepseek.js` |
+| `DEEPSEEK_API_KEY` | DeepSeek AI provider key; default model is `deepseek-flash` (DeepSeek V4.1 Flash) | `src/config/env.js` → `src/lib/ai/runners/deepseek.js` |
 | `STRIPE_SECRET_KEY` | Stripe SDK key | `src/config/env.js` → `src/lib/stripe.js` |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification | `src/config/env.js` → stripe webhook route |
 | `BREVO_API_KEY` | Brevo transactional email API key | `src/config/env.js` → OTP email sending |
@@ -1022,7 +1030,7 @@ Local-only testing: `TEST_LOGIN_BYPASS` is read in `src/app/api/auth/verify-otp/
 
 | Variable | Purpose | Referenced in |
 |---|---|---|
-| `AI_TASK_RESUME_GENERATION` / `AI_TASK_COVER_LETTER_GENERATION` / `AI_TASK_AI_EDIT` / `AI_TASK_RESUME_PARSING` / `AI_TASK_GATEKEEPER` | Per-task `provider:model` overrides; defaults currently DeepSeek. AI_EDIT serves both editors | `src/lib/ai/config.js` → `getEffectiveConfig` |
+| `AI_TASK_RESUME_GENERATION` / `AI_TASK_COVER_LETTER_GENERATION` / `AI_TASK_AI_EDIT` / `AI_TASK_RESUME_PARSING` / `AI_TASK_GATEKEEPER` | Per-task `provider:model` overrides; all default to `deepseek:deepseek-flash` (DeepSeek V4.1 Flash). AI_EDIT serves both editors | `src/lib/ai/config.js` → `getEffectiveConfig` |
 | `MANAGER_ENDPOINT` / `MANAGER_APP_ID` / `MANAGER_LOG_KEY` | Optional server logging origin, project slug and private server key | `src/lib/manager/index.js`; check/measurement scripts |
 | `MANAGER_ANALYTICS_KEY` | Server config field and standalone checker's analytics credential; tracker reads public key | `src/lib/manager/index.js`, `scripts/check-manager-integration.mjs` |
 | `MANAGER_LOG_SOURCE` | Legacy optional source hint, default server; actual source is key-scoped | `src/lib/manager/index.js` |
@@ -1053,7 +1061,7 @@ Local-only testing: `TEST_LOGIN_BYPASS` is read in `src/app/api/auth/verify-otp/
 | `tests/managerRequestTrace.test.js` | Request trace tests: concurrent requests retain separate browser traces in real app logger calls, thrown failures retain correlation, headerless requests get distinct traces, oversized traces are bounded, outside-request logs remain safe | synthetic mocked transport; no live usage |
 | `tests/managerRouteCoverage.test.js` | PDF success/permission rejection/pre-render failure; logout still clears cookies on logged revocation failure; webhook unconfigured/invalid-signature/body failure responses. Every path schedules Manager completion. | mocked DB/PDF/Stripe; no paid provider calls |
 | `scripts/check-manager-integration.mjs` | `npm run manager:check` — eight key-contract/health checks: server and client log acceptance, analytics acceptance, key-kind rejection, unknown key rejection, app health. `check` records results, `post` sends synthetic batches. Health is explicitly not claimed as proof of app log delivery. | — |
-| `.env.example` | Placeholder-only template for required auth/database/email, optional AI/task routing/billing/CSRF, Manager browser/server settings and local tools; refreshed 2026-09-30 to match current providers | — |
+| `.env.example` | Placeholder-only template for required auth/database/email, optional AI/task routing/billing/CSRF, Manager browser/server settings and local tools; refreshed 2026-10-03 to document the DeepSeek V4.1 Flash default | — |
 
 SDK fetch tracing normalizes all same-origin header forms and preserves caller headers; third-party fetch headers are unchanged. Pending log delivery does not suppress unrelated console errors or request traces. The canonical SDK tests live in Manager; consumer tests verify the generated JavaScript error-delivery contract.
 

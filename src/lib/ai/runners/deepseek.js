@@ -17,7 +17,7 @@ function getApiKey() {
 
 /**
  * Call DeepSeek with the given model name and prompt.
- * @param {string} modelName - e.g. 'deepseek-chat'
+ * @param {string} modelName - e.g. 'deepseek-flash'
  * @param {string} prompt - The text prompt
  * @returns {Promise<string>} Raw response text
  */
@@ -37,6 +37,10 @@ export async function callDeepSeek(modelName, prompt) {
         model: modelName,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: AI_MAX_TOKENS,
+        // Preserve non-thinking output for the app's chat/JSON tasks.
+        ...(modelName === 'deepseek-flash'
+          ? { thinking: { type: 'disabled' } }
+          : {}),
       }),
     });
 

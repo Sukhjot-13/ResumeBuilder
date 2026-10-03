@@ -72,6 +72,17 @@ findings above existed in the tree at that time.)_
 
 ## 🟢 Improvements
 
+### 2026-10-03 — DeepSeek V4.1 Flash migration (**FIXED**)
+
+Replaced the `deepseek-chat` defaults for all five AI task keys with the official
+`deepseek-flash` API identifier, which selects DeepSeek V4.1 Flash. Flash requests
+explicitly disable thinking mode to preserve the existing chat/JSON behavior
+within the 4096-token output cap. Per-task provider/model overrides remain
+supported. `tests/aiFlash.test.js` exercises the real configuration, AI client and
+DeepSeek runner against a mocked transport for every task and checks overrides.
+See [DeepSeek model documentation](https://api-docs.deepseek.com/quick_start/pricing/)
+and [thinking mode documentation](https://api-docs.deepseek.com/guides/thinking_mode/).
+
 ### 2026-09-29 — Manager integration verification (**FIXED**)
 
 - Browser logger initialization duplicated across development mounts and analytics depended on a browser log key. Share one logger and initialize analytics independently.
