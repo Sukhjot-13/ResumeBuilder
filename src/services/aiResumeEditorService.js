@@ -1,5 +1,6 @@
 import { callAI } from '@/lib/ai/client';
 import { RESUME_SCHEMA_FOR_PROMPT } from '@/lib/resumeSchema';
+import { EDIT_SCOPE_RULES, FACTUAL_ACCURACY_RULES, JSON_OUTPUT_RULES } from '@/lib/ai/promptRules';
 
 /**
  * Edits a user's resume based on a natural language query.
@@ -12,23 +13,26 @@ export async function editResumeWithAI(resume, query) {
     [TASK]
     You are an expert resume editor. Your task is to edit the user's resume based on their natural language query.
     You will receive the user's current resume data and their edit query.
-    Your output MUST be a JSON object with the same schema as the user's resume data.
-    Analyze the user's query and determine if the requested changes are valid and can be accommodated within the existing resume schema.
-    If the changes are valid, apply them and return the updated resume data.
-    If the changes are not valid (e.g., the user asks to add a field that doesn't exist in the schema), you should return an error message. For now, just return the original resume data if the query is invalid.
+    Your output MUST be the complete resume content JSON object in the schema below, without a resume/metadata wrapper.
+
+    ${FACTUAL_ACCURACY_RULES}
+    ${EDIT_SCOPE_RULES}
+    ${JSON_OUTPUT_RULES}
 
     [USER'S CURRENT RESUME DATA]
     ${JSON.stringify(resume, null, 2)}
 
     [USER'S EDIT QUERY]
-    "${query}"
+    ${JSON.stringify(query)}
 
     [INSTRUCTIONS]
-    1. Carefully analyze the [USER'S EDIT QUERY] to understand the requested changes.
-    2. Modify the [USER'S CURRENT RESUME DATA] to reflect the requested changes.
-    3. Ensure the output is a valid JSON object with the same schema as the user's resume data.
-    4. If the query is ambiguous or cannot be fulfilled within the given schema, it is acceptable to return the original resume data without modification.
-    5. The output JSON schema should be as follows:
+    1. Identify the exact fields and existing list items targeted by the edit query; leave every unrelated value unchanged.
+    2. Preserve official titles, employment/education history, contacts and dates unless the user explicitly supplies a replacement fact.
+    3. Use metrics only when supplied. Improve action/scope wording without inventing numbers, skills or achievements.
+    4. Keep bullets concise and use present/past tense appropriate to the underlying responsibility or achievement.
+    5. For ambiguous, unsupported or out-of-schema requests, return the original content unchanged.
+
+    [OUTPUT JSON SCHEMA]
     ${RESUME_SCHEMA_FOR_PROMPT}
   `;
 

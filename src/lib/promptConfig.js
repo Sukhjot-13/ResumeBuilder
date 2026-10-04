@@ -13,6 +13,7 @@
 
 import { ROLES } from '@/lib/constants';
 import { RESUME_WITH_METADATA_SCHEMA_FOR_PROMPT } from '@/lib/resumeSchema';
+import { FACTUAL_ACCURACY_RULES, JSON_OUTPUT_RULES } from '@/lib/ai/promptRules';
 
 // ---------------------------------------------------------------------------
 // Role → template name mapping
@@ -28,9 +29,22 @@ export const PROMPT_STRATEGIES = {
 // Shared output schema instructions (same for all tiers)
 // ---------------------------------------------------------------------------
 const OUTPUT_SCHEMA_INSTRUCTION = `
-  The output JSON schema must be exactly:
-  ${RESUME_WITH_METADATA_SCHEMA_FOR_PROMPT}
+${JSON_OUTPUT_RULES}
+
+[OUTPUT JSON SCHEMA]
+${RESUME_WITH_METADATA_SCHEMA_FOR_PROMPT}
 `;
+
+const RESUME_TAILORING_RULES = `
+[RESUME TAILORING RULES]
+- Match the job's most important requirements to evidence in the supplied resume before selecting content. Use supported job-description keywords naturally; do not stuff keywords or add missing qualifications.
+- Preserve official job titles, employers, education, contact details, dates, current-status flags and all employment/education records. Keep those records in their supplied order.
+- Tailor the summary and responsibility wording and select/reorder relevant existing skills. A skill may be surfaced from explicit experience even if absent from the skills list, but it must be supported by the source.
+- Keep the summary to 2-3 concise sentences about demonstrated strengths relevant to the role. Do not claim the candidate is the ideal hire or meets requirements unsupported by the source.
+- Use at most 5 distinct bullets for a relevant role and fewer for older or less relevant roles. Use fewer when the source lacks sufficient facts; never invent filler to meet a bullet count.
+- Build concise bullets from a clear action, supported context/tools and a result only when supplied. Preserve the original meaning and metrics; avoid repetition across bullets and the summary.
+- Use present tense for ongoing responsibilities and past tense for completed work, including completed achievements in a current role.
+`.trim();
 
 // ---------------------------------------------------------------------------
 // Prompt builder functions
@@ -48,17 +62,20 @@ function buildBasicPrompt({ resume, jobDescription }) {
 You are a professional resume writer. Tailor the user's resume for the job description below.
 Your output MUST be a valid JSON object with keys "resume" and "metadata".
 
+${FACTUAL_ACCURACY_RULES}
+${RESUME_TAILORING_RULES}
+
 [USER'S RESUME]
 ${JSON.stringify(resume, null, 2)}
 
 [JOB DESCRIPTION]
-${jobDescription}
+${JSON.stringify(jobDescription)}
 
 [INSTRUCTIONS]
-1. Rewrite "generic_summary" to a 2-3 sentence tailored summary relevant to the job.
-2. For each work experience, rewrite "responsibilities" into 3-5 achievement-oriented bullet points aligned with the job.
-3. Keep only the most relevant skills, prioritizing keywords that appear in the job description (the user plausibly has them).
-4. Use clear section headers, standard job titles, and action verbs — the output must remain ATS-parseable (no tables, no graphics, no columns).
+1. Rewrite "generic_summary" using the strongest relevant facts already in the resume.
+2. Rewrite "responsibilities" into concise, supported action/achievement bullets aligned with the job.
+3. Select the most relevant supported skills, prioritizing the job's requirements.
+4. Use clear, plain-text language and specific action verbs suitable for a resume.
 5. Extract "jobTitle" and "companyName" from the job description for the metadata.
 6. If company name is not found, use "Unknown Company".
 7. Output valid JSON only — no markdown, no explanation.
@@ -77,30 +94,31 @@ function buildStandardPrompt({ resume, jobDescription, specialInstructions }) {
 You are an expert ATS-optimized resume writer. Your task is to rewrite the user's resume to be highly tailored for a specific job description.
 Your output MUST be a valid JSON object with keys "resume" and "metadata".
 
+${FACTUAL_ACCURACY_RULES}
+${RESUME_TAILORING_RULES}
+
 [USER'S RESUME]
 ${JSON.stringify(resume, null, 2)}
 
 [JOB DESCRIPTION]
-${jobDescription}
+${JSON.stringify(jobDescription)}
 
 [INSTRUCTIONS]
-1. Rewrite "generic_summary" into a compelling 3-4 sentence tailored summary that mirrors keywords from the job description.
-2. For each work experience, rewrite "responsibilities" into 3-5 quantified, achievement-oriented bullet points that align with the job description's requirements.
-3. Select and prioritize the most relevant skills from the user's list; include any critical skills mentioned in the job description that the user plausibly has.
+1. Rewrite "generic_summary" around demonstrated strengths that address the job's highest-priority requirements.
+2. Rewrite "responsibilities" into supported achievement bullets, using supplied metrics where available and truthful action/scope otherwise.
+3. Prioritize supported skills and connect them to relevant experience; make transferable experience clear without implying an unheld qualification.
 4. Use action verbs and ATS-friendly language throughout.
 5. Extract "jobTitle" and "companyName" from the job description for the metadata.
 6. If company name is not found, use "Unknown Company".
 7. Output valid JSON only — no markdown, no explanation.
-8. Pay close attention to any [SPECIAL INSTRUCTIONS] provided and follow them precisely.
-
-${OUTPUT_SCHEMA_INSTRUCTION}
+8. Follow [SPECIAL INSTRUCTIONS] for requested tone, emphasis or length while respecting the factual-accuracy and output-schema rules above.
   `.trim();
 
   if (specialInstructions) {
-    prompt += `\n\n[SPECIAL INSTRUCTIONS]\n${specialInstructions}`;
+    prompt += `\n\n[SPECIAL INSTRUCTIONS]\n${JSON.stringify(specialInstructions)}`;
   }
 
-  return prompt;
+  return `${prompt}\n\n${OUTPUT_SCHEMA_INSTRUCTION}`;
 }
 
 /**
@@ -114,30 +132,31 @@ You are a world-class executive resume strategist with deep expertise in ATS sys
 Your task: produce the highest-quality, most compelling tailored resume possible for the given job.
 Your output MUST be a valid JSON object with keys "resume" and "metadata".
 
+${FACTUAL_ACCURACY_RULES}
+${RESUME_TAILORING_RULES}
+
 [USER'S RESUME]
 ${JSON.stringify(resume, null, 2)}
 
 [JOB DESCRIPTION]
-${jobDescription}
+${JSON.stringify(jobDescription)}
 
 [INSTRUCTIONS]
-1. Write a powerful, 4-5 sentence tailored summary that positions the candidate as the ideal hire, incorporating the job's most critical requirements.
-2. For each work experience, craft 4-6 achievement-driven bullet points that use the STAR method (Situation, Task, Action, Result) where possible. Include quantifiable metrics.
-3. Strategically surface the most impactful skills, adding relevant industry keywords from the job description that the candidate credibly has.
-4. Ensure every section reflects the language, tone, and priorities of the target job.
+1. Write a concise, persuasive summary positioning the candidate through their strongest documented evidence for the target role.
+2. Use STAR-style action/context/result wording where the supplied facts support it. Do not invent missing context, outcomes or metrics.
+3. Strategically surface the most impactful supported skills and use relevant industry keywords only when grounded in the candidate's experience.
+4. Prioritize evidence addressing the job's critical requirements while preserving the candidate's actual seniority, history and qualifications.
 5. Extract "jobTitle" and "companyName" from the job description for the metadata.
 6. If company name is not found, use "Unknown Company".
 7. Output valid JSON only — no markdown, no explanation.
-8. Follow any [SPECIAL INSTRUCTIONS] with the highest precision — they override general guidance.
-
-${OUTPUT_SCHEMA_INSTRUCTION}
+8. Follow [SPECIAL INSTRUCTIONS] for requested tone, emphasis or length while respecting the factual-accuracy and output-schema rules above.
   `.trim();
 
   if (specialInstructions) {
-    prompt += `\n\n[SPECIAL INSTRUCTIONS]\n${specialInstructions}`;
+    prompt += `\n\n[SPECIAL INSTRUCTIONS]\n${JSON.stringify(specialInstructions)}`;
   }
 
-  return prompt;
+  return `${prompt}\n\n${OUTPUT_SCHEMA_INSTRUCTION}`;
 }
 
 // ---------------------------------------------------------------------------

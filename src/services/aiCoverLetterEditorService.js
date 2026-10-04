@@ -1,7 +1,8 @@
 import { callAI } from '@/lib/ai/client';
-import { COVER_LETTER_FIELDS } from '@/lib/coverLetterFields';
+import { generateCoverLetterPromptSchema } from '@/lib/coverLetterFields';
+import { EDIT_SCOPE_RULES, FACTUAL_ACCURACY_RULES, JSON_OUTPUT_RULES } from '@/lib/ai/promptRules';
 
-const COVER_LETTER_SCHEMA_FOR_PROMPT = JSON.stringify(COVER_LETTER_FIELDS, null, 2);
+const COVER_LETTER_SCHEMA_FOR_PROMPT = generateCoverLetterPromptSchema();
 
 /**
  * Edits a cover letter based on a natural language query.
@@ -15,19 +16,24 @@ export async function editCoverLetterWithAI(coverLetterContent, query) {
     You are an expert cover letter editor. Edit the user's cover letter based on their natural language query.
     Your output MUST be a valid JSON object with the cover letter schema below.
 
+    ${FACTUAL_ACCURACY_RULES}
+    ${EDIT_SCOPE_RULES}
+    ${JSON_OUTPUT_RULES}
+
     [USER'S CURRENT COVER LETTER]
     ${JSON.stringify(coverLetterContent, null, 2)}
 
     [USER'S EDIT QUERY]
-    "${query}"
+    ${JSON.stringify(query)}
 
     [INSTRUCTIONS]
-    1. Carefully analyze the query to understand the requested changes.
-    2. Modify the cover letter to reflect the changes while keeping the same structure.
-    3. Ensure bodyParagraphs remains an array of strings.
-    4. Output valid JSON only — no markdown, no explanation.
+    1. Identify the targeted fields or paragraphs and change only what the user requested.
+    2. Preserve recipient, sender contact details, company and target role unless a specific change to them is requested. Add new factual claims only when explicitly supplied.
+    3. Keep bodyParagraphs as an array of strings. Preserve paragraph order unless restructuring is requested; maintain coherent transitions and the original length unless a length change is requested.
+    4. Keep language natural and specific; avoid clichés, exaggerated claims and invented company information.
+    5. For ambiguous, unsupported or out-of-schema requests, return the original content unchanged.
 
-    [OUTPUT SCHEMA]
+    [OUTPUT JSON SCHEMA]
     ${COVER_LETTER_SCHEMA_FOR_PROMPT}
   `;
 

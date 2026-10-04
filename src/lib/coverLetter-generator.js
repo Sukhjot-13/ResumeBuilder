@@ -3,38 +3,35 @@
  */
 import { callAI } from '@/lib/ai/client';
 import { sanitizeJobDescription } from '@/lib/sanitize';
+import { generateCoverLetterPromptSchema } from '@/lib/coverLetterFields';
+import { FACTUAL_ACCURACY_RULES, JSON_OUTPUT_RULES } from '@/lib/ai/promptRules';
 
 const MAX_NAME_LENGTH = 200;
 
-const COVER_LETTER_OUTPUT_SCHEMA = `{
-  "recipientName": "string (the hiring manager name or 'Hiring Manager')",
-  "recipientTitle": "string (optional — a JOB TITLE like 'VP of Engineering' or 'HR Lead'. Leave empty/null if you only have a name, never repeat the recipientName here)",
-  "companyName": "string",
-  "jobTitle": "string",
-  "salutation": "string (e.g. 'Dear Hiring Manager,')",
-  "bodyParagraphs": "array of strings (3-4 paragraphs)",
-  "closing": "string (e.g. 'Sincerely,')",
-  "senderName": "string (the user's full name)",
-  "senderEmail": "string (the user's email)",
-  "senderPhone": "string (the user's phone number)"
-}`;
+const COVER_LETTER_OUTPUT_SCHEMA = generateCoverLetterPromptSchema();
 
 const BASE_PROMPT = `
 [TASK]
 You are a professional cover letter writer. Write a compelling, tailored cover letter for the user based on their resume and the target job description.
 Your output MUST be a valid JSON object with the fields below.
 
-[OUTPUT SCHEMA]
+${FACTUAL_ACCURACY_RULES}
+${JSON_OUTPUT_RULES}
+
+[OUTPUT JSON SCHEMA]
 {{SCHEMA}}
 
 [INSTRUCTIONS]
 1. Address the recipient by name if provided; otherwise use "Hiring Manager".
-2. First paragraph: Hook — express enthusiasm and mention the role/company.
-3. Middle paragraphs: Connect 2-3 key achievements from the resume to the job requirements. Be specific, not generic.
-4. Final paragraph: Call to action — express interest in an interview.
-5. Keep each paragraph to 3-5 sentences.
-6. Use professional but natural language — not overly formal or robotic.
-7. Output valid JSON only — no markdown, no explanation, no code fences.
+2. First paragraph: Open with a concrete, supported connection between the candidate's experience and the target role/company.
+3. Middle paragraphs: Develop 1-2 verified achievements or examples and explain why they matter for the job's top requirements. Do not repeat resume bullets verbatim or invent missing results.
+4. Final paragraph: Briefly express interest in an interview and the value the candidate can contribute based on their demonstrated experience.
+5. Target 250-350 words across 3-4 body paragraphs. Use shorter, coherent paragraphs; do not add filler when source evidence is limited.
+6. Use professional, natural language. Avoid clichés, generic superlatives, exaggerated expertise and claims of being a perfect fit.
+7. Use only supplied company information; do not infer its mission, culture or products.
+8. Copy jobTitle and companyName from the target job description; use "Unknown Company" if the company is not identified and an empty jobTitle if absent.
+9. Preserve supplied sender contact information exactly. Prefer the explicit sender details; for missing details use the corresponding supplied resume profile value, otherwise an empty string.
+10. Only set recipientTitle when a distinct title is supplied; otherwise use an empty string. Never repeat recipientName in recipientTitle.
 `;
 
 /**
@@ -50,6 +47,7 @@ Your output MUST be a valid JSON object with the fields below.
  * @param {string} opts.recipientName - Optional hiring manager name
  * @param {string} opts.userName    - Optional sender name
  * @param {string} opts.userEmail   - Optional sender email
+ * @param {string} opts.userPhone   - Optional sender phone
  * @returns {Promise<object>}       - Cover letter content object
  */
 export async function generateCoverLetter(resume, jobDescription, opts = {}) {
@@ -61,19 +59,19 @@ export async function generateCoverLetter(resume, jobDescription, opts = {}) {
   let prompt = BASE_PROMPT.replace('{{SCHEMA}}', COVER_LETTER_OUTPUT_SCHEMA);
 
   prompt += `\n\n[USER'S RESUME]\n${JSON.stringify(resume, null, 2)}`;
-  prompt += `\n\n[JOB DESCRIPTION]\n${jobDescription}`;
+  prompt += `\n\n[JOB DESCRIPTION]\n${JSON.stringify(jobDescription)}`;
 
   if (cleanRecipientName) {
-    prompt += `\n\n[RECIPIENT NAME]\n${cleanRecipientName}`;
+    prompt += `\n\n[RECIPIENT NAME]\n${JSON.stringify(cleanRecipientName)}`;
   }
 
   prompt += `\n\n[SPECIFIC INSTRUCTIONS]
-- Sender name: ${cleanUserName || 'the user'}
-- Sender email: ${userEmail || ''}
-- Sender phone: ${userPhone || ''}
-- Use today's date as the letter date.
+- Sender name: ${JSON.stringify(cleanUserName || '')}
+- Sender email: ${JSON.stringify(userEmail || '')}
+- Sender phone: ${JSON.stringify(userPhone || '')}
 - Format bodyParagraphs as an array of strings, one paragraph per element.
-- IMPORTANT: Only set recipientTitle if you have a specific job title (like "VP of Engineering" or "HR Manager"). Never repeat recipientName in recipientTitle — leave it empty/null if there is no distinct title.`;
+- Do not add a letter date field; it is not part of the output schema.
+- Only use a supplied, distinct job title for recipientTitle; otherwise leave it as an empty string.`;
 
   return callAI('COVER_LETTER_GENERATION', prompt, { parseJson: true });
 }

@@ -49,6 +49,15 @@ export function buildEmptyCoverLetter() {
   };
 }
 
+/** Generate a content-shaped JSON example from the central field registry. */
+export function generateCoverLetterPromptSchema() {
+  const example = {};
+  for (const [key, field] of Object.entries(COVER_LETTER_FIELDS)) {
+    example[key] = field.type === 'array' ? ['Paragraph text.'] : '';
+  }
+  return JSON.stringify(example, null, 2);
+}
+
 /**
  * Generates a Mongoose schema definition for the cover letter `content` field.
  * Maps field types: 'text' → String, 'array' → [String].

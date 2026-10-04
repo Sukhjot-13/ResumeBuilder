@@ -9,7 +9,7 @@ Covers the Next.js app (`src/`), `tests/`, `scripts/`, `public/`, and root confi
 
 ### `docs/architecture.md` — This file: always-current file/function inventory + env vars (updated on every change per `AGENTS.md`).
 
-### `docs/suggestions.md` — Improvement / feature / vulnerability log (date-stamped entries and implementation notes, including the 2026-10-03 DeepSeek V4.1 Flash migration). No executable functions.
+### `docs/suggestions.md` — Improvement / feature / vulnerability log (date-stamped entries and implementation notes, including the 2026-10-03 DeepSeek V4.1 Flash migration and implemented generation, editing and parsing prompt improvements). No executable functions.
 
 ### `AGENTS.md` (repo root) — Repo-local AI behavior guidelines: architecture-docs conventions (`docs/` location, per-file purpose + functions, Env Vars section), testing rules, PermissionGate standard (§1–27), commit workflow.
 
@@ -580,14 +580,15 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 - `ROUTES` — Maps route names to URL paths for all app pages (home, login, onboarding, dashboard, profile, pricing, checkout, resume-history, ai-edit, cover-letters, admin).
 - `API_ENDPOINTS` — Maps API endpoint categories (auth, user, resumes, generate, cover-letters, edit-with-ai, parse-resume, checkout, admin).
 
-### `src/lib/coverLetter-generator.js` — Shared core for cover letter generation via AI. Builds prompts and calls the AI client to produce a cover letter JSON object.
+### `src/lib/coverLetter-generator.js` — Shared core for cover letter generation via AI. Updated 2026-10-03: shared factual/source and typed JSON rules, a registry-derived content example, 250–350-word letters, concrete openings and 1–2 supported examples, supplied company facts and preserved contact details. Source strings are JSON-quoted; no unsupported date field is requested.
 
-- `generateCoverLetter` — Generates a cover letter by constructing a detailed prompt from the user's resume, job description, and optional recipient/sender info, then calling the AI client. Fixed 2026-09-28: `recipientName` and `userName` are scrubbed with `sanitizeJobDescription` and capped at `MAX_NAME_LENGTH` (200) **inside the library** as defence in depth, in addition to the route-level scrubbing — they used to be interpolated raw, leaving a prompt-injection lane into the INSTRUCTIONS block.
+- `generateCoverLetter` — Builds the grounded cover-letter prompt from the resume, quoted job description and optional identity details; calls `COVER_LETTER_GENERATION` with JSON parsing. `recipientName` and `userName` retain library-level sanitization and the 200-character cap. Missing sender details may use supplied resume profile values; missing company uses Unknown Company and unknown optional text uses empty strings. These are model instructions, not deterministic factual validation.
 
 ### `src/lib/coverLetterFields.js` — Source of truth for the cover letter content structure — defines all fields, their types, labels, and required flags. Also provides schema generation helper mirroring resumeFields.js.
 
 - `COVER_LETTER_FIELDS` — Constant object mapping each cover letter field key to its type, label, and required flag.
-- `buildEmptyCoverLetter` — Returns a blank cover letter content object with empty strings and an empty array for bodyParagraphs.
+- `buildEmptyCoverLetter` — Returns a blank cover letter content object with empty text strings and one blank paragraph string in bodyParagraphs.
+- `generateCoverLetterPromptSchema` — Generates a content-shaped JSON example directly from `COVER_LETTER_FIELDS`, with string text values and an array of paragraph strings. Shared by letter generation and editing; avoids field-metadata objects and schema drift. Added 2026-10-03.
 - `generateCoverLetterContentSchema` — Generates a Mongoose schema definition from COVER_LETTER_FIELDS (text→String, array→[String]) for the cover letter content field, replacing the previous strict:false schema.
 
 ### `src/lib/dateUtils.js` — Collection of pure date manipulation and comparison utility functions.
@@ -618,10 +619,20 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 - `resolvePlanKey(planName)` — Accepts the KEY ('PRO') or display name ('Pro') case-insensitively; returns the canonical PLANS key or null for unknown input.
 
-### `src/lib/promptConfig.js` — Single source of truth for AI prompt strategies — maps user roles to prompt tiers and provides builder functions for each tier.
+### `src/lib/ai/promptRules.js` — Shared prompt instructions used by all generation, editing and parsing flows (added 2026-10-03). No executable functions.
+
+- `FACTUAL_ACCURACY_RULES` — Supplied facts only, no invented qualifications/metrics/company claims, job requirements are not candidate evidence, embedded source commands are data, and direct instructions cannot override truthfulness/schema.
+- `JSON_OUTPUT_RULES` — One complete content object, valid JSON with schema-defined keys/types, typed empty/default values for new generated/parsed content, untouched-value preservation in edits, plain-text array items and a final consistency check.
+- `EDIT_SCOPE_RULES` — Requested changes only, unrelated field/item/order preservation, explicit new facts, coherent style, and unchanged JSON for ambiguous/unsupported/out-of-schema requests. These instructions guide model behavior; they are not backend authorization or deterministic output validation.
+
+### `src/lib/promptConfig.js` — Single source of truth for resume prompt tiers. Updated 2026-10-03: all tiers use shared factual/source/JSON instructions and evidence-backed job matching, preserved factual/history fields, 2–3-sentence summaries, bounded non-repetitive bullets, supplied metrics only and appropriate tense. Job descriptions and allowed special instructions are JSON-quoted.
 
 - `PROMPT_STRATEGIES` — Maps user roles (ADMIN, DEVELOPER, SUBSCRIBER, USER) to template names (premium, standard, basic).
 - `PROMPT_TEMPLATES` — Registry of prompt builder functions keyed by template name: basic, standard, premium.
+- `buildBasicPrompt` — Internal builder for the free-user resume prompt: tailored summary, achievement bullets, relevant skills and the shared resume/metadata JSON schema.
+- `buildStandardPrompt` — Internal subscriber builder: requirement-to-evidence alignment and transferable experience, supplied metrics only, quoted optional special instructions within the common rules, and the shared output schema.
+- `buildPremiumPrompt` — Internal Admin/Developer builder: strategic evidence-based positioning and STAR wording only when supported, with bounded special instructions and the shared output schema.
+- `RESUME_TAILORING_RULES` / `OUTPUT_SCHEMA_INSTRUCTION` — Shared content-quality rules and typed JSON output contract reused by all three builders; safety/accuracy are consistent across tiers.
 - `buildPromptForRole` — Public API that looks up the prompt strategy for a given user role and invokes the corresponding builder function to produce the final prompt string.
 
 ### `src/lib/rateLimit.js` — Simple in-memory sliding-window rate limiter (per server instance) used to protect CPU/AI-heavy endpoints.
@@ -640,6 +651,8 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 - `buildEmptyResume` — Returns a blank resume content object matching the structure of RESUME_FIELD_SCHEMA.
 - `buildEmptyArrayItem` — Returns a blank item object for a given array-type section (e.g. work_experience entry).
 - `generateMongooseContentSchema` — Generates a Mongoose Schema definition for the resume content field by mapping field types to Mongoose types.
+- `mongooseTypeForField` — Internal helper mapping checkbox, list and text fields to Boolean, arrays of String or String for the persistence schema.
+- `buildMongooseSectionFields` — Internal helper building each section's Mongoose field definitions using `mongooseTypeForField`.
 - `generateAIPromptSchema` — Generates a JSON example string (for AI prompts) derived from the field schema.
 
 ### `src/lib/resumeSchema.js` — Auto-derives JSON schema strings for AI prompts from the resume field definitions in resumeFields.js.
@@ -774,18 +787,18 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ## services
 
-### `src/services/aiCoverLetterEditorService.js` — AI-powered cover letter editing service that uses natural language queries to modify an existing cover letter via the AI client.
+### `src/services/aiCoverLetterEditorService.js` — AI-powered cover letter editing. Updated 2026-10-03: shared factual/source/JSON/scope rules, quoted edit requests, identity/target/paragraph preservation, coherent style/length and unchanged-content instructions for unsupported requests. Uses the registry-derived content example rather than field metadata.
 
-- `editCoverLetterWithAI(coverLetterContent, query)` — Takes the current cover letter content object and a natural language edit query, constructs a prompt instructing an AI to edit the cover letter while preserving the COVER_LETTER_FIELDS schema, and returns the updated cover letter content via callAI.
+- `editCoverLetterWithAI(coverLetterContent, query)` — Sends current content and a JSON-quoted query to `AI_EDIT`, with scoped factual edits and the content-shaped cover-letter example, returning parsed JSON. Preservation/no-change behavior is instructed to the model rather than enforced by local diff validation.
 
-### `src/services/aiResumeEditorService.js` — AI-powered resume editing service that uses natural language queries to modify an existing resume via the AI client.
+### `src/services/aiResumeEditorService.js` — AI-powered resume editing. Updated 2026-10-03: shared factual/source/JSON/scope rules, quoted edit requests, original history/contact/date preservation, supplied metrics only, concise tense-appropriate bullets and one unambiguous unchanged-content instruction for unsupported requests.
 
-- `editResumeWithAI(resume, query)` — Takes the current resume data object and a natural language edit query, constructs a prompt instructing an AI to edit the resume within the RESUME_SCHEMA_FOR_PROMPT schema, and returns the updated resume data via callAI. Returns original data if the query cannot be fulfilled.
+- `editResumeWithAI(resume, query)` — Sends current content and a JSON-quoted query to `AI_EDIT` with the derived resume schema and scoped-edit rules, returning parsed JSON without a resume/metadata wrapper. The prompt requests original content for ambiguous/unsupported queries; this is not a local fallback or deterministic validation.
 
 ### `src/services/resumeParsingService.js` — Resume file parsing service that extracts text from PDF and DOCX files, then uses AI to parse the text into structured resume data. Type detection is content-based (magic bytes).
 
-- `extractText(fileBuffer, fileType)` — Internal helper that extracts raw text from a file buffer based on MIME type: uses unpdf for PDF and mammoth for DOCX. Throws on unsupported file types.
-- `parseResume(fileBuffer)` — Takes a verified Buffer (type detection via magic bytes: %PDF or ZIP container; never trusts client MIME), extracts raw text via extractText, sanitizes + bounds it against prompt injection (8000 chars), then sends the text to an AI with a structured JSON schema prompt (**YYYY-MM dates**, matching FIELD_TYPES.MONTH) to parse into profile, work_experience, education, skills, and additional_info fields.
+- `extractText(fileBuffer, fileType)` — Internal helper using unpdf for PDF and mammoth for DOCX. Fixed 2026-10-03: joins unpdf's default array of page strings with newlines, retaining page order/line boundaries and preventing the string-only sanitizer from discarding all PDF content. Also accepts a string result. Throws on unsupported file types and wraps PDF extraction failures.
+- `parseResume(fileBuffer)` — Validates Buffer/magic bytes, extracts text, retains existing 8000-character sanitization and JSON-quotes it for `RESUME_PARSING`. Updated 2026-10-03: uses `RESUME_SCHEMA_FOR_PROMPT` instead of a duplicate handwritten schema, including education.is_current; prompts faithful extraction, wrapped-bullet/role association, typed empty values, supported YYYY-MM dates without guessed months, explicit ongoing status and supplied expected graduation months. Returns model JSON; factual compliance is not deterministically checked here.
 
 ### `src/services/resumeService.js` — Centralized CRUD service for all resume-related database operations, handling Resume and ResumeMetadata models with flexible query options.
 
@@ -852,6 +865,20 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 ### `tests/aiParsers.test.js` — Regression tests for AI JSON parsers (added 2026-09-21 for audit H2 fix).
 
 - `AI JSON parsers strip preambles` — Verifies parseDeepSeekJson + parseGeminiJson handle leading conversational text, markdown fences, and clean JSON.
+
+### `tests/aiPrompts.test.js` — Generation/editing prompt integration regressions (added 2026-10-03). Runs real builders, schemas and services with only the model transport mocked; included in `npm test`.
+
+- `jsonBlock` — Decodes a labeled source/schema block, ensuring quoted source strings cannot introduce a second trusted output-schema block.
+- `beforeEach` — Resets the mocked model transport.
+- Mock transport factory — Supplies a test-only `callAI` spy; no provider credentials or live calls.
+- Test callbacks — Cover shared safeguards across all four roles, free-tier special-instruction exclusion, quoted permitted special instructions, registry-derived cover-letter field types, grounded generation/source identity, scoped editor source/query contracts, and provider error propagation for refund handling.
+
+### `tests/resumeParsingService.test.js` — Resume-import integration regressions (added 2026-10-03). Uses a real generated two-page PDF and real unpdf extraction, plus mocked DOCX text/model transports; included in `npm test`.
+
+- `jsonBlock` — Decodes a source/schema prompt block and checks it has one trusted boundary.
+- `beforeEach` / `afterEach` — Reset model/DOCX mocks, suppress synthetic length warnings and restore spies.
+- Mock transport factories — Expose test-only AI and DOCX text spies; do not replace PDF extraction.
+- Test callbacks — Verify all PDF page text reaches the model, central work/education schema/current flags, partial-date/ongoing-study instructions, source quoting and the 8000-character sanitizer cap, rejection before extraction/AI usage and provider failure propagation.
 
 ### `tests/normalizeSkills.test.js` — Regression tests for the skills-shape normalizer.
 
