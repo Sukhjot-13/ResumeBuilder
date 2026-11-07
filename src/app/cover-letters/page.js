@@ -3,52 +3,122 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApiClient } from "@/hooks/useApiClient";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import PermissionGate from "@/components/common/PermissionGate";
+import { useToast } from "@/components/common/ToastProvider";
+import { useProfile } from "@/hooks/useProfile";
+import { PERMISSIONS } from "@/lib/constants";
+import { checkPermission } from "@/lib/accessControl";
 import Link from "next/link";
 
 export default function CoverLettersPage() {
   const [letters, setLetters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const apiClient = useApiClient();
+  const { success } = useToast();
+  const { profile, loading: profileLoading } = useProfile();
+  const canViewCoverLetters = Boolean(
+    profile && checkPermission(profile, PERMISSIONS.VIEW_COVER_LETTERS)
+  );
 
   const fetchLetters = useCallback(async () => {
+    if (!canViewCoverLetters) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await apiClient("/api/cover-letters");
       if (res.ok) {
         setLetters(await res.json());
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to load your cover letters. Please try again.");
       }
     } catch (err) {
       console.error("Failed to fetch cover letters:", err);
     } finally {
       setLoading(false);
     }
-  }, [apiClient]);
+  }, [apiClient, canViewCoverLetters]);
 
   useEffect(() => {
+    if (profileLoading) return;
     fetchLetters();
-  }, [fetchLetters]);
+  }, [fetchLetters, profileLoading]);
 
   const handleDelete = async (id) => {
-    if (!confirm("Delete this cover letter?")) return;
     setDeletingId(id);
     setError("");
     try {
       const res = await apiClient(`/api/cover-letters/${id}`, { method: "DELETE" });
       if (res.ok) {
         setLetters((prev) => prev.filter((l) => l._id !== id));
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error || "Failed to delete the cover letter. Please try again.");
+        return true;
       }
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Failed to delete the cover letter. Please try again.");
+      return false;
     } catch (err) {
       setError("Failed to delete the cover letter. Please try again.");
+      return false;
     } finally {
       setDeletingId(null);
     }
   };
+
+  const requestDelete = (letter) => {
+    setDeleteError("");
+    setDeleteTarget(letter);
+  };
+
+  const cancelDelete = () => {
+    setDeleteTarget(null);
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteError("");
+    const deleted = await handleDelete(deleteTarget._id);
+    if (deleted) {
+      success("Cover letter deleted.");
+      setDeleteTarget(null);
+    } else {
+      setDeleteError("Failed to delete the cover letter. Please try again.");
+    }
+  };
+
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!canViewCoverLetters) {
+    return (
+      <div className="min-h-screen pb-20">
+        <div className="container mx-auto px-6 pt-8">
+          <div className="mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              Cover Letters
+            </h1>
+            <p className="text-slate-400 text-xs sm:text-sm">
+              Generate and manage targeted cover letters tailored to specific companies and roles
+            </p>
+          </div>
+          <PermissionGate user={profile} permission={PERMISSIONS.VIEW_COVER_LETTERS} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-20">
@@ -148,7 +218,7 @@ export default function CoverLettersPage() {
                       View
                     </Link>
                     <button
-                      onClick={() => handleDelete(letter._id)}
+                      onClick={() => requestDelete(letter)}
                       disabled={deletingId === letter._id}
                       className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors border border-transparent hover:border-rose-500/20 disabled:opacity-50"
                       title="Delete letter"
@@ -165,6 +235,22 @@ export default function CoverLettersPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete this cover letter?"
+        description={
+          deleteTarget
+            ? `“${deleteTarget.metadata?.coverLetterName || deleteTarget.metadata?.companyName || "Untitled Cover Letter"}” will be permanently deleted. This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete cover letter"
+        pendingLabel="Deleting..."
+        pending={Boolean(deleteTarget && deletingId === deleteTarget._id)}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
     </div>
   );
 }

@@ -78,6 +78,13 @@ export const POST = withErrorHandler(async (request) => {
     return ok(parsedData);
   } catch (error) {
     await SubscriptionService.refundUsage(userId, 1);
+    if (error?.status === 422) {
+      logger.warn('Resume parsing failed: unreadable upload', {
+        userId,
+        errorCode: error.code,
+      });
+      return fail(error.message, 422);
+    }
     throw error;
   }
 });

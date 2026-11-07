@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApiClient } from '@/hooks/useApiClient';
+import { useProfile } from '@/hooks/useProfile';
 
 export default function OnboardingPage() {
   const [name, setName] = useState('');
@@ -12,6 +13,7 @@ export default function OnboardingPage() {
   const [error, setError] = useState('');
   const router = useRouter();
   const apiClient = useApiClient();
+  const { refetch: refetchProfile } = useProfile();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,6 +30,9 @@ export default function OnboardingPage() {
       });
 
       if (response.ok) {
+        // Refresh the shared AuthContext before navigating, otherwise the
+        // navbar keeps rendering the pre-onboarding placeholder identity.
+        await refetchProfile();
         router.push('/dashboard');
       } else if (response.status === 401) {
         setError('Your session has expired. Please log in again.');

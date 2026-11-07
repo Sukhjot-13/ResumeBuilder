@@ -6,21 +6,32 @@ import { useApiClient } from "@/hooks/useApiClient";
 import { useProfile } from "@/hooks/useProfile";
 import CoverLetterPreview from "@/components/preview/CoverLetterPreview";
 import JobDescriptionInput from "@/components/home/JobDescriptionInput";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import PermissionGate from "@/components/common/PermissionGate";
+import { useToast } from "@/components/common/ToastProvider";
+import { PERMISSIONS } from "@/lib/constants";
+import { checkPermission } from "@/lib/accessControl";
 
 export default function CoverLetterDetailPage({ params }) {
   const { id } = use(params);
   const router = useRouter();
   const apiClient = useApiClient();
-  const { profile, loading: profileLoading } = useProfile();
+  const { profile, loading: profileLoading, refetch: refetchProfile } = useProfile();
 
   const isNew = id === "new";
+  const canViewCoverLetters = Boolean(
+    profile && checkPermission(profile, PERMISSIONS.VIEW_COVER_LETTERS)
+  );
 
   // Generation form state (for new + regenerate)
   const [jobDescription, setJobDescription] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [generating, setGenerating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [error, setError] = useState("");
+  const { success } = useToast();
 
   // Existing letter state
   const [coverLetter, setCoverLetter] = useState(null);
@@ -32,6 +43,10 @@ export default function CoverLetterDetailPage({ params }) {
   // Fetch existing cover letter
   useEffect(() => {
     if (isNew) return;
+    if (!canViewCoverLetters) {
+      setLetterLoading(false);
+      return;
+    }
     const fetchLetter = async () => {
       try {
         const res = await apiClient(`/api/cover-letters/${id}`);
@@ -48,7 +63,7 @@ export default function CoverLetterDetailPage({ params }) {
       }
     };
     fetchLetter();
-  }, [id, isNew, apiClient]);
+  }, [id, isNew, apiClient, canViewCoverLetters]);
 
   const handleGenerate = async () => {
     if (!profile?.mainResume?.content) {
@@ -75,6 +90,9 @@ export default function CoverLetterDetailPage({ params }) {
 
       if (res.ok) {
         const data = await res.json();
+        // Generation spends a credit; update the shared credit badge before
+        // navigating (the provider survives client-side route changes).
+        await refetchProfile();
         // Navigate to the newly created cover letter
         if (data.coverLetterId) {
           router.push(`/cover-letters/${data.coverLetterId}`);
@@ -94,14 +112,20 @@ export default function CoverLetterDetailPage({ params }) {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this cover letter?")) return;
+    setDeleteError("");
     setDeleting(true);
     try {
       const res = await apiClient(`/api/cover-letters/${id}`, { method: "DELETE" });
-      if (res.ok) router.push("/cover-letters");
-      else setError("Failed to delete the cover letter. Please try again.");
+      if (res.ok) {
+        success("Cover letter deleted.");
+        router.push("/cover-letters");
+        return true;
+      }
+      setDeleteError("Failed to delete the cover letter. Please try again.");
+      return false;
     } catch (err) {
-      setError("Failed to delete the cover letter. Please try again.");
+      setDeleteError("Failed to delete the cover letter. Please try again.");
+      return false;
     } finally {
       setDeleting(false);
     }
@@ -111,6 +135,24 @@ export default function CoverLetterDetailPage({ params }) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  if (!canViewCoverLetters) {
+    return (
+      <div className="min-h-screen pb-20">
+        <div className="container mx-auto px-6 pt-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+              Cover Letters
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Generate and manage targeted cover letters tailored to specific companies and roles
+            </p>
+          </div>
+          <PermissionGate user={profile} permission={PERMISSIONS.VIEW_COVER_LETTERS} />
+        </div>
       </div>
     );
   }
@@ -170,7 +212,10 @@ export default function CoverLetterDetailPage({ params }) {
                   Regenerate
                 </button>
                 <button
-                  onClick={handleDelete}
+                  onClick={() => {
+                    setDeleteError("");
+                    setDeleteDialogOpen(true);
+                  }}
                   disabled={deleting}
                   className="px-4 py-2 text-sm font-medium text-red-400 hover:text-red-300 glass rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
@@ -259,6 +304,18 @@ export default function CoverLetterDetailPage({ params }) {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Delete this cover letter?"
+        description={`“${coverLetter?.metadata?.coverLetterName || coverLetter?.metadata?.companyName || "This cover letter"}” will be permanently deleted. This cannot be undone.`}
+        confirmLabel="Delete cover letter"
+        pendingLabel="Deleting..."
+        pending={deleting}
+        error={deleteError}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteDialogOpen(false)}
+      />
     </div>
   );
 }

@@ -5,11 +5,18 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ROLES, PLANS } from '@/lib/constants';
 import { useToast } from '@/components/common/ToastProvider';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
+  const [resetPending, setResetPending] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const router = useRouter();
   const toast = useToast();
 
@@ -57,8 +64,8 @@ export default function AdminDashboard() {
   };
 
   const handleResetUsage = async (userId) => {
-    if (!confirm('Are you sure you want to reset usage for this user?')) return;
-
+    setResetPending(true);
+    setResetError('');
     try {
       const res = await fetch(`/api/admin/users/${userId}/reset-usage`, {
         method: 'POST',
@@ -67,18 +74,23 @@ export default function AdminDashboard() {
       if (res.ok) {
         toast.success('Usage reset.');
         fetchUsers();
-      } else {
-        toast.error('Failed to reset usage');
+        return true;
       }
+      const data = await res.json().catch(() => ({}));
+      setResetError(data.error || 'Failed to reset usage.');
+      return false;
     } catch (err) {
       console.error(err);
-      toast.error('Error resetting usage');
+      setResetError('Could not reset usage. Please try again.');
+      return false;
+    } finally {
+      setResetPending(false);
     }
   };
 
   const handleDeleteUser = async (userId, userEmail) => {
-    if (!confirm(`Are you sure you want to permanently delete user ${userEmail}? This cannot be undone.`)) return;
-
+    setDeletePending(true);
+    setDeleteError('');
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: 'DELETE',
@@ -87,14 +99,30 @@ export default function AdminDashboard() {
       if (res.ok) {
         toast.success(`Deleted ${userEmail}.`);
         fetchUsers();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Failed to delete user');
+        return true;
       }
+      const data = await res.json().catch(() => ({}));
+      setDeleteError(data.error || 'Failed to delete user.');
+      return false;
     } catch (err) {
       console.error(err);
-      toast.error('Error deleting user');
+      setDeleteError('Could not delete the user. Please try again.');
+      return false;
+    } finally {
+      setDeletePending(false);
     }
+  };
+
+  const confirmResetUsage = async () => {
+    if (!resetTarget) return;
+    const ok = await handleResetUsage(resetTarget._id);
+    if (ok) setResetTarget(null);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteTarget) return;
+    const ok = await handleDeleteUser(deleteTarget._id, deleteTarget.email);
+    if (ok) setDeleteTarget(null);
   };
 
   if (loading) return <div className="p-16 text-center text-slate-400 text-sm">Loading users...</div>;
@@ -183,13 +211,19 @@ export default function AdminDashboard() {
                     <td className="p-4">
                       <div className="flex gap-2">
                         <button 
-                          onClick={() => handleResetUsage(user._id)}
+                          onClick={() => {
+                            setResetError('');
+                            setResetTarget(user);
+                          }}
                           className="px-2.5 py-1 text-[11px] font-semibold bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-lg transition-colors"
                         >
                           Reset Usage
                         </button>
                         <button
-                          onClick={() => handleDeleteUser(user._id, user.email)}
+                          onClick={() => {
+                            setDeleteError('');
+                            setDeleteTarget(user);
+                          }}
                           className="px-2.5 py-1 text-[11px] font-semibold bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg transition-colors"
                         >
                           Delete
@@ -203,6 +237,39 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(resetTarget)}
+        tone="warning"
+        title="Reset usage for this user?"
+        description={
+          resetTarget
+            ? `${resetTarget.email} will have their credit usage reset to zero.`
+            : ''
+        }
+        confirmLabel="Reset usage"
+        pendingLabel="Resetting..."
+        pending={resetPending}
+        error={resetError}
+        onConfirm={confirmResetUsage}
+        onCancel={() => setResetTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete this user permanently?"
+        description={
+          deleteTarget
+            ? `${deleteTarget.email} and all of their resumes, cover letters, and sessions will be permanently deleted. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete user"
+        pendingLabel="Deleting..."
+        pending={deletePending}
+        error={deleteError}
+        onConfirm={confirmDeleteUser}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

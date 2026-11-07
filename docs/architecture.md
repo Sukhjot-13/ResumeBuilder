@@ -33,11 +33,16 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/resume-history/page.js` — Page route displaying the user's resume history, including master resume and all generated tailored resumes, with delete and preview capabilities.
 
-- `ResumeHistoryPage (default export)` — Page component that fetches user profile/mainResume and all generated resumes on mount, renders a ResumeList (passing the shared `profile` as `user` so permission-gated Edit/Delete render), and includes a modal overlay rendering the tailored resume via ResumeDisplayView (no more raw JSON). Fixed 2026-09-28: the preview overlay is focusable (`tabIndex={-1}` via `previewDialogRef`) and focused on open, so its Escape handler actually fires — a `onKeyDown` on a non-focusable `div` never received key events.
+- `ResumeHistoryPage (default export)` — Page component that fetches user profile/mainResume and all generated resumes on mount, renders a ResumeList (passing the shared `profile` as `user` so permission-gated Edit/Delete render), and includes a modal overlay rendering the tailored resume via ResumeDisplayView (no more raw JSON). Fixed 2026-09-28: the preview overlay is focusable (`tabIndex={-1}` via `previewDialogRef`) and focused on open, so its Escape handler actually fires — a `onKeyDown` on a non-focusable `div` never received key events. Updated 2026-11-05: users without `VIEW_OWN_RESUMES` now see the shared `PermissionGate` upsell and the page skips profile/resume list fetching; `handleDeleteResume` returns `true`/`false` so `ResumeList` can keep its confirmation dialog open on failure.
 
 ### `src/components/common/AccessDenied.js` — A simple access denied UI component that shows a restriction message without an upgrade/upsell prompt.
 
 - `AccessDenied (default export)` — Stateless component rendering a centered card with a lock icon (customizable), a title, and a message to inform the user they lack permission.
+
+### `src/components/common/ConfirmDialog.js` — Themed, accessible replacement for `window.confirm()` used by destructive and discard actions (added 2026-11-05).
+
+- `ConfirmDialog (default export)` — Modal confirmation dialog with `danger`/`warning` tones, title + description, inline error, pending spinner/label, disabled actions while pending, Escape/backdrop close (blocked while pending), body scroll lock, focus trap, initial focus on Cancel, and focus restoration to the triggering element.
+- `TONES` — Internal tone map holding the icon wrapper, confirm-button classes, and inline SVG path for each supported tone.
 
 ### `src/components/common/LoadingSpinner.js` — A reusable animated loading spinner component.
 
@@ -129,10 +134,11 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/components/ResumeList.js` — Displays the master resume card and a grid of all generated/saved resumes with view, edit, and delete actions.
 
-- `ResumeList (default export)` — Component that renders a loading spinner, empty state, master resume card, and a grid of generated resumes. Supports inline editing of resume metadata (name, job title, company) via PATCH API, delete via callback (with confirm() guard), and view via callback. Uses PermissionGate to conditionally show edit/delete buttons.
+- `ResumeList (default export)` — Component that renders a loading spinner, empty state, master resume card, and a grid of generated resumes. Supports inline editing of resume metadata (name, job title, company) via PATCH API, delete via callback, and view via callback. Uses PermissionGate to conditionally show edit/delete buttons. Updated 2026-11-05: delete now opens the shared `ConfirmDialog` (with pending/error state) instead of `window.confirm()`, and success/error feedback uses `useToast`.
 - `startEditing` — Internal function that sets the editing state to a specific resume and populates the edit form with its current metadata.
 - `cancelEditing` — Internal function that resets the editing state and clears the edit form.
 - `saveEditing` — Internal async function that sends a PATCH request to update resume metadata, then triggers onUpdateResume callback on success.
+- `requestDelete` / `cancelDelete` / `confirmDelete` — Open the themed confirmation, close it, and run the delete callback with pending state and toast feedback; failures keep the dialog open with an inline error.
 
 
 ---
@@ -150,13 +156,16 @@ Single source of truth for all pending work. Organized by priority: 🔴 Critica
 
 ### `src/app/admin/dashboard/page.js` — Admin dashboard page component displaying a user table with role management, reset usage, and delete actions. Updated with navigation tabs linking to Users and Permissions pages.
 
-- `AdminDashboard` — Default export — renders admin UI with user list table, role change dropdowns, reset usage and delete buttons, and navigation tabs for Users / Permissions
+- `AdminDashboard` — Default export — renders admin UI with user list table, role change dropdowns, reset usage and delete buttons, and navigation tabs for Users / Permissions. Updated 2026-11-05: reset-usage and delete-user use the shared `ConfirmDialog` (warning/danger tones) with pending labels, inline errors, and toast feedback instead of `window.confirm()`.
+- `confirmResetUsage` / `confirmDeleteUser` — Run the corresponding action only after dialog confirmation and close the dialog on success.
 
 ### `src/app/admin/permissions/page.js` — Permission management page for the admin dashboard where admins can view and toggle permissions per role.
 
 - `AdminPermissionsPage` — Default export — fetches roles and permissions from API, renders permission grid grouped by category with toggle buttons per role. Gated server-side: API routes enforce MANAGE_ROLES permission; page handles 403 responses by redirecting to /dashboard. Admin role displayed as immutable (uses ALL wildcard).
 
-### `src/app/ai-edit/page.js` — AI Editor page that lets users select a resume or cover letter, enter AI instructions, and generate AI-powered edits with a live preview. Reads the shared AuthContext profile (no duplicate /api/user/profile fetch); refetches the profile after in-place master edits so the preview stays fresh; preserves the selected cover letter across list refreshes.
+### `src/app/ai-edit/page.js` — AI Editor page that lets users select a resume or cover letter, enter AI instructions, and generate AI-powered edits with a live preview. Reads the shared AuthContext profile (no duplicate /api/user/profile fetch); preserves the selected cover letter across list refreshes.
+
+- Updated 2026-11-05: every successful AI edit now calls `refetchProfile()` (not only in-place master edits), so the navbar credit badge and the profile/main-resume state stay in sync after “save as new version” edits as well.
 
 - `AIEditPage` — Default export — renders AI editor with resume/cover letter toggle, selection dropdowns, instruction textarea, save-as-new checkbox, and preview panel
 - `getResumeLabel` — Formats resume display names with priority: `resumeName` > `jobTitle` > `profile.headline` > `profile.name` > fallback, plus master badge and date
@@ -216,7 +225,11 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ### `src/app/api/auth/verify-token/route.js` — API route to rotate a refresh token and issue new access/refresh tokens. Fixed 2026-09-28: the body is read through the `readJson` size guard (was a raw `await req.json()`, which 500'd on malformed input and accepted unbounded bodies), and the recorded client IP now comes from `getClientIp()` (platform headers only) instead of the forgeable `x-forwarded-for`.
 
-- `POST` — Accept refresh token, rotate it (with a 60s grace window so parallel requests carrying the same token aren't logged out — see `src/lib/auth.js`), and return new access and refresh tokens with userId
+- `POST` — Accept refresh token, rotate it (with a 60s grace window so parallel requests carrying the same token aren't logged out — see `src/lib/auth.js`), and return new access and refresh tokens with userId. Fixed 2026-11-05: a revoked, expired, superseded-outside-grace, or unknown refresh token now returns `401 { error: 'Invalid or expired refresh token' }` (previously surfaced as a 500 internal error), with a warning log rather than a stack-trace response.
+
+### `src/app/api/parse-resume/route.js` — Parses an uploaded resume file (PDF/DOCX) and extracts structured data. Hardened 2026-08-21: 5MB size cap (413), MIME allowlist, PDF/ZIP magic-byte verification (415). Metered 2026-08-22: deducts a credit before the AI call, refunds on failure.
+
+- `POST` — Requires PARSE_RESUME permission. Resolves user identity via `resolveUserId(request, { rateLimit: API_KEY_LIMITS.PARSE_RESUME })` (2026-09-28). Accepts a multipart form upload with field 'resumeFile', validates size/type/content signature, deducts 1 credit (refund on failure), then passes the verified Buffer to parseResume() and returns parsed JSON via ok(). Updated 2026-11-05: structurally corrupt PDF/DOCX uploads now return a safe actionable `422` (e.g. “We could not read that PDF…”) instead of a generic 500, and the credit is refunded.
 
 ### `src/app/api/checkout/create-portal-session/route.js` — Creates a Stripe Billing Portal session so the user can manage their subscription.
 
@@ -256,10 +269,6 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 ### `src/app/api/health/route.js` — Simple health-check endpoint for monitoring.
 
 - `GET` — Returns { status: 'ok', uptime, timestamp } to indicate the server is running.
-
-### `src/app/api/parse-resume/route.js` — Parses an uploaded resume file (PDF/DOCX) and extracts structured data. Hardened 2026-08-21: 5MB size cap (413), MIME allowlist, PDF/ZIP magic-byte verification (415). Metered 2026-08-22: deducts a credit before the AI call, refunds on failure.
-
-- `POST` — Requires PARSE_RESUME permission. Resolves user identity via `resolveUserId(request, { rateLimit: API_KEY_LIMITS.PARSE_RESUME })` (2026-09-28). Accepts a multipart form upload with field 'resumeFile', validates size/type/content signature, deducts 1 credit (refund on failure), then passes the verified Buffer to parseResume() and returns parsed JSON via ok().
 
 ### `src/app/api/render-pdf-react/route.js` — Generates a downloadable PDF for a resume or cover letter using React PDF renderer.
 
@@ -305,21 +314,22 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ### `src/app/cover-letters/[id]/page.js` — Cover letter detail page for viewing, generating, regenerating, and deleting cover letters. Uses a job description input and AI generation to produce tailored cover letters. The generation panel also renders on EXISTING letters when "Regenerate" is clicked (pre-fills recipient from the letter).
 
-- `CoverLetterDetailPage` — Default export. Client component handling cover letter display and generation with job description input, recipient name, preview via CoverLetterPreview component, and delete functionality.
-- `handleGenerate` — Async function that calls POST /api/generate-cover-letter to generate a new cover letter from job description and recipient name, then navigates to the result.
-- `handleDelete` — Async function that deletes the cover letter via DELETE /api/cover-letters/:id and redirects to the cover letters list.
+- `CoverLetterDetailPage` — Default export. Client component handling cover letter display and generation with job description input, recipient name, preview via CoverLetterPreview component, and delete functionality. Updated 2026-11-05: users without `VIEW_COVER_LETTERS` see the shared `PermissionGate` upsell instead of an empty/unauthorized page; successful generation refetches the shared profile so the navbar credit badge updates; delete opens the shared `ConfirmDialog` with pending/error state and refetches the profile after credit-spending actions.
+- `handleGenerate` — Async function that calls POST /api/generate-cover-letter to generate a new cover letter from job description and recipient name, refetches the shared profile credit state, then navigates to the result.
+- `handleDelete` — Async function that deletes the cover letter via DELETE /api/cover-letters/:id, shows a success toast, and redirects to the cover letters list; failures stay in the dialog with an inline error.
 
 ### `src/app/cover-letters/page.js` — Cover letter list page. Fixed 2026-09-21: added missing `useCallback` import (was a build-breaking ReferenceError — `/cover-letters` prerender failed).
 
-- `CoverLettersPage` — Default export. Client component that fetches and renders a list of cover letters with view/delete controls and a create-new link.
-- `fetchLetters` — useCallback fetching GET /api/cover-letters to retrieve all cover letters.
+- `CoverLettersPage` — Default export. Client component that fetches and renders a list of cover letters with view/delete controls and a create-new link. Updated 2026-11-05: users without `VIEW_COVER_LETTERS` get the shared `PermissionGate` upsell and the page skips the forbidden list request.
+- `fetchLetters` — useCallback fetching GET /api/cover-letters to retrieve all cover letters (only when the user has list permission).
 - `handleDelete` — Async function that deletes a cover letter by ID via DELETE /api/cover-letters/:id and removes it from the local state.
+- `requestDelete` / `cancelDelete` / `confirmDelete` — Themed confirmation flow around `handleDelete`, with success toast and inline failure feedback.
 
 ### `src/app/dashboard/page.js` — Main application dashboard providing resume generation from a job description with live preview, resume list, special instructions, and subscription session verification. Fixed 2026-09-21: removed client-side createResume fallback that double-charged a credit when server save failed — server persists within the same credit; missing resumeId now surfaces a save-failed notice.
 
 - `DashboardPage` — Default export. Client component wrapping DashboardContent in a Suspense boundary.
 - `DashboardContent` — Default export (via re-export). Client component with the full dashboard UI: job description input, special instructions, resume generation, live preview, save checkbox, Stripe session verification (inline dismissible status banner instead of alert()), and resume list via ResumeList component.
-- `handleGenerateResume` — Async callback that calls POST to the generate endpoint with resume content, job description, special instructions, and save flag; on success refetches the saved-resumes list (single-credit server save, no second POST).
+- `handleGenerateResume` — Async callback that calls POST to the generate endpoint with resume content, job description, special instructions, and save flag; on success refetches the saved-resumes list (single-credit server save, no second POST). Updated 2026-11-05: also calls the shared profile `refetch` after every successful generation so the navbar credit badge updates immediately.
 
 ### `src/app/layout.js` — Root layout for the entire application, setting up fonts, global CSS, auth context, toast notifications, navigation bar, and footer.
 
@@ -333,6 +343,7 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 ### `src/app/globals.css` — Global stylesheet (Tailwind v4 + shared design-system classes such as `app-input`, `glass-card`, `btn-primary`).
 
 - No exported functions — style definitions only.
+- Added 2026-11-05: `.confirm-dialog-panel` (opaque dark gradient + layered shadow for the themed confirm modal), `.animate-overlay-in` / `@keyframes overlay-in` (backdrop fade), `.animate-dialog-in` / `@keyframes dialog-in` (panel rise/scale), plus a `prefers-reduced-motion` rule that disables these animations and existing float/shake/shimmer effects.
 
 ### `src/app/favicon.ico` — Site favicon served by Next.js from the app directory.
 
@@ -347,7 +358,7 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ### `src/app/onboarding/page.js` — Onboarding page for new users after first login, collecting name and date of birth to complete their profile.
 
-- `OnboardingPage` — Default export. Client component with a profile completion form (name and date of birth) that updates the user profile via PUT /api/user/profile and redirects to dashboard.
+- `OnboardingPage` — Default export. Client component with a profile completion form (name and date of birth) that updates the user profile via PUT /api/user/profile and redirects to dashboard. Updated 2026-11-05: refreshes the shared AuthContext (`useProfile().refetch`) after a successful save, so the navbar immediately shows the new name/identity instead of the pre-onboarding placeholder.
 
 ### `src/app/page.js` — Landing/home page with a hero section, free-trial strip, feature cards, a Pro power-ups teaser section (added 2026-09-22: lock-badged Pro features linking to /pricing + compact Free-vs-Pro comparison driven by PLANS constants), a how-it-works section, and a call-to-action section to drive user signup.
 
@@ -372,16 +383,15 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 - `PricingPage` — Client component rendering Free/Pro tiers; Free-tier label adapts to the viewer's role (Start Free / Your Plan / Included) via useAuth.
 - `handleUpgrade(planKey)` — POSTs the plan KEY (`'PRO'`) to /api/checkout/create-session and redirects to Stripe. Errors surface via toast.
 
-### `src/app/profile/page.js` — User profile page with tabs for personal details (name, date of birth, AI resume editing, manual resume form, resume upload/parse) and subscription management (plan info, upgrade, manage billing).
+### `src/app/profile/page.js` — User profile page with tabs for personal details (name, date of birth, manual resume form, resume upload/parse) and subscription management (plan info, upgrade, manage billing).
 
-- `ProfilePage` — Full profile experience: tabs, editing, AI edit, manual form, upload/parse, master delete, subscription display (renders real `subscriptionStatus` / `subscriptionExpiresAt` / `creditsRemaining` from the API instead of static guesses), upgrade + billing portal, plus a "What you get with Pro" benefits box with compare-plans link for free-tier users (added 2026-09-22). Stripe buttons have pending/disabled double-submit guards; plan labels derive from PLANS constants; role compares use ROLES enum; DOB round-trips through local-date formatting (no UTC off-by-one).
+- `ProfilePage` — Full profile experience: tabs, editing, manual form, upload/parse, master delete, subscription display (renders real `subscriptionStatus` / `subscriptionExpiresAt` / `creditsRemaining` from the API instead of static guesses), upgrade + billing portal, plus a "What you get with Pro" benefits box with compare-plans link for free-tier users (added 2026-09-22). Stripe buttons have pending/disabled double-submit guards; plan labels derive from PLANS constants; role compares use ROLES enum; DOB round-trips through local-date formatting (no UTC off-by-one). Updated 2026-11-05: removed unused AI-editor state/handler (`showAiEditor`, `aiEditQuery`, `editing`, `createNewResume`, `handleAiEdit`) — AI editing lives on `/ai-edit`; master-resume delete and unsaved-form discard now use the shared `ConfirmDialog` instead of inline/`window.confirm` prompts.
 - `handleSubmit` — Async function that saves profile name and date of birth via PUT /api/user/profile.
-- `handleFileUpload` — Async function that uploads a resume file to POST /api/parse-resume for AI parsing, then saves the parsed result as the master resume.
-- `handleAiEdit` — Async function that sends a natural-language edit query to POST /api/edit-resume-with-ai to modify the master resume content via AI.
-- `handleDeleteMasterResume` — Async function that deletes the master resume via DELETE /api/resumes/master.
+- `handleFileUpload` — Async function that uploads a resume file to POST /api/parse-resume for AI parsing, then saves the parsed result as the master resume. Updated 2026-11-05: refreshes the local subscription/credit snapshot and calls the shared profile `refetch()` so the navbar badge reflects the parse credit immediately.
+- `handleDeleteMasterResume` — Async function that deletes the master resume via DELETE /api/resumes/master; failures render inline in the confirmation dialog (`deleteMasterError`) while successes close it and show a success message.
 - `handleUpgrade` — Async function that initiates a Stripe checkout session sending planName 'PRO'.
-- Fixed 2026-09-28: toggling the manual resume form no longer silently discards edits — the toggle is intercepted with a `window.confirm` while `ManualResumeForm` reports unsaved changes via `onDirtyChange` (`manualFormDirty` state).
 - `handleManageSubscription` — Async function that opens the Stripe billing portal for subscription management.
+- `confirmDiscardChanges` / `setConfirmDiscardChanges` — Gate the manual-form close action: if `ManualResumeForm` reports unsaved changes via `onDirtyChange` (`manualFormDirty`), show the themed “Discard unsaved changes?” dialog (Keep editing / Discard changes) instead of a browser confirm.
 
 - `formatLocalDate(value)` — Formats subscription renewal timestamps in the browser's local timezone; birth dates separately use shared `formatDateInput` to preserve the stored calendar day.
 
@@ -473,7 +483,7 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ### `src/hooks/useResumes.js` — Hook providing all resume CRUD operations (list, create, delete) for the current user, with permission checks.
 
-- `useResumes` — Hook returning { resumes, deletingId, fetchResumes, createResume, deleteResume } -- manages resume list state and API interactions with permission gating
+- `useResumes` — Hook returning { resumes, deletingId, fetchResumes, createResume, deleteResume } -- manages resume list state and API interactions with permission gating. Updated 2026-11-05: `deleteResume` returns `true` on success and `false` on failure, so callers can keep a themed confirmation dialog open and show inline errors.
 
 ### `src/hooks/useWindowWidth.js` — Hook that tracks the browser window width for responsive UI adjustments.
 
@@ -797,7 +807,8 @@ Local testing only (2026-09-29, uncommitted): the existing `TEST_LOGIN_BYPASS=lo
 
 ### `src/services/resumeParsingService.js` — Resume file parsing service that extracts text from PDF and DOCX files, then uses AI to parse the text into structured resume data. Type detection is content-based (magic bytes).
 
-- `extractText(fileBuffer, fileType)` — Internal helper using unpdf for PDF and mammoth for DOCX. Fixed 2026-10-03: joins unpdf's default array of page strings with newlines, retaining page order/line boundaries and preventing the string-only sanitizer from discarding all PDF content. Also accepts a string result. Throws on unsupported file types and wraps PDF extraction failures.
+- `extractText(fileBuffer, fileType)` — Internal helper using unpdf for PDF and mammoth for DOCX. Fixed 2026-10-03: joins unpdf's default array of page strings with newlines, retaining page order/line boundaries and preventing the string-only sanitizer from discarding all PDF content. Also accepts a string result. Throws on unsupported file types and wraps PDF/DOCX extraction failures. Updated 2026-11-05: corrupt PDFs/DOCX files throw a 422-classified `UNREADABLE_FILE` error with a safe, actionable message instead of a generic 500.
+- `unreadableFileError(message, cause)` — Internal helper that attaches `status = 422` and `code = 'UNREADABLE_FILE'` (with the original error as `cause`) so the API route can return a client-safe response while keeping diagnostics in the server log.
 - `parseResume(fileBuffer)` — Validates Buffer/magic bytes, extracts text, retains existing 8000-character sanitization and JSON-quotes it for `RESUME_PARSING`. Updated 2026-10-03: uses `RESUME_SCHEMA_FOR_PROMPT` instead of a duplicate handwritten schema, including education.is_current; prompts faithful extraction, wrapped-bullet/role association, typed empty values, supported YYYY-MM dates without guessed months, explicit ongoing status and supplied expected graduation months. Returns model JSON; factual compliance is not deterministically checked here.
 
 ### `src/services/resumeService.js` — Centralized CRUD service for all resume-related database operations, handling Resume and ResumeMetadata models with flexible query options.
@@ -1099,6 +1110,10 @@ The remaining direct handlers (`src/app/api/render-pdf-react/route.js`, `src/app
 `docs/manager-verification-2026-09-29.md` records the authenticated browser/live Manager results, fixes, automated checks, diagnostic cleanup and usage limits (no functions). Its merge addendum records preservation of main's OTP form fix and fresh verification of the deployable merged tree: 190 tests, lint and production build, with local bypass files excluded.
 
 Documentation synchronization (2026-09-30): `README.md` and the Environment Variables inventory describe the current required/optional configuration and tools. `docs/suggestions.md` records the completed documentation update; no executable functions or runtime behavior changed.
+
+### `tests/confirmDialog.test.jsx` — Static-render regression tests for the shared confirmation dialog (2026-11-05): closed state renders nothing; open state exposes `role="dialog"`, `aria-modal`, title/description and both action labels; pending state disables both buttons and shows the pending label; inline errors render in an alert; warning tone uses amber styling instead of rose.
+
+### `tests/verifyTokenRoute.test.js` — Refresh-token rotation route tests (2026-11-05): revoked/unknown refresh tokens return `401` with a safe message and warning log (previously 500), successful rotation returns the new token pair, and a missing token still returns `400`.
 
 ### `docs/profile-verification-2026-09-30.md` — Evidence for the root Admin profile policy fix and birthday regression: automated suites, 29 live production API/browser assertions, synthetic OTP authentication, permission revocation/spoofing checks, isolated-data cleanup and deployment limits. No executable functions.
 

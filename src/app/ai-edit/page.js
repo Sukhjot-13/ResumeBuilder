@@ -176,14 +176,13 @@ export default function AIEditPage() {
 
       if (editType === 'resume') {
         await fetchResumes();
-        // If the MASTER resume was edited in place, refetch the profile (via the
-        // shared AuthContext) so the preview and dropdown reflect the new content.
-        if (!createNew && selectedResumeId && selectedResumeId === masterResumeId) {
-          await refetchProfile();
-        }
       } else {
         await fetchCoverLetters();
       }
+      // Every AI edit spends a credit, and editing the master (in place or as a
+      // new version) replaces the profile's mainResume. Refresh the shared
+      // AuthContext so the credit badge, preview, and dropdown stay in sync.
+      await refetchProfile();
     } catch (err) {
       setError(err.message);
     } finally {

@@ -26,7 +26,7 @@ function DashboardContent() {
   const apiClient = useApiClient();
 
   // ── Hook layer: no fetch calls in this component ───────────────────────────
-  const { profile, loading } = useProfile();
+  const { profile, loading, refetch: refetchProfile } = useProfile();
   const { resumes, deletingId, fetchResumes, deleteResume } = useResumes(profile);
 
   // Verify subscription after Stripe redirect
@@ -102,6 +102,9 @@ function DashboardContent() {
             setGenerateError('Resume generated, but saving failed. Your content is shown above — please try saving again.');
           }
         }
+        // A generation always spends a credit; refresh the shared AuthContext so
+        // the navbar credit badge reflects the new balance immediately.
+        await refetchProfile();
       } else {
         const errData = await res.json().catch(() => ({}));
         setGenerateError(errData.message || errData.error || 'Failed to generate resume.');
@@ -111,7 +114,7 @@ function DashboardContent() {
     } finally {
       setGenerating(false);
     }
-  }, [apiClient, profile, jobDescription, specialInstructions, saveResume, fetchResumes]);
+  }, [apiClient, profile, jobDescription, specialInstructions, saveResume, fetchResumes, refetchProfile]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (

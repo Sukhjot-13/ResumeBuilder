@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import LoadingSpinner from "./common/LoadingSpinner";
+import ConfirmDialog from "./common/ConfirmDialog";
+import { useToast } from "./common/ToastProvider";
 import { useApiClient } from "@/hooks/useApiClient";
 import PermissionGate from "./common/PermissionGate";
 import { PERMISSIONS } from "@/lib/constants";
@@ -19,7 +21,35 @@ export default function ResumeList({
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ resumeName: "", jobTitle: "", companyName: "" });
   const [savingId, setSavingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const apiClient = useApiClient();
+  const { success, error: toastError } = useToast();
+
+  const requestDelete = (resume) => {
+    setDeleteError("");
+    setDeleteTarget(resume);
+  };
+
+  const cancelDelete = () => {
+    setDeleteTarget(null);
+    setDeleteError("");
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteError("");
+    const deleted = await onDeleteResume(deleteTarget._id);
+    if (deleted) {
+      success("Resume deleted.");
+      setDeleteTarget(null);
+    } else {
+      setDeleteError("Could not delete that resume. Please try again.");
+      toastError("Could not delete that resume. Please try again.");
+    }
+  };
+
+  const deletePending = Boolean(deleteTarget && deletingId === deleteTarget._id);
 
   const startEditing = (resume) => {
     setEditingId(resume._id);
@@ -239,10 +269,7 @@ export default function ResumeList({
                   </button>
                   <PermissionGate user={user} permission={PERMISSIONS.DELETE_OWN_RESUME} fallback="hidden">
                     <button
-                      onClick={() => {
-                        if (!confirm("Delete this resume? This cannot be undone.")) return;
-                        onDeleteResume(resume._id);
-                      }}
+                      onClick={() => requestDelete(resume)}
                       disabled={deletingId === resume._id}
                       className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all disabled:opacity-50 cursor-pointer"
                       title="Delete resume"
@@ -258,6 +285,22 @@ export default function ResumeList({
             ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete this resume?"
+        description={
+          deleteTarget
+            ? `“${deleteTarget.metadata?.resumeName || deleteTarget.metadata?.jobTitle || "Untitled Resume"}” will be permanently removed from your library. This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete resume"
+        pendingLabel="Deleting..."
+        pending={deletePending}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
     </div>
   );
 }

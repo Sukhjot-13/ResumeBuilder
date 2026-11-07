@@ -19,8 +19,15 @@ export const POST = withErrorHandler(async (req) => {
     userAgent: req.headers.get('user-agent'),
   };
 
-  const { newAccessToken, newRefreshToken, userId, role, refreshTokenMaxAge } =
-    await rotateRefreshToken(refreshToken, reqInfo);
+  try {
+    const { newAccessToken, newRefreshToken, userId, role, refreshTokenMaxAge } =
+      await rotateRefreshToken(refreshToken, reqInfo);
 
-  return ok({ newAccessToken, newRefreshToken, userId, role, refreshTokenMaxAge });
+    return ok({ newAccessToken, newRefreshToken, userId, role, refreshTokenMaxAge });
+  } catch (error) {
+    // A revoked, expired, superseded-outside-grace, or merely unknown refresh
+    // token is an authentication failure — not an internal server error.
+    logger.warn('Refresh token rotation rejected', { reason: error?.message });
+    return fail('Invalid or expired refresh token', 401);
+  }
 });

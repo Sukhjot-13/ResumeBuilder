@@ -54,11 +54,13 @@ export function useResumes(profile) {
       });
       if (res.ok) {
         setResumes((prev) => prev.filter((r) => r._id !== resumeId));
-      } else {
-        console.error('Error deleting resume:', await res.text());
+        return true;
       }
+      console.error('Error deleting resume:', await res.text());
+      return false;
     } catch (err) {
       console.error('Error deleting resume:', err);
+      return false;
     } finally {
       setDeletingId(null);
     }

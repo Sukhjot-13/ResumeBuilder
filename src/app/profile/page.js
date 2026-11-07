@@ -6,7 +6,9 @@ import ResumeUpload from "@/components/profile/ResumeUpload";
 import ManualResumeForm from "@/components/profile/ManualResumeForm";
 import PremiumFeatureLock from "@/components/common/PremiumFeatureLock";
 import PermissionGate from "@/components/common/PermissionGate";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import TemplateViewer from "@/components/preview/TemplateViewer";
+import { useProfile } from "@/hooks/useProfile";
 import { ROLES, PLANS, PERMISSIONS } from "@/lib/constants";
 import { checkPermission, getPermissionMetadata } from "@/lib/accessControl";
 import { formatDateInput } from "@/lib/dateUtils";
@@ -21,16 +23,15 @@ export default function ProfilePage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [masterResume, setMasterResume] = useState(null);
-  const [showAiEditor, setShowAiEditor] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualFormDirty, setManualFormDirty] = useState(false);
   const [deletingMaster, setDeletingMaster] = useState(false);
   const [confirmDeleteMaster, setConfirmDeleteMaster] = useState(false);
-  const [aiEditQuery, setAiEditQuery] = useState("");
-  const [editing, setEditing] = useState(false);
+  const [deleteMasterError, setDeleteMasterError] = useState("");
+  const [confirmDiscardChanges, setConfirmDiscardChanges] = useState(false);
   const apiClient = useApiClient();
+  const { refetch: refetchProfile } = useProfile();
 
-  const [createNewResume, setCreateNewResume] = useState(false);
   const [userRole, setUserRole] = useState(ROLES.USER);
   const [subscriptionInfo, setSubscriptionInfo] = useState(null);
 
@@ -46,8 +47,6 @@ export default function ProfilePage() {
     return `${year}-${month}-${day}`;
   };
 
-  const hasAiEditAccess = checkPermission({ role: userRole }, PERMISSIONS.EDIT_RESUME_WITH_AI);
-  const hasCreateNewResumeAccess = checkPermission({ role: userRole }, PERMISSIONS.CREATE_NEW_RESUME_ON_EDIT);
   const canParseResume = checkPermission({ role: userRole }, PERMISSIONS.PARSE_RESUME);
   const canEditProfile = checkPermission({ role: userRole }, PERMISSIONS.EDIT_OWN_PROFILE);
 
@@ -88,6 +87,7 @@ export default function ProfilePage() {
 
   const handleDeleteMasterResume = async () => {
     setDeletingMaster(true);
+    setDeleteMasterError("");
     setError("");
     setSuccess("");
     try {
@@ -97,13 +97,14 @@ export default function ProfilePage() {
         setConfirmDeleteMaster(false);
         setSuccess("Master resume deleted.");
       } else {
-        const data = await res.json();
-        setError(data.error || "Failed to delete resume.");
+        const data = await res.json().catch(() => ({}));
+        setDeleteMasterError(data.error || "Failed to delete resume. Please try again.");
       }
     } catch {
-      setError("An unexpected error occurred.");
+      setDeleteMasterError("Could not delete the master resume. Please try again.");
+    } finally {
+      setDeletingMaster(false);
     }
-    setDeletingMaster(false);
   };
 
   const handleSubmit = async (e) => {
@@ -166,6 +167,16 @@ export default function ProfilePage() {
         if (profileResponse.ok) {
           const updatedUser = await profileResponse.json();
           setMasterResume(updatedUser.mainResume.content);
+          // Parsing spends a credit; refresh the shared profile so the navbar
+          // badge and the Plan & Credits tab show the new balance immediately.
+          setSubscriptionInfo((prev) => ({
+            ...(prev || {}),
+            status: updatedUser.subscriptionStatus || prev?.status || "none",
+            expiresAt: updatedUser.subscriptionExpiresAt || prev?.expiresAt || null,
+            creditsRemaining: updatedUser.creditsRemaining ?? prev?.creditsRemaining,
+            creditsUsed: updatedUser.creditsUsed ?? prev?.creditsUsed ?? 0,
+          }));
+          await refetchProfile();
         }
       } else {
         const data = await response.json();
@@ -177,39 +188,6 @@ export default function ProfilePage() {
       setParsing(false);
     }
   };
-
-  const handleAiEdit = async () => {
-    setEditing(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const response = await apiClient("/api/edit-resume-with-ai", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ resume: masterResume, query: aiEditQuery, createNewResume }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setMasterResume(data);
-        setSuccess("Resume updated successfully with AI!");
-        setShowAiEditor(false);
-        setAiEditQuery("");
-        setCreateNewResume(false);
-      } else {
-        const data = await response.json();
-        setError(data.error || "Failed to edit resume with AI.");
-      }
-    } catch (err) {
-      setError("An unexpected error occurred during AI edit.");
-    }
-
-    setEditing(false);
-  };
-
 
   const [activeTab, setActiveTab] = useState("details");
   const [subscription, setSubscription] = useState(null);
@@ -406,7 +384,10 @@ export default function ProfilePage() {
                     <div className="flex items-center gap-2">
                       {masterResume && !confirmDeleteMaster && (
                         <button
-                          onClick={() => setConfirmDeleteMaster(true)}
+                          onClick={() => {
+                            setDeleteMasterError("");
+                            setConfirmDeleteMaster(true);
+                          }}
                           className="px-3 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 rounded-lg transition-colors"
                         >
                           Delete
@@ -415,10 +396,8 @@ export default function ProfilePage() {
                       <button
                         onClick={() => {
                           if (showManualForm && manualFormDirty) {
-                            const discard = window.confirm(
-                              "You have unsaved changes to your master resume. Discard them and close the form?"
-                            );
-                            if (!discard) return;
+                            setConfirmDiscardChanges(true);
+                            return;
                           }
                           setShowManualForm((v) => !v);
                         }}
@@ -428,27 +407,6 @@ export default function ProfilePage() {
                       </button>
                     </div>
                   </div>
-
-                  {confirmDeleteMaster && (
-                    <div className="p-3.5 bg-rose-950/40 border border-rose-500/30 rounded-xl flex items-center justify-between gap-3 text-xs">
-                      <span className="text-rose-300">Are you sure? This cannot be undone.</span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setConfirmDeleteMaster(false)}
-                          className="px-2.5 py-1 text-xs text-slate-300 hover:text-white"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleDeleteMasterResume}
-                          disabled={deletingMaster}
-                          className="px-3 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors"
-                        >
-                          {deletingMaster ? "Deleting..." : "Confirm Delete"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   {showManualForm && (
                     <div className="pt-2">
@@ -614,6 +572,34 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteMaster}
+        title="Delete your master resume?"
+        description="Your baseline resume will be permanently removed. Generated versions are not affected. This cannot be undone."
+        confirmLabel="Delete master resume"
+        pendingLabel="Deleting..."
+        pending={deletingMaster}
+        error={deleteMasterError}
+        onConfirm={handleDeleteMasterResume}
+        onCancel={() => setConfirmDeleteMaster(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmDiscardChanges}
+        tone="warning"
+        title="Discard unsaved changes?"
+        description="You have unsaved edits in the master resume form. Closing it now will discard those changes."
+        confirmLabel="Discard changes"
+        cancelLabel="Keep editing"
+        pendingLabel="Discarding..."
+        onConfirm={() => {
+          setConfirmDiscardChanges(false);
+          setManualFormDirty(false);
+          setShowManualForm(false);
+        }}
+        onCancel={() => setConfirmDiscardChanges(false)}
+      />
     </div>
   );
 }

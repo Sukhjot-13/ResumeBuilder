@@ -6,6 +6,17 @@ import { RESUME_SCHEMA_FOR_PROMPT } from '@/lib/resumeSchema';
 import { FACTUAL_ACCURACY_RULES, JSON_OUTPUT_RULES } from '@/lib/ai/promptRules';
 
 /**
+ * Builds a 422-classified error for structurally invalid uploads, so the API
+ * route can return a safe, actionable message instead of a 500.
+ */
+function unreadableFileError(message, cause) {
+  const error = new Error(message, { cause });
+  error.status = 422;
+  error.code = 'UNREADABLE_FILE';
+  return error;
+}
+
+/**
  * Extracts text from a file buffer.
  * @param {Buffer} fileBuffer - The file buffer.
  * @param {string} fileType - The MIME type of the file.
@@ -19,11 +30,22 @@ async function extractText(fileBuffer, fileType) {
       return Array.isArray(text) ? text.join('\n') : text;
     } catch (error) {
       console.error('Error in PDF parsing:', error);
-      throw new Error('Error processing PDF file');
+      throw unreadableFileError(
+        'We could not read that PDF. Please upload a valid PDF resume.',
+        error
+      );
     }
   } else if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    const { value } = await mammoth.extractRawText({ buffer: fileBuffer });
-    return value;
+    try {
+      const { value } = await mammoth.extractRawText({ buffer: fileBuffer });
+      return value;
+    } catch (error) {
+      console.error('Error in DOCX parsing:', error);
+      throw unreadableFileError(
+        'We could not read that DOCX. Please upload a valid DOCX resume.',
+        error
+      );
+    }
   }
   throw new Error('Unsupported file type');
 }

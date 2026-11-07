@@ -94,4 +94,27 @@ describe('resume extraction and prompt contract', () => {
     mocks.callAI.mockRejectedValue(error);
     await expect(parseResume(docx)).rejects.toBe(error);
   });
+
+  it('classifies a corrupt PDF as a safe 422 unreadable-upload error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const promise = parseResume(Buffer.from('%PDF-1.4 this is not a real pdf'));
+    await expect(promise).rejects.toMatchObject({
+      status: 422,
+      code: 'UNREADABLE_FILE',
+      message: 'We could not read that PDF. Please upload a valid PDF resume.',
+    });
+    expect(mocks.callAI).not.toHaveBeenCalled();
+  });
+
+  it('classifies a corrupt DOCX as a safe 422 unreadable-upload error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.extractRawText.mockRejectedValue(new Error('bad zip'));
+    const promise = parseResume(docx);
+    await expect(promise).rejects.toMatchObject({
+      status: 422,
+      code: 'UNREADABLE_FILE',
+      message: 'We could not read that DOCX. Please upload a valid DOCX resume.',
+    });
+    expect(mocks.callAI).not.toHaveBeenCalled();
+  });
 });

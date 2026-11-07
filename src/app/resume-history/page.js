@@ -6,6 +6,9 @@ import { useApiClient } from '@/hooks/useApiClient';
 import { useProfile } from '@/hooks/useProfile';
 import ResumeList from '@/components/ResumeList';
 import ResumeDisplayView from '@/components/preview/ResumeDisplayView';
+import PermissionGate from '@/components/common/PermissionGate';
+import { PERMISSIONS } from '@/lib/constants';
+import { checkPermission } from '@/lib/accessControl';
 
 export default function ResumeHistoryPage() {
   const [resumes, setResumes] = useState([]);
@@ -16,9 +19,16 @@ export default function ResumeHistoryPage() {
   const [tailoredResume, setTailoredResume] = useState(null);
   const previewDialogRef = useRef(null);
   const apiClient = useApiClient();
-  const { profile } = useProfile();
+  const { profile, loading: profileLoading } = useProfile();
+  const canViewResumes = Boolean(
+    profile && checkPermission(profile, PERMISSIONS.VIEW_OWN_RESUMES)
+  );
 
   const fetchResumes = useCallback(async () => {
+    if (!canViewResumes) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const response = await apiClient('/api/resumes');
@@ -33,9 +43,14 @@ export default function ResumeHistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [apiClient]);
+  }, [apiClient, canViewResumes]);
 
   useEffect(() => {
+    if (profileLoading) return;
+    if (!canViewResumes) {
+      setLoading(false);
+      return;
+    }
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -58,7 +73,7 @@ export default function ResumeHistoryPage() {
     };
 
     fetchData();
-  }, [apiClient, fetchResumes]);
+  }, [apiClient, fetchResumes, canViewResumes, profileLoading]);
 
   useEffect(() => {
     if (tailoredResume) {
@@ -75,14 +90,41 @@ export default function ResumeHistoryPage() {
 
       if (response.ok) {
         setResumes(resumes.filter((resume) => resume._id !== resumeId));
+        return true;
       } else {
         setError('Could not delete that resume. Please try again.');
       }
     } catch (error) {
       setError('Could not delete that resume. Please try again.');
+    } finally {
+      setDeletingId(null);
     }
-    setDeletingId(null);
+    return false;
   };
+
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!canViewResumes) {
+    return (
+      <div className="min-h-screen pb-20">
+        <div className="container mx-auto px-6 pt-8">
+          <div className="mb-10">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+              Resume History
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">View and manage all your resumes</p>
+          </div>
+          <PermissionGate user={profile} permission={PERMISSIONS.VIEW_OWN_RESUMES} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-20">

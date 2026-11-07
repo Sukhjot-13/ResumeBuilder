@@ -64,6 +64,18 @@ webhook.
 _(The 2026-09-26 entry claiming "no open vulnerabilities" was wrong: the three
 findings above existed in the tree at that time.)_
 
+### 2026-11-05 — Client permission gates resolve from compile-time role map (OPEN)
+
+`PermissionGate` and the new cover-letter/history page guards call the synchronous
+`checkPermission`, which reads `ROLE_PERMISSIONS` from `src/lib/constants.js`. The
+server authorizes from the live database policy. If an admin changes a role grant
+(or a store outage triggers fail-closed server behavior), the client can briefly
+show the opposite state from the API. This is a UX/consistency risk rather than a
+server bypass, but it violates the preferred “server-derived capabilities” model.
+Recommended: expose an `authorizationVersion` + effective `capabilities` array in
+`/api/user/profile` and have the client gate read those instead of rebuilding
+policy from constants.
+
 ## 🟡 New Features
 
 - **Audit-log viewer** — `AuthorizationEvent` documents are written for every
@@ -71,6 +83,23 @@ findings above existed in the tree at that time.)_
   filtered by actor/target/action would make the trail usable.
 
 ## 🟢 Improvements
+
+### 2026-11-05 — Billing failures are silent on the Plan & Credits tab (OPEN)
+
+`handleUpgrade` and `handleManageSubscription` set the shared `error` state, but
+the profile page renders that alert only inside the Details tab. A user on Plan &
+Credits gets no visible feedback when checkout/portal creation fails (for example
+`503 Billing is not configured`). Payments were intentionally not exercised in
+this pass. Recommended: render the error banner in the subscription tab too, or
+surface a safe toast (“Billing is not configured. Please try again later.”).
+
+### 2026-11-05 — Credit-badge sync needs automated regression coverage (OPEN)
+
+The stale-credit fixes (dashboard generation, cover-letter generation, AI edits,
+resume parsing) were verified in a live browser, but there is no automated test
+that asserts the shared profile refetch happens on each success path. Consider a
+component/route integration test that mocks the profile endpoint and checks the
+refetch call, so a future edit cannot silently reintroduce the stale badge.
 
 ### 2026-10-03 — PDF import discarded extracted page text (**FIXED**)
 
